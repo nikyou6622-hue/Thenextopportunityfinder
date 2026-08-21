@@ -555,7 +555,7 @@ function AtsScoreCard({ atsEvaluation, selectedJobId, setSelectedJobId, matches,
                 {targetJobBenchmark.matchPercent}% Match
               </span>
             </div>
-            {targetJobBenchmark.missingSkills.length > 0 && (
+            {targetJobBenchmark?.missingSkills?.length > 0 && (
               <div style={{ marginTop: '6px' }}>
                 <div style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, marginBottom: '4px' }}>
                   Missing Keywords (Tap to add):
@@ -746,9 +746,9 @@ export default function ResumeAnalyzer({
       !candidateSkills.some(cs => cs === String(s || '').toLowerCase().trim())
     );
 
-    const matchPercent = jobSkills.length > 0 
-      ? Math.round((matchedSkills.length / jobSkills.length) * 100)
-      : Math.round(match.match_score || 75);
+    const matchPercent = (jobSkills?.length || 0) > 0 
+      ? Math.round(((matchedSkills?.length || 0) / jobSkills.length) * 100)
+      : Math.round(match?.match_score || 75);
 
     return {
       job: match.job,
