@@ -387,6 +387,33 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
     });
   }, [internships, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly]);
 
+  const getDynamicMatchScore = useCallback((item) => {
+    if (!profile || !profile.skills || profile.skills.length === 0) {
+      return item.match_score || 88;
+    }
+
+    const userSkills = profile.skills.map(s => String(s).toLowerCase().trim());
+    const requiredSkills = (item.required_skills || item.skills_required || []).map(s => String(s).toLowerCase().trim());
+
+    if (requiredSkills.length === 0) {
+      const userRole = (profile.target_role || profile.name || '').toLowerCase();
+      const jobRole = (item.role_title || item.title || '').toLowerCase();
+      if (userRole && jobRole.includes(userRole)) return 94;
+      return 85;
+    }
+
+    const matchingCount = requiredSkills.filter(req => 
+      userSkills.some(usr => usr.includes(req) || req.includes(usr))
+    ).length;
+
+    const ratio = matchingCount / requiredSkills.length;
+    return Math.min(99, Math.max(68, Math.round(62 + ratio * 37)));
+  }, [profile]);
+
+  const sortedList = useMemo(() => {
+    return [...filteredList].sort((a, b) => getDynamicMatchScore(b) - getDynamicMatchScore(a));
+  }, [filteredList, getDynamicMatchScore]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
       
@@ -777,8 +804,8 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
           </div>
         ) : (
           <div className="job-cards-grid">
-            {filteredList.map((item, idx) => {
-              const matchScore = Math.round(item.match_score || 78);
+            {sortedList.map((item, idx) => {
+              const matchScore = getDynamicMatchScore(item);
               const comp = item.company || 'TechCorp';
               const cLower = comp.toLowerCase();
               const isJobLocked = !isPro && idx >= 5;

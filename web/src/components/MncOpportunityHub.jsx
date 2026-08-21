@@ -15,7 +15,7 @@ import {
   Calendar
 } from 'lucide-react';
 
-export default function MncOpportunityHub({ onTailor, loading: parentLoading, onOpenPaywall, onScrapeTriggered, isPro = false }) {
+export default function MncOpportunityHub({ profile, onTailor, loading: parentLoading, onOpenPaywall, onScrapeTriggered, isPro = false }) {
   const [mncMatches, setMncMatches] = useState([]);
   const [scanStatus, setScanStatus] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState('all');
@@ -177,6 +177,29 @@ export default function MncOpportunityHub({ onTailor, loading: parentLoading, on
     fetchMncData();
   }, [selectedCompany]);
 
+  const getMncMatchScore = useCallback((item) => {
+    const jobObj = item.job || item;
+    if (!profile || !profile.skills || profile.skills.length === 0) {
+      return item.match_score || jobObj.match_score || 88;
+    }
+
+    const userSkills = profile.skills.map(s => String(s).toLowerCase().trim());
+    const requiredSkills = (jobObj.tech_stack || jobObj.required_skills || []).map(s => String(s).toLowerCase().trim());
+
+    if (requiredSkills.length === 0) return 88;
+
+    const matches = requiredSkills.filter(req => 
+      userSkills.some(usr => usr.includes(req) || req.includes(usr))
+    ).length;
+
+    const ratio = matches / requiredSkills.length;
+    return Math.min(99, Math.max(68, Math.round(62 + ratio * 37)));
+  }, [profile]);
+
+  const sortedMncMatches = useMemo(() => {
+    return [...mncMatches].sort((a, b) => getMncMatchScore(b) - getMncMatchScore(a));
+  }, [mncMatches, getMncMatchScore]);
+
   const handleManualScan = async () => {
     if (onScrapeTriggered) {
       const allowed = await onScrapeTriggered();
@@ -213,14 +236,14 @@ export default function MncOpportunityHub({ onTailor, loading: parentLoading, on
   };
 
   const filteredMatches = mncMatches.filter(m => {
-    const job = m.job || {};
+    const job = m.job || m;
     const matchesSearch = 
       (job.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (job.role_title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (job.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (job.required_skills || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+      (job.required_skills || job.tech_stack || []).some(s => String(s).toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
-  });
+  }).sort((a, b) => getMncMatchScore(b) - getMncMatchScore(a));
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -608,7 +631,7 @@ export default function MncOpportunityHub({ onTailor, loading: parentLoading, on
                       fontWeight: 800,
                       flexShrink: 0
                     }}>
-                      {m.match_score ? m.match_score.toFixed(0) : 85}% Match
+                      {getMncMatchScore(m)}% Match
                     </span>
                   </div>
 

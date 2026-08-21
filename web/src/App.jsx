@@ -658,6 +658,7 @@ export default function App() {
               <ProtectedRoute targetTab="jobs" activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} setCurrentUser={setCurrentUser}>
                 <JobDiscovery 
                   matches={matches} 
+                  profile={profile}
                   onTailor={handleTailor}
                   onDiscover={handleDiscover}
                   onRefreshData={loadData}
@@ -688,6 +689,7 @@ export default function App() {
             {activeTab === 'mnc' && (
               <ProtectedRoute targetTab="mnc" activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} setCurrentUser={setCurrentUser}>
                 <MncOpportunityHub 
+                  profile={profile}
                   onTailor={handleTailor}
                   loading={loading}
                   onScrapeTriggered={handleScrapeTriggered}
