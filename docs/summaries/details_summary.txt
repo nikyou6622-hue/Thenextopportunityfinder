@@ -1,0 +1,659 @@
+================================================================================
+          NEXTOPPORTUNITYFIND — ULTIMATE MASTER ARCHITECTURE & TECHNICAL
+                              SYSTEM SPECIFICATION
+================================================================================
+Version: 2.0.0 (Enterprise & Multi-Agent Edition)
+Platform: NextOpportunityFind
+License / Mode: Open Architecture (Configurable SaaS / Free Engine)
+Architecture: Decoupled Multi-Agent Service Architecture (FastAPI + React 18 + SQLite)
+Target Ecosystems: Indian Startup Ecosystem & Global Fortune 500 Enterprise MNCs
+Specialized Tracks: Software Engineering (SDE), Machine Learning & AI (ML/AI), 
+                    DevOps & Cloud, QA & Automation, Data Engineering & Analytics
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. EXECUTIVE SUMMARY & PROBLEM STATEMENT
+2. SYSTEM ARCHITECTURE & DATA FLOW
+3. DEEP-DIVE INTO THE 9 AUTONOMOUS AI AGENTS & SUB-SYSTEMS
+   3.1 Agent 1: Deep Resume Parser & 5-Pillar ATS Evaluator
+   3.2 Agent 2: India Startup Discovery Engine
+   3.3 Agent 2b: Enterprise MNC Scanner & Compliance Engine
+   3.4 Agent 3: Multi-Criteria Semantic Matching Engine
+   3.5 Agent 4: Resume Professional Agent & Pattern Rewriter
+   3.6 Agent 4-Export: Multi-Format Exporter (PDF / DOCX / Markdown)
+   3.7 Agent 5: Smart ATS Application Router & Auto-Fill
+   3.8 Agent 6: Throttled 1:1 Batch Cold Email Outreach Engine
+   3.9 Agent 7: Outcome Intelligence & Application Kanban Lifecycle
+   3.10 Agent 8: AI Interview Prep, Live Coding Simulator & CS Hub
+4. COMPLETE DATABASE SCHEMA (15 RELATIONAL MODELS)
+5. COMPLETE REST API ENDPOINTS SPECIFICATION
+6. COMPLETE FRONTEND UI ARCHITECTURE & COMPONENT DIRECTORY
+7. SAFETY, COMPLIANCE, RATE-LIMITING & ANTI-HALLUCINATION POLICIES
+8. CONFIGURATION, MONETIZATION & ENVIRONMENT SETTINGS
+9. LOCAL SETUP, RUNNING & VERIFICATION INSTRUCTIONS
+
+================================================================================
+1. EXECUTIVE SUMMARY & PROBLEM STATEMENT
+================================================================================
+Job searching in technical disciplines is plagued by severe friction:
+  - Candidates submit generic, non-optimized resumes that get filtered out by 
+    Applicant Tracking Systems (ATS) with 75%+ rejection rates before human review.
+  - Job opportunities are fragmented across startup job boards (Internshala, 
+    CutShort, Instahyre, Wellfound), aggregator boards (Naukri, Foundit), and 
+    hundreds of isolated enterprise corporate career portals.
+  - Applying is tedious, repetitive, and time-consuming, while cold email outreach 
+    is often done poorly with mass generic BCC blasts that hit spam filters.
+  - Candidates lack real-time feedback on why their applications are stalling, 
+    and lack company-specific interview preparation once an interview is scheduled.
+
+NextOpportunityFind solves this holistically by deploying a swarm of 9 
+autonomous AI agents that execute the entire job search pipeline:
+  1. Ingests candidate resumes, benchmarks against ATS algorithms, and provides 
+     an interactive drag-and-drop resume editor.
+  2. Aggregates thousands of verified startup and MNC roles across India and 
+     remote-global markets.
+  3. Matches candidates semantically using multi-criteria weighted algorithms.
+  4. Rewrites candidate resumes using high-selection-rate pattern templates 
+     (quantifying bullet achievements without fabricating facts).
+  5. Routes applications through Playwright ATS auto-fill or staged cold outreach.
+  6. Tracks applications through an interactive Kanban board while diagnosing 
+     rejection trends.
+  7. Prepares candidates with live AI mock interviews, company dossiers, coding 
+     practice, and curated video masterclasses.
+
+================================================================================
+2. SYSTEM ARCHITECTURE & DATA FLOW
+================================================================================
+NextOpportunityFind follows a decoupled, multi-agent micro-service pattern:
+
+  [Candidate PDF / DOCX]
+            │
+            ▼
+  [Agent 1: Parser & ATS Evaluator] ──▶ [DB: profiles]
+            │
+            ├────────────────────────────────────────┐
+            ▼                                        ▼
+  [Agent 2: Startup Discovery]             [Agent 2b: Enterprise MNC Scanner]
+  (Internshala, CutShort, Naukri)          (Google, Amazon, Microsoft, TCS)
+            │                                        │
+            └───────────────────┬────────────────────┘
+                                ▼
+                        [DB: jobs table]
+                                │
+                                ▼
+                 [Agent 3: Multi-Criteria Matcher]
+                 (Skills 40%, Domain 25%, Loc 15%, Title 20%)
+                                │
+                                ▼ [Qualified Match: Score >= 65%]
+                        [DB: matches table]
+                                │
+                                ▼
+                 [Agent 4: Resume Professional]
+                 (Pattern Rewriting, Metrics, PDF/DOCX Export)
+                                │
+                                ▼
+                     [Agent 5: Application Router]
+                                │
+                ┌───────────────┴───────────────┐
+                ▼                               ▼
+       [ATS Auto-Fill Queue]           [Agent 6: Batch Email]
+       (Greenhouse / Lever / Ashby)    (Personalized 1:1 Outreach)
+                │                               │
+                └───────────────┬───────────────┘
+                                ▼
+                 [DB: applications & email_log]
+                                │
+                                ▼
+                 [Agent 7: Kanban & Outcome Intelligence]
+                 (Lifecycle Transitions & Rejection Diagnostics)
+                                │
+                                ▼ [Stage: Interview Scheduled]
+                 [Agent 8: Interview Prep & Coding Studio]
+                 (Company Briefs, AI Mocks, Coding Practice)
+
+================================================================================
+3. DEEP-DIVE INTO THE 9 AUTONOMOUS AI AGENTS & SUB-SYSTEMS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 AGENT 1: DEEP RESUME PARSER & 5-PILLAR ATS EVALUATOR
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent1_parser.py`
+- Ingestion Engine:
+    * PDF Parsing: `pdfplumber` for precise bounding-box layout extraction 
+      and table preservation, with PyPDF2 text fallback.
+    * DOCX Parsing: `python-docx` extracting paragraph hierarchy, bold bullet 
+      runs, and table cell contents.
+- Extracted Entities:
+    * Full Name, Email, Phone, Location (City, Country, Remote willingness).
+    * Technical Skills list (languages, frameworks, databases, cloud, DevOps).
+    * Domain Specializations (FinTech, EdTech, AI/ML, SaaS, E-Commerce, etc.).
+    * Years of Experience & Detailed Work History (Role, Company, Dates, Bullets).
+    * Education History (Degree, Field, University, Graduation Year, GPA).
+    * Projects Portfolio (Title, Description, Technologies used, GitHub links).
+- 5-Pillar ATS Benchmark Scoring Formula (0 - 100 Points):
+    1. Skills Density & Contextual Relevance (35 Points):
+       Evaluates whether skills are substantiated within project and experience 
+       descriptions rather than listed as empty keyword stuffing.
+    2. Action Verbs & Metric Quantification (25 Points):
+       Detects high-impact action verbs (Architected, Spearheaded, Accelerated, 
+       Engineered, Reduced, Scaled) paired with measurable quantities 
+       (%, $, ms, Xk users, TPS).
+    3. Contact Information Completeness (15 Points):
+       Verifies presence of valid professional email, phone number, location, 
+       LinkedIn URL, and GitHub/Portfolio URL.
+    4. Layout, Formatting & Single-Column Readability (15 Points):
+       Audits resume structure to ensure standard headers (Summary, Skills, 
+       Experience, Projects, Education) and flags multi-column parsing hazards.
+    5. Keyword Clustering & Seniority Tone (10 Points):
+       Measures balance between foundational fundamentals and advanced tools.
+- Dual-State Resume Architecture:
+    * `raw_extracted_content`: Immutable parsed snapshot from original upload.
+    * `working_content`: Live, editable state updated via the web studio.
+    * `section_order`: Configurable list determining render sequence.
+
+--------------------------------------------------------------------------------
+3.2 AGENT 2: INDIA STARTUP DISCOVERY ENGINE
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent2_discovery.py`
+- Aggregation Scope:
+    * Internshala: Early-career roles, technical internships, graduate trainees.
+    * Instahyre & CutShort: High-growth tech startup talent boards.
+    * Hirist: Specialized tech roles (Backend, Frontend, Full Stack, Mobile).
+    * Wellfound (AngelList): Seed, Series A/B/C startup roles with equity.
+    * Naukri India & Foundit: National aggregator listings.
+    * YourStory Jobs & Startup India Portal: Ecosystem startup initiatives.
+- Normalization & Classification:
+    * Domains: `fintech`, `ai/ml`, `saas`, `edtech`, `healthtech`, `d2c`, 
+      `quick-commerce`, `cybersecurity`, `cloud/devops`.
+    * Role Types: `full-time`, `internship`, `contract`.
+    * Location Types: `Remote`, `Hybrid: Bengaluru`, `On-site: Mumbai`, 
+      `On-site: Gurugram`, `On-site: Pune`, `On-site: Hyderabad`, `On-site: Noida`.
+- Deduplication:
+    * Generates deterministic hash keys combining normalized company name, 
+      job title, and location to eliminate duplicate cross-posted listings.
+
+--------------------------------------------------------------------------------
+3.3 AGENT 2B: ENTERPRISE MNC SCANNER & COMPLIANCE ENGINE
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent2b_mnc_scanner.py`
+- Enterprise Tier Coverage:
+    * Tier 1 (Product & Tech Giants): Google, Amazon, Microsoft, Meta, Apple, Adobe.
+    * Tier 2 (Global FinTech & Consulting): Goldman Sachs, Morgan Stanley, 
+      Deloitte, McKinsey, JPMorgan Chase.
+    * Tier 3 (Global IT Services Giants): TCS, Infosys, Wipro, Accenture, Cognizant.
+- Ethical Crawling & Compliance:
+    * Verifies `robots.txt` compliance prior to executing career sweeps.
+    * Respects custom `User-Agent` identification and rate delays.
+    * Stores scan logs in `mnc_scan_log` (timestamp, company, listings found, status).
+- Job Metadata Tagging:
+    * Sets `source_category="mnc"` and assigns `company_tier`.
+
+--------------------------------------------------------------------------------
+3.4 AGENT 3: MULTI-CRITERIA SEMANTIC MATCHING ENGINE
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent3_matching.py`
+- Multi-Dimensional Weighted Compatibility Formula:
+    Match Score = (0.40 * Skill Overlap) + 
+                  (0.25 * Domain Relevance) + 
+                  (0.15 * Location Compatibility) + 
+                  (0.20 * Semantic Title/Experience Score)
+- Component Calculation Breakdown:
+    * Skill Overlap (40%): Calculates Jaccard similarity and exact keyword 
+      intersection between candidate skills and job requirements.
+    * Domain Relevance (25%): Matches candidate background domains against 
+      the target job domain.
+    * Location Compatibility (15%): Returns 100% for remote matches; 100% for 
+      city matches; 75% for preferred relocation regions.
+    * Semantic Match (20%): Evaluates experience level and title alignment.
+- Fresher / Internship Dynamic Adjustment:
+    * For internships, experience penalties are zeroed out, shifting weight 
+      to project portfolio relevance and core programming fundamentals.
+- Qualification Gate:
+    * Roles with Match Score >= 65.0% are classified as "Qualified" and 
+      automatically generate a record in `matches` and `applications`.
+
+--------------------------------------------------------------------------------
+3.5 AGENT 4: RESUME PROFESSIONAL AGENT & PATTERN REWRITER
+--------------------------------------------------------------------------------
+- Primary Files: `backend/app/agents/agent4_resume_professional.py`, 
+                 `backend/app/agents/agent4_tailor.py`
+- Pattern-Based Template Architectures:
+    1. MNC Reverse-Chronological Standard: Clean single-column layout, 
+       strict bullet hierarchy, standard font sizing.
+    2. Startup Impact Pattern: High-emphasis on metrics, speed of execution, 
+       and end-to-end project ownership.
+    3. Executive Technical Lead Pattern: Highlights architectural design, 
+       mentorship, and business impact.
+- Anti-Hallucination Bullet Transformation Formula:
+    [Strong Action Verb] + [Specific Task / Technical Context] + [Quantifiable Impact Metric]
+    * Example Before: "Helped with payment system and made it faster."
+    * Example After:  "Architected asynchronous payment processing worker in FastAPI, 
+                       reducing checkout latency by 42% across 50,000 daily transactions."
+- Recomputed ATS Validation:
+    * Evaluates post-tailoring ATS score against pre-tailoring score.
+    * Stores full diff audit (`summary_changes`, `bullet_edits`, `skill_reordering`) 
+      in `resumes_tailored`.
+
+--------------------------------------------------------------------------------
+3.6 AGENT 4-EXPORT: MULTI-FORMAT EXPORT GENERATORS
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent4_export_generator.py`
+- Output Formats:
+    1. PDF Export: High-resolution, ATS-parseable single-column layout with 
+       clean margins, standard fonts, and vector bullet styling.
+    2. Word DOCX Export: Native `.docx` format using standard heading styles 
+       (Heading 1, Heading 2, Normal) compatible with enterprise HR portals.
+    3. Markdown / Plain-Text: Optimized for raw text input fields in older ATS forms.
+
+--------------------------------------------------------------------------------
+3.7 AGENT 5: SMART ATS APPLICATION ROUTER & AUTO-FILL
+--------------------------------------------------------------------------------
+- Primary Files: `backend/app/main.py`, `nextopportunityfind/routing/`
+- Application Routing Matrix:
+    * Greenhouse / Lever / Ashby: Direct auto-apply eligible via Playwright.
+    * Company Career Portals: Form auto-fill engine extracts fields; forms 
+      with low confidence scores are routed to Manual Review.
+    * Native Boards (LinkedIn, Naukri, Internshala): Enforced as Discovery-Only 
+      to protect candidate accounts and respect terms of service.
+- Dry-Run Safety Mode:
+    * Auto-apply defaults to `dry_run=True`, staging the filled application 
+      for candidate visual inspection and approval before submission.
+
+--------------------------------------------------------------------------------
+3.8 AGENT 6: THROTTLED 1:1 BATCH COLD EMAIL OUTREACH ENGINE
+--------------------------------------------------------------------------------
+- Primary File: `backend/app/agents/agent6_batch_email.py`
+- Cold Outreach Logic:
+    * Specifically targets startup listings requesting email applications 
+      (`careers@company.com`).
+    * Generates 1:1 hyper-personalized email subject lines and body copy 
+      citing specific company projects and candidate technical fits.
+    * Attaches the job-tailored PDF resume generated by Agent 4.
+- Safety & Anti-Spam Controls:
+    * Staged Review Queue: All drafts must be approved by the candidate.
+    * Rate Throttling: Configurable sending rate (e.g. max 20 emails/hour).
+    * Per-Company Cooldown: Prevents sending multiple emails to the same firm.
+    * Global Do-Not-Contact Blacklist: Honors opt-outs and restricted domains.
+    * Full Logging: Tracks message IDs, timestamps, and bounce status in `email_log`.
+
+--------------------------------------------------------------------------------
+3.9 AGENT 7: OUTCOME INTELLIGENCE & APPLICATION KANBAN LIFECYCLE
+--------------------------------------------------------------------------------
+- Primary Files: `backend/app/agents/agent7_outcome_intelligence.py`, 
+                 `backend/app/agents/outcome_tracker.py`
+- Lifecycle Stages:
+    `matched` ──▶ `tailored` ──▶ `pending_manual_review` ──▶ `submitted` / `emailed`
+        │
+        ├──▶ `interview_scheduled` ──▶ `offer_received` ──▶ `hired`
+        └──▶ `rejected`
+- Automated AI Outcome Diagnostics:
+    * Rejection at Screening: Detects missing required keywords or low ATS density.
+    * Domain Misalignment: Detects gaps in required stack (e.g., Redis, Kafka, K8s).
+    * Actionable Recommendations: Generates real-time suggestions on profile enhancements.
+
+--------------------------------------------------------------------------------
+3.10 AGENT 8: AI INTERVIEW PREP, LIVE CODING SIMULATOR & CS HUB
+--------------------------------------------------------------------------------
+- Primary Files: `backend/app/agents/agent8_interview_prep.py`, 
+                 `backend/app/agents/learning_and_questions_seed.py`
+- Specialized CS Tracks: SDE, ML/AI, DevOps & Cloud, QA & Automation, Data Engineering.
+- Core Modules:
+    1. Company Dossier Generator: Produces detailed briefings on company funding stage, 
+       core products, technical architecture, and team culture.
+    2. Role-Specific Question Banks: Technical and behavioral questions with 
+       STAR-method recommended answer frameworks.
+    3. Interactive AI Mock Interview Simulator: Evaluates candidate answers in real-time, 
+       scoring on technical depth, clarity, and providing constructive improvements.
+    4. Live Coding Practice: Interactive coding editor with test cases, constraints, 
+       and a 3-tier progressive hint revelation engine.
+    5. Curated CS Learning Directory: Verified YouTube playlists, system design 
+       breakdowns, and official documentation links.
+
+================================================================================
+4. COMPLETE DATABASE SCHEMA (15 RELATIONAL MODELS)
+================================================================================
+SQLite Database: `nextoppr.db` (Location: `backend/nextoppr.db` / project root)
+
+1. Table: `profiles`
+   - `id` (INTEGER, PK, Index)
+   - `name` (VARCHAR, Index)
+   - `email` (VARCHAR, Nullable)
+   - `phone` (VARCHAR, Nullable)
+   - `location` (JSON) -> `{"city": "", "country": "", "open_to_remote": true}`
+   - `skills` (JSON) -> `["Python", "FastAPI", "React", ...]`
+   - `experience_years` (FLOAT, Default: 0.0)
+   - `past_roles` (JSON) -> `[{"title": "", "company": "", "duration_months": 0}]`
+   - `domains` (JSON) -> `["fintech", "saas", "ai/ml"]`
+   - `education` (JSON) -> `[{"degree": "", "field": ""}]`
+   - `summary` (TEXT, Nullable)
+   - `experience_list` (JSON) -> Array of detailed work experience objects
+   - `education_list` (JSON) -> Array of detailed education objects
+   - `projects` (JSON) -> Array of project objects
+   - `key_strengths` (JSON) -> Array of top strengths
+   - `section_order` (JSON) -> `["summary", "skills", "experience", "projects", "education"]`
+   - `raw_resume_text` (TEXT, Nullable)
+   - `raw_extracted_content` (JSON) -> Original parsed state
+   - `working_content` (JSON) -> Live editable state
+   - `applied_template_id` (VARCHAR, Nullable)
+   - `last_analyzed_at` (DATETIME, Nullable)
+   - `created_at` (DATETIME, Default: UTC now)
+
+2. Table: `jobs`
+   - `id` (INTEGER, PK, Index)
+   - `company` (VARCHAR, Index)
+   - `role_title` (VARCHAR, Index)
+   - `location` (VARCHAR, Default: "Remote")
+   - `location_type` (VARCHAR, Default: "Remote")
+   - `remote` (BOOLEAN, Default: true)
+   - `required_skills` (JSON) -> `["Python", "Docker", ...]`
+   - `domain` (VARCHAR, Index, Default: "general")
+   - `role_type` (VARCHAR, Default: "full-time")
+   - `description` (TEXT)
+   - `apply_url` (VARCHAR)
+   - `apply_email` (VARCHAR, Nullable)
+   - `posted_date` (VARCHAR)
+   - `source` (VARCHAR, Index, Default: "manual")
+   - `source_category` (VARCHAR, Index, Default: "startup") -> startup / mnc
+   - `company_tier` (VARCHAR, Index, Default: "startup_ecosystem")
+   - `external_id` (VARCHAR, Unique, Index, Nullable)
+   - `created_at` (DATETIME, Default: UTC now)
+
+3. Table: `matches`
+   - `id` (INTEGER, PK, Index)
+   - `job_id` (INTEGER, FK -> jobs.id)
+   - `profile_id` (INTEGER, FK -> profiles.id, Nullable)
+   - `match_score` (FLOAT, Default: 0.0) -> Overall 0.0 - 100.0
+   - `skill_overlap_score` (FLOAT, Default: 0.0)
+   - `domain_score` (FLOAT, Default: 0.0)
+   - `location_score` (FLOAT, Default: 0.0)
+   - `semantic_score` (FLOAT, Default: 0.0)
+   - `matching_skills` (JSON) -> Matched skills array
+   - `missing_skills` (JSON) -> Missing skills array
+   - `created_at` (DATETIME, Default: UTC now)
+
+4. Table: `resumes_tailored`
+   - `id` (INTEGER, PK, Index)
+   - `match_id` (INTEGER, FK -> matches.id)
+   - `job_id` (INTEGER, FK -> jobs.id)
+   - `profile_id` (INTEGER, FK -> profiles.id, Nullable)
+   - `tailored_resume_path` (VARCHAR, Nullable)
+   - `ats_score_before` (FLOAT, Default: 0.0)
+   - `ats_score_after` (FLOAT, Default: 0.0)
+   - `diff_summary` (JSON) -> Array of diff changes
+   - `section_order` (JSON)
+   - `pattern_template_used` (VARCHAR)
+   - `created_at` (DATETIME, Default: UTC now)
+
+5. Table: `applications`
+   - `id` (INTEGER, PK, Index)
+   - `match_id` (INTEGER, FK -> matches.id)
+   - `job_id` (INTEGER, FK -> jobs.id)
+   - `profile_id` (INTEGER, FK -> profiles.id, Nullable)
+   - `status` (VARCHAR, Default: "matched")
+   - `apply_mode` (VARCHAR, Default: "ats_auto")
+   - `tailored_summary` (TEXT, Nullable)
+   - `tailored_skills` (JSON)
+   - `form_autofill_data` (JSON)
+   - `notes` (TEXT, Nullable)
+   - `created_at` (DATETIME, Default: UTC now)
+   - `updated_at` (DATETIME, Default: UTC now)
+
+6. Table: `application_events`
+   - `id` (INTEGER, PK, Index)
+   - `application_id` (INTEGER, FK -> applications.id)
+   - `event_type` (VARCHAR) -> status_changed, note_added, review_confirmed, etc.
+   - `details` (TEXT, Nullable)
+   - `timestamp` (DATETIME, Default: UTC now)
+
+7. Table: `email_log`
+   - `id` (INTEGER, PK, Index)
+   - `job_id` (INTEGER, FK -> jobs.id, Nullable)
+   - `company` (VARCHAR, Index)
+   - `recipient` (VARCHAR)
+   - `subject` (VARCHAR)
+   - `body_preview` (TEXT, Nullable)
+   - `message_id` (VARCHAR, Nullable)
+   - `batch_id` (VARCHAR, Index, Nullable)
+   - `status` (VARCHAR, Default: "queued") -> queued, sent, bounced, failed
+   - `sent_at` (DATETIME, Nullable)
+   - `created_at` (DATETIME, Default: UTC now)
+
+8. Table: `interview_prep`
+   - `id` (INTEGER, PK, Index)
+   - `application_id` (INTEGER, FK -> applications.id, Unique)
+   - `company_brief` (JSON) -> Funding, product, culture, architecture
+   - `question_bank` (JSON) -> Technical & behavioral questions
+   - `mock_session_log` (JSON) -> Turn-by-turn answers, scores, and critique
+   - `generated_at` (DATETIME, Default: UTC now)
+
+9. Table: `outcome_diagnosis`
+   - `id` (INTEGER, PK, Index)
+   - `profile_id` (INTEGER, FK -> profiles.id)
+   - `pattern_type` (VARCHAR, Index) -> rejection_at_screening, missing_domain_keywords
+   - `evidence_summary` (TEXT)
+   - `recommendation` (TEXT)
+   - `detected_at` (DATETIME, Default: UTC now)
+
+10. Table: `outcome_events`
+    - `id` (INTEGER, PK, Index)
+    - `profile_id` (INTEGER, FK -> profiles.id, Nullable)
+    - `job_id` (INTEGER, FK -> jobs.id, Nullable)
+    - `application_id` (INTEGER, FK -> applications.id, Nullable)
+    - `event_type` (VARCHAR, Index) -> application_sent, interview_scheduled, offer_received, hired
+    - `timestamp` (DATETIME, Default: UTC now)
+
+11. Table: `subscriptions`
+    - `id` (INTEGER, PK, Index)
+    - `profile_id` (INTEGER, FK -> profiles.id, Unique)
+    - `tier` (VARCHAR, Default: "free")
+    - `status` (VARCHAR, Default: "active")
+    - `credits_remaining` (INTEGER, Default: 999999)
+    - `created_at` (DATETIME, Default: UTC now)
+
+12. Table: `learning_resources`
+    - `id` (INTEGER, PK, Index)
+    - `resource_id` (VARCHAR, Unique, Index)
+    - `field` (VARCHAR, Index) -> sde, ml_ai, devops, qa, data
+    - `category_topic` (VARCHAR, Index) -> system_design, behavioral, coding
+    - `resource_type` (VARCHAR) -> youtube_video, youtube_playlist, doc_guide
+    - `title` (VARCHAR)
+    - `url` (VARCHAR)
+    - `topic_tags` (JSON)
+    - `difficulty_level` (VARCHAR, Default: "entry")
+    - `added_reason` (TEXT, Nullable)
+    - `verified_date` (VARCHAR)
+
+13. Table: `interview_questions_bank`
+    - `id` (INTEGER, PK, Index)
+    - `question_id` (VARCHAR, Unique, Index)
+    - `field` (VARCHAR, Index)
+    - `question_type` (VARCHAR, Index) -> behavioral, technical_conceptual, coding
+    - `question_text` (TEXT)
+    - `difficulty_level` (VARCHAR, Default: "mid")
+    - `topic_tags` (JSON)
+    - `suggested_answer_approach` (TEXT)
+
+14. Table: `coding_questions` & `coding_attempts`
+    - `coding_questions`: `question_id`, `field`, `difficulty`, `topic_tags`, `title`, 
+      `question_text`, `constraints`, `example_input_output`, `hint_progression`, `explanation_of_approach`.
+    - `coding_attempts`: `profile_id`, `question_id`, `code_snippet`, `status`, `hints_viewed`, `attempted_at`.
+
+15. Table: `resume_templates` & `mnc_scan_log`
+    - `resume_templates`: `template_id`, `name`, `category`, `target_role`, `template_source_pattern`, `structure_json`.
+    - `mnc_scan_log`: `company`, `run_at`, `status`, `listings_found`, `error_message`.
+
+================================================================================
+5. COMPLETE REST API ENDPOINTS SPECIFICATION
+================================================================================
+
+[PROFILE & RESUME ANALYZER]
+  - `POST /api/profile/upload`
+      Request: `multipart/form-data` with `file: UploadFile` (.pdf or .docx)
+      Action: Ingests resume, runs Agent 1 parser & ATS evaluation, triggers discovery sweep.
+      Response: Full Profile schema with ATS breakdown.
+  - `GET  /api/profile`
+      Response: Current Profile JSON with working content, skills, experience, ATS score.
+  - `POST /api/profile`
+      Request: ProfileSchema JSON payload (manual update / working state save).
+      Response: Updated Profile JSON.
+  - `POST /api/profile/reorder`
+      Request: `{"section_order": ["summary", "experience", "skills", "projects", "education"]}`
+      Response: Updated section order confirmation.
+  - `GET  /api/profile/export/pdf`
+      Response: Binary `application/pdf` streamed download of high-ATS resume.
+  - `GET  /api/profile/export/docx`
+      Response: Binary `application/vnd.openxmlformats...` Word document download.
+  - `GET  /api/profile/export/md`
+      Response: Plain text `text/plain` Markdown export.
+
+[JOB DISCOVERY & MNC SCANNER]
+  - `GET  /api/jobs`
+      Query Parameters: `domain`, `source`, `location`, `role_type`, `remote`, `source_category`, `company_tier`
+      Response: Array of JobSchema records.
+  - `POST /api/jobs/discover`
+      Action: Triggers live discovery sweep across Indian startup boards.
+      Response: `{"status": "success", "jobs_discovered": 85}`
+  - `POST /api/jobs/mnc-scan`
+      Action: Triggers Agent 2b enterprise career portal scanner.
+      Response: `{"status": "success", "scanned_enterprises": 12, "new_roles": 45}`
+  - `GET  /api/jobs/mnc-scan/status`
+      Response: Latest scan audit logs from `mnc_scan_log`.
+
+[MATCHING & RESUME TAILORING]
+  - `GET  /api/matches`
+      Response: Array of MatchSchema records with 4-component breakdowns & skill gaps.
+  - `POST /api/resume/tailor/{match_id}`
+      Action: Runs Agent 4 pattern-based rewriting against target job.
+      Response: TailoredResumeSchema with diff summary and before/after ATS scores.
+  - `GET  /api/resume/templates`
+      Response: Array of curated ResumeTemplateSchema definitions.
+
+[APPLICATION PIPELINE & OUTREACH]
+  - `GET  /api/applications`
+      Query Parameter: `status` (optional filter)
+      Response: Array of ApplicationSchema records with nested job & match data.
+  - `PUT  /api/applications/{id}`
+      Request: ApplicationUpdateRequest (status, notes, autofill data).
+      Response: Updated ApplicationSchema.
+  - `POST /api/applications/{id}/submit`
+      Action: Executes / simulates ATS submission with audit event logging.
+  - `POST /api/emails/batch/prepare`
+      Action: Generates personalized 1:1 cold email drafts for email-first listings.
+  - `POST /api/emails/batch/send/{batch_id}`
+      Action: Dispatches approved, rate-throttled email batch.
+  - `GET  /api/emails/{batch_id}/status`
+      Response: Status log per recipient (`queued`, `sent`, `bounced`).
+
+[INTERVIEW PREP, CODING & CS RESOURCES]
+  - `GET  /api/prep/{application_id}`
+      Response: Company dossier brief and tailored technical/behavioral question banks.
+  - `POST /api/prep/mock-session`
+      Request: `{"application_id": 1, "question": "...", "user_answer": "..."}`
+      Response: Real-time AI evaluation, scoring (0-100), and constructive critique.
+  - `GET  /api/resources`
+      Query Parameters: `field` (sde/ml_ai/devops/qa/data), `category_topic`
+      Response: Curated video playlists, system design guides, and documentation links.
+  - `GET  /api/questions/interview`
+      Query Parameters: `field`, `difficulty`, `question_type`
+      Response: Interview question banks with STAR-method approaches.
+  - `GET  /api/questions/coding`
+      Query Parameters: `field`, `difficulty`
+      Response: Coding challenges with test cases, constraints, and hints.
+  - `POST /api/questions/coding/attempt`
+      Request: `{"question_id": "...", "code_snippet": "...", "status": "solved", "hints_viewed": 1}`
+      Response: Attempt recorded confirmation.
+
+[METRICS & OUTCOME DIAGNOSTICS]
+  - `GET  /api/dashboard/metrics`
+      Response: Total Jobs, Qualified Matches, Tailored Applications, Average Match %, 
+                Domain Breakdown, Match Distribution.
+  - `GET  /api/diagnostics/outcomes`
+      Response: AI diagnoses on rejection patterns and improvement advice.
+  - `GET  /api/metrics/outcomes`
+      Response: Funnel conversion statistics.
+
+================================================================================
+6. COMPLETE FRONTEND UI ARCHITECTURE & COMPONENT DIRECTORY
+================================================================================
+Framework: React 18 + Vite (Port 3000)
+Styling: TailwindCSS with curated glassmorphism tokens, CSS variables, dark theme.
+
+Component Directory (`frontend/src/`):
+  1. `App.jsx`: Main shell orchestrating global state, API polling, active tab routing.
+  2. `Header.jsx`: Global header with profile badge, notification status, and stats summary.
+  3. `Sidebar.jsx`: Modern navigation drawer linking to all 8 specialized modules.
+  4. `OverviewDashboard.jsx`: High-level analytics, KPI cards, conversion funnel, domain distribution.
+  5. `ResumeUploader.jsx`: Drag-and-drop file uploader with live extraction status.
+  6. `ResumeAnalyzer.jsx`: Visual ATS score dial, bullet quantification scoring, drag-and-drop 
+     section reordering, template picker, and one-click PDF/DOCX/Markdown exports.
+  7. `JobDiscovery.jsx`: Searchable startup job hub with city filters, internship toggles, 
+     and missing skill-gap badges.
+  8. `MncOpportunityHub.jsx`: Enterprise MNC directory with tiered company filtering, 
+     live scanner controls, and compliance indicators.
+  9. `TailoringHub.jsx`: Side-by-side diff comparing original resume with Agent 4 
+     achievement-metric rewritten bullets.
+  10. `ApplicationPipeline.jsx`: Interactive Kanban board (Matched -> Tailored -> Review -> 
+      Submitted -> Interview -> Offer) with audit trails.
+  11. `InterviewPrepStudio.jsx`: Company dossiers and interactive AI mock interview practice.
+  12. `CodingQuestionPractice.jsx`: Coding challenge interface with 3-tier hint revelation.
+  13. `PrepResourcesTab.jsx`: Curated video playlists, system design masterclasses, and guides.
+  14. `OutcomeDiagnosisCard.jsx`: AI failure pattern detector card with corrective advice.
+
+================================================================================
+7. SAFETY, COMPLIANCE & ETHICAL POLICIES
+================================================================================
+1. Dry-Run Default for Auto-Apply:
+   - Automated form-filling through Playwright runs in `dry_run=True` mode by default, 
+     requiring candidate confirmation before final submission.
+2. Discovery-Only Policy for Protected Portals:
+   - LinkedIn, Naukri, and Internshala are utilized strictly as discovery feeds. 
+     No automated login or Easy Apply scripts are permitted, strictly upholding terms of service.
+3. Anti-Spam Email Outreach Safeguards:
+   - 1:1 personalized outreach to email-first listings.
+   - Throttled sending rate (max 20 emails/hour).
+   - Candidate review queue before sending.
+   - Cooldown periods per company and global Do-Not-Contact blacklist.
+4. Zero-Hallucination Resume Policy:
+   - Agent 4 strictly restructures and improves the phrasing of candidate-provided 
+     facts. It never fabricates employers, degrees, dates, or false metrics.
+
+================================================================================
+8. CONFIGURATION, MONETIZATION & ENVIRONMENT SETTINGS
+================================================================================
+Configuration File: `backend/app/config.py`
+  - `MONETIZATION_ENABLED = False`: Default is 100% free with unlimited credits. 
+    Can be toggled to `True` for SaaS paywall gating.
+  - `DEFAULT_SUBSCRIPTION_TIER = "free"`
+  - `DEFAULT_CREDITS_REMAINING = 999999`
+
+Environment Variables (`.env`):
+  - `PORT=8000`
+  - `DATABASE_URL=sqlite:///./nextoppr.db`
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` (for cold email dispatch)
+  - `OPENAI_API_KEY` or `GEMINI_API_KEY` (optional LLM backends for tailoring/mocks)
+
+================================================================================
+9. LOCAL SETUP, RUNNING & VERIFICATION INSTRUCTIONS
+================================================================================
+Prerequisites: Python 3.10+, Node.js 18+
+
+Step 1: Start Backend Server
+  cd backend
+  pip install -r requirements.txt
+  python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+  API Documentation: http://127.0.0.1:8000/docs
+
+Step 2: Start Frontend Application
+  cd frontend
+  npm install
+  npm run dev
+  Web Application: http://localhost:3000/
+
+Step 3: Run Automated Test Suites
+  python backend/test_ats_optimizer.py
+  python backend/test_agent2b_mnc_scanner.py
+  python backend/test_cs_extensions.py
+  python backend/test_agent8_and_outcomes.py
+================================================================================

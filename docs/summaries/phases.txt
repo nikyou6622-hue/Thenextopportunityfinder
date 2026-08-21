@@ -1,0 +1,423 @@
+================================================================================
+           NEXTOPPORTUNITYFIND — COMPLETE PHASES SPECIFICATION & ROADMAP
+================================================================================
+Platform: NextOpportunityFind
+Architecture: Decoupled Multi-Agent System (FastAPI Backend + React 18 Frontend)
+Status Legend:
+  [COMPLETED] — Fully implemented, tested, and active in current codebase.
+  [IN-PROGRESS] — Core architecture scaffolded, active enhancements underway.
+  [PLANNED] — Future roadmap specification for production SaaS scale.
+
+================================================================================
+TABLE OF PHASES
+================================================================================
+PART I: COMPLETED CORE PHASES (PHASES 1 - 8)
+  Phase 1: Resume Ingestion & 5-Pillar ATS Benchmark Scoring Engine
+  Phase 2: India Multi-Source Startup Discovery Engine
+  Phase 2b: Enterprise MNC Career Portal Scanner & Compliance Engine
+  Phase 3: Multi-Criteria Semantic Matching Engine (0-100%)
+  Phase 4: Resume Professional Agent, Pattern Rewriting & Multi-Format Exporters
+  Phase 5: Smart ATS Application Router & Staged Auto-Fill Architecture
+  Phase 6: Throttled 1:1 Batch Cold Email Outreach Engine
+  Phase 7: Application Lifecycle Kanban & Outcome Intelligence Diagnostics
+  Phase 8: AI Interview Prep, Live Coding Practice Simulator & CS Hub
+
+PART II: REMAINING ROADMAP & PRODUCTION SCALING PHASES (PHASES 9 - 13)
+  Phase 9: Full Headless Playwright Auto-Apply Adapters (Lever / Ashby) & Cloud Workers
+  Phase 10: Inbound Recruiter Email Sync, Calendar Auto-Booking & Sentiment Parsing
+  Phase 11: 24/7 Autonomous Background Scraping Daemon & Residential Proxy Rotation
+  Phase 12: Multi-Tenant SaaS Authentication, Organization Workspace & Paywall Billing
+  Phase 13: Real-Time Voice & Audio AI Mock Interviewer (WebRTC + Whisper + ElevenLabs)
+
+================================================================================
+PART I: COMPLETED CORE PHASES (PHASES 1 - 8)
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 1: RESUME INGESTION & 5-PILLAR ATS BENCHMARK SCORING ENGINE
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Provide multi-format candidate resume ingestion (.PDF and .DOCX).
+  - Extract candidate contact details, skills, experience, education, projects, 
+    and summaries with high accuracy.
+  - Implement an industry-standard 5-Pillar ATS scoring benchmark to evaluate 
+    resume parsing efficacy before applying.
+  - Support an interactive drag-and-drop resume editor allowing section reordering 
+    and live content editing.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent1_parser.py`, `backend/app/db/models.py` (`ProfileModel`), 
+    `backend/app/schemas/schemas.py` (`ProfileSchema`, `ReorderRequest`), `backend/app/main.py`
+  - Frontend: `frontend/src/components/ResumeUploader.jsx`, `frontend/src/components/ResumeAnalyzer.jsx`, 
+    `frontend/src/components/DragDropResumeEditor.jsx`
+  - Test Suite: `backend/test_ats_optimizer.py`
+
+Technical Details:
+  - Ingestion Engine: `pdfplumber` extracts text while preserving spatial layout; 
+    `python-docx` parses Word documents.
+  - 5-Pillar Scoring Formula:
+      1. Skills Density & Contextual Relevance (35 pts)
+      2. Action Verbs & Quantified Metrics (25 pts)
+      3. Contact Completeness & Profile Links (15 pts)
+      4. Section Formatting & Single-Column Structure (15 pts)
+      5. Keyword Distribution & Seniority Tone (10 pts)
+  - Data Architecture: Separates immutable original upload (`raw_extracted_content`) 
+    from live editable working copy (`working_content`) and custom `section_order`.
+
+API Endpoints:
+  - `POST /api/profile/upload` — Upload resume file, extract entities, compute ATS score.
+  - `GET  /api/profile` — Fetch active profile with complete ATS breakdown.
+  - `POST /api/profile` — Save manual updates to working profile content.
+  - `POST /api/profile/reorder` — Update custom section display sequence.
+
+--------------------------------------------------------------------------------
+PHASE 2: INDIA MULTI-SOURCE STARTUP DISCOVERY ENGINE
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Aggregate tech roles and internships from Indian startup platforms.
+  - Categorize roles into standard tech domains (FinTech, SaaS, AI/ML, EdTech, D2C, etc.).
+  - Normalize locations across Tier-1/Tier-2 Indian tech hubs (Bengaluru, Mumbai, 
+    Gurugram, Pune, Hyderabad, Noida) and remote openings.
+  - Eliminate duplicate cross-posted listings.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent2_discovery.py`, `backend/app/db/models.py` (`JobModel`), 
+    `backend/app/schemas/schemas.py` (`JobSchema`)
+  - Frontend: `frontend/src/components/JobDiscovery.jsx`
+
+Technical Details:
+  - Source Aggregators: Internshala, CutShort, Instahyre, Wellfound (AngelList), 
+    Naukri, Foundit, and YourStory.
+  - Deduplication: Deterministic hashing using normalized company name, role title, 
+    and city to prevent duplicate job records.
+  - Internship Support: Flags `role_type="internship"` with stipend metadata and 
+    early-career eligibility tagging.
+
+API Endpoints:
+  - `GET  /api/jobs` — Filter and search discovered jobs by domain, source, city, role type.
+  - `POST /api/jobs/discover` — Trigger live discovery sweep across startup boards.
+
+--------------------------------------------------------------------------------
+PHASE 2b: ENTERPRISE MNC CAREER PORTAL SCANNER & COMPLIANCE ENGINE
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Expand discovery beyond startups to include Global Fortune 500 Enterprise MNCs.
+  - Structure enterprise tiers: Tier-1 Tech Giants, Global Consulting/FinTech, 
+    and Large IT Services.
+  - Enforce ethical crawling standards, `robots.txt` compliance, and scan audit logging.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent2b_mnc_scanner.py`, `backend/app/db/models.py` (`MNCScanLogModel`), 
+    `backend/app/schemas/schemas.py` (`MNCScanLogSchema`, `MNCScanStatusResponse`)
+  - Frontend: `frontend/src/components/MncOpportunityHub.jsx`
+  - Test Suite: `backend/test_agent2b_mnc_scanner.py`
+
+Technical Details:
+  - Tier Classification:
+      * Product Unicorns / Tech Giants: Google, Amazon, Microsoft, Apple, Meta, Adobe.
+      * Global Consulting & FinTech: Goldman Sachs, Morgan Stanley, Deloitte, McKinsey.
+      * Large IT Services: TCS, Infosys, Wipro, Accenture, Cognizant.
+  - Compliance Engine: Validates `robots.txt` disallow paths, enforces polite rate delays, 
+    and tags jobs with `source_category="mnc"` and specific `company_tier`.
+
+API Endpoints:
+  - `POST /api/jobs/mnc-scan` — Trigger enterprise MNC career portal sweep.
+  - `GET  /api/jobs/mnc-scan/status` — Fetch scan audit logs and compliance status.
+
+--------------------------------------------------------------------------------
+PHASE 3: MULTI-CRITERIA SEMANTIC MATCHING ENGINE (0-100%)
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Implement a weighted multi-dimensional compatibility engine comparing candidate 
+    profiles against discovered job specifications.
+  - Provide transparency into matching skills and missing skill gaps.
+  - Establish a qualification gate (Match Score >= 65%) to filter qualified opportunities.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent3_matching.py`, `backend/app/db/models.py` (`MatchModel`), 
+    `backend/app/schemas/schemas.py` (`MatchSchema`)
+  - Frontend: `frontend/src/components/JobDiscovery.jsx`, `frontend/src/components/TailoringHub.jsx`
+
+Technical Details:
+  - Weighted Match Formula:
+      Match Score = (0.40 * Skill Overlap) + 
+                    (0.25 * Domain Relevance) + 
+                    (0.15 * Location Score) + 
+                    (0.20 * Semantic Match)
+  - Internship Weighting: For internship roles, experience duration penalty is 
+    waived, shifting weight to project stack and programming fundamentals.
+
+API Endpoints:
+  - `GET  /api/matches` — Retrieve candidate matches with 4-component score breakdowns.
+
+--------------------------------------------------------------------------------
+PHASE 4: RESUME PROFESSIONAL AGENT, PATTERN REWRITING & MULTI-FORMAT EXPORTERS
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Automatically tailor resumes for qualified job matches against curated 
+    high-selection-rate resume templates.
+  - Transform weak bullet points into high-impact Action Verb + Context + Metric 
+    format without hallucinating or fabricating facts.
+  - Provide direct file export in high-ATS PDF, structured Word DOCX, and Markdown formats.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent4_resume_professional.py`, `backend/app/agents/agent4_tailor.py`, 
+    `backend/app/agents/agent4_export_generator.py`, `backend/app/db/models.py` (`TailoredResumeModel`, `ResumeTemplateModel`)
+  - Frontend: `frontend/src/components/TailoringHub.jsx`, `frontend/src/components/ResumeAnalyzer.jsx`
+  - Test Suite: `backend/test_cs_extensions.py`
+
+Technical Details:
+  - Template Styles: MNC Reverse-Chronological Standard, Startup Impact Pattern, 
+    Executive Technical Lead.
+  - Zero-Hallucination Policy: Restructures existing candidate bullet points into 
+    quantified achievements without inventing degrees, dates, or false companies.
+  - Exporters:
+      * PDF Generator: Single-column ATS layout with clean vector typography.
+      * DOCX Generator: Microsoft Word format using standard structural headings.
+      * Markdown Generator: Clean text format for copy-pasting into text ATS boxes.
+
+API Endpoints:
+  - `POST /api/resume/tailor/{match_id}` — Trigger pattern-based resume tailoring.
+  - `GET  /api/resume/templates` — List available curated resume templates.
+  - `GET  /api/profile/export/pdf` — Stream generated PDF resume.
+  - `GET  /api/profile/export/docx` — Stream generated Word DOCX resume.
+  - `GET  /api/profile/export/md` — Stream plain text Markdown resume.
+
+--------------------------------------------------------------------------------
+PHASE 5: SMART ATS APPLICATION ROUTER & STAGED AUTO-FILL ARCHITECTURE
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Classify discovered application links into auto-apply eligible ATS vs manual review.
+  - Implement Playwright-based automated form-filling for Greenhouse, Lever, and Ashby.
+  - Enforce `dry_run=True` safety rails and discovery-only policies for protected boards.
+
+Files & Components Involved:
+  - Backend: `nextopportunityfind/routing/source_router.py`, `nextopportunityfind/apply/greenhouse_apply.py`, 
+    `backend/app/main.py`, `backend/app/db/models.py` (`ApplicationModel`, `ApplicationEventModel`)
+  - Frontend: `frontend/src/components/ApplicationPipeline.jsx`
+
+Technical Details:
+  - Routing Logic: Recognizes verified ATS domains (`boards.greenhouse.io`, `jobs.lever.co`, 
+    `jobs.ashbyhq.com`) as auto-apply eligible.
+  - Safety Enforcements:
+      * Discovery-Only: LinkedIn, Naukri, and Internshala are enforced as discovery-only 
+        and routed strictly to the Manual Review Queue.
+      * Dry Run Default: Playwright script fills out the form in non-submitting inspection 
+        mode, awaiting candidate confirmation before submission.
+
+API Endpoints:
+  - `GET  /api/applications` — Fetch applications in the pipeline.
+  - `PUT  /api/applications/{id}` — Update application status, candidate notes, and form autofill data.
+  - `POST /api/applications/{id}/submit` — Execute / simulate ATS submission with audit logging.
+
+--------------------------------------------------------------------------------
+PHASE 6: THROTTLED 1:1 BATCH COLD EMAIL OUTREACH ENGINE
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Enable personalized cold email outreach to hiring teams for email-first startup listings.
+  - Avoid spam filters by enforcing 1:1 personalization instead of mass generic BCC blasts.
+  - Provide safety guardrails: staged preview queues, rate throttling, cooldowns, and blacklists.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent6_batch_email.py`, `backend/app/db/models.py` (`EmailLogModel`), 
+    `backend/app/schemas/schemas.py` (`EmailLogModel`)
+  - Frontend: `frontend/src/components/ApplicationPipeline.jsx`
+
+Technical Details:
+  - Hyper-Personalization: Generates custom subject lines and email bodies referencing 
+    the specific role, company context, and attaching the tailored PDF resume from Agent 4.
+  - Rate Throttling: Configurable dispatch rate (e.g., maximum 20 emails/hour).
+  - Safety Rules: Global Do-Not-Contact blacklist, per-company cooldown period, 
+    and complete delivery logging in `email_log`.
+
+API Endpoints:
+  - `POST /api/emails/batch/prepare` — Draft personalized email batch for email-only listings.
+  - `POST /api/emails/batch/send/{batch_id}` — Send approved, throttled email batch.
+  - `GET  /api/emails/{batch_id}/status` — View email batch delivery and bounce status.
+
+--------------------------------------------------------------------------------
+PHASE 7: APPLICATION LIFECYCLE KANBAN & OUTCOME INTELLIGENCE DIAGNOSTICS
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Provide a visual Kanban pipeline to track applications from initial discovery to offer.
+  - Maintain a tamper-proof audit event log for every status transition.
+  - Deploy AI Outcome Intelligence to detect systemic failure patterns and recommend improvements.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent7_outcome_intelligence.py`, `backend/app/agents/outcome_tracker.py`, 
+    `backend/app/agents/agent5_reporting.py`, `backend/app/db/models.py` (`OutcomeDiagnosisModel`, `OutcomeEventModel`)
+  - Frontend: `frontend/src/components/ApplicationPipeline.jsx`, `frontend/src/components/OverviewDashboard.jsx`, 
+    `frontend/src/components/OutcomeDiagnosisCard.jsx`
+  - Test Suite: `backend/test_agent8_and_outcomes.py`
+
+Technical Details:
+  - Lifecycle Stages: `matched` -> `tailored` -> `pending_manual_review` -> `submitted`/`emailed` 
+    -> `interview_scheduled` -> `offer_received` -> `hired` / `rejected`.
+  - Outcome Intelligence Diagnostics:
+      * Screening Rejections: Flags low ATS keyword density or missing structural headings.
+      * Domain Deficits: Detects missing stack requirements across failed applications.
+      * Funnel Conversion Analytics: Tracks conversion rates between each pipeline stage.
+
+API Endpoints:
+  - `GET  /api/dashboard/metrics` — Aggregate system metrics and conversion funnel stats.
+  - `GET  /api/diagnostics/outcomes` — Fetch AI-diagnosed outcome patterns and suggestions.
+  - `GET  /api/metrics/outcomes` — Fetch funnel milestone counts and conversion percentages.
+
+--------------------------------------------------------------------------------
+PHASE 8: AI INTERVIEW PREP, LIVE CODING PRACTICE SIMULATOR & CS HUB
+--------------------------------------------------------------------------------
+Status: [COMPLETED]
+Primary Objectives:
+  - Provide specialized preparation tools when an application reaches `interview_scheduled`.
+  - Generate company dossiers covering funding, product architecture, and culture.
+  - Provide role-specific technical/behavioral question banks across SDE, ML/AI, DevOps, QA, Data.
+  - Deliver an interactive AI Mock Interview Simulator and live coding challenge environment.
+
+Files & Components Involved:
+  - Backend: `backend/app/agents/agent8_interview_prep.py`, `backend/app/agents/learning_and_questions_seed.py`, 
+    `backend/app/db/models.py` (`InterviewPrepModel`, `LearningResourceModel`, `InterviewQuestionBankModel`, 
+    `CodingQuestionModel`, `CodingAttemptModel`)
+  - Frontend: `frontend/src/components/InterviewPrepStudio.jsx`, `frontend/src/components/CodingQuestionPractice.jsx`, 
+    `frontend/src/components/PrepResourcesTab.jsx`
+  - Test Suite: `backend/test_agent8_and_outcomes.py`, `backend/test_cs_extensions.py`
+
+Technical Details:
+  - Company Dossier Engine: Generates business and technical briefings per target company.
+  - Interactive AI Mock Simulator: Evaluates candidate answers in real-time, providing 
+    technical depth scores (0-100) and actionable critique.
+  - Coding Challenge Studio: Features technical coding challenges with test cases, 
+    constraints, and a 3-tier progressive hint revelation engine.
+  - Curated Resource Hub: Video playlists and system design masterclasses categorized by role.
+
+API Endpoints:
+  - `GET  /api/prep/{application_id}` — Fetch company brief and tailored question bank.
+  - `POST /api/prep/mock-session` — Submit mock interview answer for real-time AI scoring.
+  - `GET  /api/resources` — List curated learning resources by field and topic.
+  - `GET  /api/questions/interview` — Retrieve interview question banks.
+  - `GET  /api/questions/coding` — Retrieve coding challenges with hints and test cases.
+  - `POST /api/questions/coding/attempt` — Record code attempt and hints viewed.
+
+================================================================================
+PART II: REMAINING ROADMAP & PRODUCTION SCALING PHASES (PHASES 9 - 13)
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 9: FULL HEADLESS PLAYWRIGHT AUTO-APPLY ADAPTERS & CAPTCHA SOLVER
+--------------------------------------------------------------------------------
+Status: [PLANNED]
+Primary Objectives:
+  - Complete dedicated Playwright auto-apply adapters for Lever (`apply/lever_apply.py`) 
+    and Ashby (`apply/ashby_apply.py`).
+  - Implement cloud background worker queues (Celery + Redis) to handle auto-submissions 
+    asynchronously without blocking the main API thread.
+  - Implement non-intrusive Turnstile / 2Captcha API fallback for career portals 
+    requiring human verification.
+
+Planned Architecture & Implementation:
+  - `backend/app/apply/lever_apply.py`: Lever form field selector mapper (`name`, `email`, 
+    `phone`, `org`, `resume` file upload, custom dropdowns).
+  - `backend/app/apply/ashby_apply.py`: Ashby single-page React form selector mapper.
+  - Worker Architecture: Celery worker tasks executing headless Chromium sessions 
+    in isolated Docker containers with automated screenshot logging upon completion.
+  - Verification: Dry-run test harness executing against live staging forms.
+
+--------------------------------------------------------------------------------
+PHASE 10: INBOUND RECRUITER EMAIL SYNC, CALENDAR BOOKING & SENTIMENT PARSING
+--------------------------------------------------------------------------------
+Status: [PLANNED]
+Primary Objectives:
+  - Automatically detect and ingest inbound recruiter replies to cold emails and job applications.
+  - Use sentiment and entity classification to identify interview invitations, online 
+    assessments (OA links), or rejection notices.
+  - Automatically transition Kanban cards to `interview_scheduled` and create calendar events.
+
+Planned Architecture & Implementation:
+  - IMAP / Gmail Webhook Listener: Polls or receives push notifications for inbound candidate emails.
+  - NLP Classifier: Classifies emails into `interview_invite`, `oa_received`, `rejection`, 
+    or `general_inquiry`.
+  - Calendar Sync Engine: Extracts interview date, time, timezone, and Google Meet / Zoom links; 
+    generates Google Calendar and Outlook `.ics` invites automatically.
+  - Auto-Kanban Integration: Automatically triggers Agent 8 to generate company briefs 
+    upon detecting an interview invitation.
+
+--------------------------------------------------------------------------------
+PHASE 11: 24/7 AUTONOMOUS BACKGROUND SCRAPING DAEMON & PROXY ROTATION
+--------------------------------------------------------------------------------
+Status: [PLANNED]
+Primary Objectives:
+  - Transition discovery from manual on-demand triggers to an autonomous 24/7 background cron daemon.
+  - Ensure continuous, fresh job aggregation every 4 to 6 hours without human intervention.
+  - Integrate a residential proxy pool to eliminate IP rate limits and bot detection on enterprise portals.
+
+Planned Architecture & Implementation:
+  - Background Scheduler: APScheduler / Celery Beat running scheduled discovery sweeps.
+  - Proxy Pool Manager: Integration with residential proxy providers (BrightData / ScraperAPI / 
+    SmartProxy) with automatic round-robin IP rotation.
+  - Backoff & Retry Logic: Exponential backoff with jitter on HTTP 429 / 503 responses.
+
+--------------------------------------------------------------------------------
+PHASE 12: MULTI-TENANT SAAS AUTHENTICATION, ORGANIZATION WORKSPACES & PAYWALL
+--------------------------------------------------------------------------------
+Status: [PLANNED]
+Primary Objectives:
+  - Transform the local single-user architecture into a production-grade, multi-tenant SaaS platform.
+  - Implement secure JWT authentication with Google and GitHub OAuth2 sign-in.
+  - Ensure strict tenant data isolation across resumes, matches, and application pipelines.
+  - Activate the monetization engine in `config.py` with Stripe and Razorpay checkout billing.
+
+Planned Architecture & Implementation:
+  - Auth System: FastAPI OAuth2 password bearer with JWT tokens; Google/GitHub SSO.
+  - Multi-Tenant Schema: Add `user_id` foreign keys to all relational models with 
+    tenant-scoped SQLAlchemy query filters.
+  - Payment Gateways:
+      * Stripe: International credit card subscriptions (Pro Monthly / Annual).
+      * Razorpay: India UPI, NetBanking, and credit/debit card recurring mandates.
+      * Feature Gating: Toggle `MONETIZATION_ENABLED = True` in `config.py` to enforce 
+        credit deductions per auto-apply and cold email batch.
+
+--------------------------------------------------------------------------------
+PHASE 13: REAL-TIME VOICE & AUDIO AI MOCK INTERVIEWER (WEBRTC + TTS/STT)
+--------------------------------------------------------------------------------
+Status: [PLANNED]
+Primary Objectives:
+  - Upgrade the text-based mock interview simulator into a full real-time voice-driven AI interviewer.
+  - Deliver ultra-low-latency, natural conversational interviews mimicking real hiring managers.
+  - Provide vocal delivery analytics, measuring words per minute, speech clarity, and filler-word usage.
+
+Planned Architecture & Implementation:
+  - Audio Transport: WebRTC audio streaming between React frontend and backend gateway.
+  - Speech-to-Text: OpenAI Whisper / Deepgram real-time streaming STT.
+  - Voice Synthesis: ElevenLabs ultra-realistic neural voice generation with configurable 
+    interviewer personas (e.g., Friendly Recruiter, Strict Technical Architect).
+  - Speech Analytics Engine: Measures speech pacing (WPM), pause durations, and 
+    counts filler words ("um", "like", "you know", "basically") to generate comprehensive 
+    communication feedback reports.
+
+================================================================================
+SUMMARY STATUS MATRIX
+================================================================================
+| Phase | Title | Type | Status | Core File |
+| :--- | :--- | :--- | :--- | :--- |
+| Phase 1 | Resume Ingestion & ATS Engine | Core | [COMPLETED] | `agent1_parser.py` |
+| Phase 2 | Startup Discovery Engine | Core | [COMPLETED] | `agent2_discovery.py` |
+| Phase 2b| Enterprise MNC Scanner | Core | [COMPLETED] | `agent2b_mnc_scanner.py` |
+| Phase 3 | Multi-Criteria Matcher | Core | [COMPLETED] | `agent3_matching.py` |
+| Phase 4 | Resume Professional & Exporters | Core | [COMPLETED] | `agent4_resume_professional.py` |
+| Phase 5 | ATS Application Router | Core | [COMPLETED] | `source_router.py` / `main.py` |
+| Phase 6 | Throttled Batch Cold Emailer | Core | [COMPLETED] | `agent6_batch_email.py` |
+| Phase 7 | Kanban & Outcome Intelligence | Core | [COMPLETED] | `agent7_outcome_intelligence.py`|
+| Phase 8 | Interview Prep & Coding Studio | Core | [COMPLETED] | `agent8_interview_prep.py` |
+| Phase 9 | Full Playwright Auto-Apply | Scale | [PLANNED] | `apply/lever_apply.py` |
+| Phase 10| Inbound Email & Calendar Sync | Scale | [PLANNED] | `inbound_email_parser.py` |
+| Phase 11| 24/7 Scraping Cron & Proxies | Scale | [PLANNED] | `scheduler_daemon.py` |
+| Phase 12| SaaS Multi-Tenant & Paywall | Scale | [PLANNED] | `auth.py` / `billing.py` |
+| Phase 13| Voice AI Mock Interviewer | Scale | [PLANNED] | `voice_interviewer.py` |
+================================================================================

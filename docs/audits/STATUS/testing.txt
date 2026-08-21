@@ -1,0 +1,94 @@
+================================================================================
+                    THENEXTOPPORTUNITY — QA & TESTING CHECKLIST
+================================================================================
+
+[x] TEST: Resume Parsing & ATS 5-Pillar Evaluation
+PURPOSE: Verify multi-format parsing (PDF, DOCX) and 5-pillar mathematical score calculation.
+HOW TO TEST: `pytest backend/test_ats_optimizer.py`
+EXPECTED RESULT: Score accurately computed from 0-100 without exceptions; AST correctly populated.
+CURRENT RESULT: 8/8 Passed.
+STATUS: PASS
+
+[x] TEST: Candidate Authentication & DPDP Consent
+PURPOSE: Verify user registration, password hashing, session tokens, and DPDP consent capture.
+HOW TO TEST: `pytest backend/test_auth_endpoints.py`
+EXPECTED RESULT: Candidate created with hashed password and timestamped consent.
+CURRENT RESULT: 4/4 Passed.
+STATUS: PASS
+
+[x] TEST: Direct ATS Link Resolution & Click Tracking
+PURPOSE: Verify URL resolution to canonical ATS portals (Greenhouse, Lever, Ashby) and click tracking.
+HOW TO TEST: `pytest backend/test_skill1_classify_and_linkout.py`
+EXPECTED RESULT: Link classification and status progression to 'link_opened'.
+CURRENT RESULT: 8/8 Passed.
+STATUS: PASS
+
+[x] TEST: 2-Week Skill-Closing Action Planner
+PURPOSE: Verify skill gap extraction and 14-day study plan generation.
+HOW TO TEST: `pytest backend/test_skill2_scope_and_roadmap.py`
+EXPECTED RESULT: Generates phased 14-day milestones with verified learning resources.
+CURRENT RESULT: 6/6 Passed.
+STATUS: PASS
+
+[x] TEST: Field-Level AES-256 Encryption & DPDP Hard Cascade Purge
+PURPOSE: Verify database encryption of raw resume text and full cascade deletion upon reset.
+HOW TO TEST: `pytest backend/test_skill3_security_and_compliance.py`
+EXPECTED RESULT: Data encrypted in SQLite; reset wipes all user records cleanly.
+CURRENT RESULT: 10/10 Passed.
+STATUS: PASS
+
+[!] TEST: Zero-Hallucination Guardrails & Type Resilience
+PURPOSE: Verify LLM rewrites strictly preserve candidate facts and handle mismatched types.
+HOW TO TEST: `pytest backend/test_skill4_zero_hallucination_standard.py`
+EXPECTED RESULT: 100% deterministic grounding without fabricating unlisted credentials.
+CURRENT RESULT: 7 Passed, 1 Failed (Fallback string format mismatch).
+STATUS: FIX PENDING (CP-002)
+
+[x] TEST: In-App Notifications & Weekly Digest Generation
+PURPOSE: Verify event-driven alerts, preference toggles, and email digest markdown generation.
+HOW TO TEST: `pytest backend/test_skill5_retention_and_reengagement.py`
+EXPECTED RESULT: Formats factual summaries with zero filler copy.
+CURRENT RESULT: 9/9 Passed.
+STATUS: PASS
+
+[x] TEST: Big-MNC Career Portal Scrapers
+PURPOSE: Verify scrapers for Google, Microsoft, Amazon, Apple, Meta, TCS, Infosys, Wipro.
+HOW TO TEST: `pytest backend/test_agent2b_mnc_scanner.py`
+EXPECTED RESULT: Normalizes listings and respects robots.txt.
+CURRENT RESULT: 12/12 Passed.
+STATUS: PASS
+
+[x] TEST: India & Global Internships Aggregator
+PURPOSE: Verify Unstop, Cuvette, Internshala, Wellfound, and GitHub 2026 campus scrapers.
+HOW TO TEST: `pytest backend/test_internship_scrapers.py`
+EXPECTED RESULT: Normalizes INR stipends and extracts PPO conversion flags.
+CURRENT RESULT: 14/14 Passed.
+STATUS: PASS
+
+[x] TEST: AI Voice Mock Interview Coach & Question Bank
+PURPOSE: Verify company brief generation, 1000+ question bank queries, and 4-pillar answer evaluation.
+HOW TO TEST: `pytest backend/test_agent8_and_outcomes.py`
+EXPECTED RESULT: Structured feedback with score (1-100) and model answer.
+CURRENT RESULT: 8/8 Passed.
+STATUS: PASS
+
+[x] TEST: In-Browser DSA Code Sandbox Execution
+PURPOSE: Verify client-side problem catalog, test cases, and hint reveal mechanics.
+HOW TO TEST: `pytest backend/test_cs_extensions.py`
+EXPECTED RESULT: Test assertions pass cleanly.
+CURRENT RESULT: 7/7 Passed.
+STATUS: PASS
+
+[!] TEST: Agent 8 Comprehensive Security & Retention
+PURPOSE: Verify study material cache TTL and data retention purges.
+HOW TO TEST: `pytest backend/test_agent8_comprehensive.py`
+EXPECTED RESULT: Expired cache records purged without error.
+CURRENT RESULT: 3 Passed, 3 Fixture Errors (Missing conftest.py).
+STATUS: FIX PENDING (CP-001)
+
+[x] TEST: Frontend Production Build Compilation
+PURPOSE: Verify Vite builds production bundle with zero syntax or bundling errors.
+HOW TO TEST: `npm run build` in `web/`
+EXPECTED RESULT: `✓ built in 19.34s` with zero errors.
+CURRENT RESULT: Passed (0 Errors).
+STATUS: PASS

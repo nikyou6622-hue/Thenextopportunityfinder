@@ -1,0 +1,56 @@
+"""
+Discovery Scrapers Package (backend.app.agents.scrapers)
+Public search result scrapers and multi-source aggregators for discovery-only indexing.
+"""
+
+from backend.agent.scrapers import (
+    LinkedInJob,
+    search_linkedin_jobs,
+    linkedin_to_job_records,
+    IndeedJob,
+    search_indeed_jobs,
+    indeed_to_job_records,
+    InternshalaListing,
+    search_internshala,
+    internshala_to_job_records,
+    UnstopInternship,
+    search_unstop_internships,
+    unstop_to_job_records,
+    CuvetteInternship,
+    search_cuvette_internships,
+    cuvette_to_job_records,
+    WellfoundInternship,
+    search_wellfound_internships,
+    wellfound_to_job_records,
+    GitHubInternship,
+    fetch_github_internships,
+    github_to_job_records,
+    scrape_all_internships,
+    run_single_scraper,
+)
+
+__all__ = [
+    "LinkedInJob",
+    "search_linkedin_jobs",
+    "linkedin_to_job_records",
+    "IndeedJob",
+    "search_indeed_jobs",
+    "indeed_to_job_records",
+    "InternshalaListing",
+    "search_internshala",
+    "internshala_to_job_records",
+    "UnstopInternship",
+    "search_unstop_internships",
+    "unstop_to_job_records",
+    "CuvetteInternship",
+    "search_cuvette_internships",
+    "cuvette_to_job_records",
+    "WellfoundInternship",
+    "search_wellfound_internships",
+    "wellfound_to_job_records",
+    "GitHubInternship",
+    "fetch_github_internships",
+    "github_to_job_records",
+    "scrape_all_internships",
+    "run_single_scraper",
+]

@@ -1,0 +1,23 @@
+================================================================================
+                    THENEXTOPPORTUNITY — IMPROVEMENTS ROADMAP
+================================================================================
+
+1. LAZY LOADING & BUNDLE REDUCTION
+   * Wrap heavy sub-studios (Coding Sandbox, Voice Mock Coach, Resume Builder) in React.lazy().
+   * Drop initial bundle load from 4.49MB to ~180KB.
+
+2. ASYNC BACKGROUND SCRAPER PIPELINE
+   * Execute live MNC and India internship scans in FastAPI BackgroundTasks.
+   * Provide non-blocking UI progress bars.
+
+3. OAUTH 2.0 SINGLE SIGN-ON
+   * Mount Google and GitHub 1-click social logins in AuthView.jsx.
+
+4. AUTOMATIC RESUME OVERFLOW SHRINKING
+   * Add dynamic font-scaling in ReportLab PDF exporter to prevent orphan 2nd pages.
+
+5. ACCESSIBLE HIGH-CONTRAST LIGHT THEME
+   * Add high-contrast light theme toggle for daylight readability.
+
+6. PWA OFFLINE INSTALLATION
+   * Configure web manifest and service worker caching.

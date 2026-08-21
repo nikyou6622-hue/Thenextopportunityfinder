@@ -1,0 +1,52 @@
+# Environment & Secrets
+.env
+*.env
+.env.*
+!.env.example
+client_secret.json
+client_secret*.json
+credentials.json
+credentials*.json
+token.json
+token*.json
+*.json.secret
+*.pem
+*.key
+*.p12
+*.crt
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# SQLite & Database Artifacts
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+*.timestamp-*.mjs
+
+# IDE & OS Artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & Temp
+*.log
+scratch/
+

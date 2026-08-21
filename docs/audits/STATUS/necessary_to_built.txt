@@ -1,0 +1,32 @@
+================================================================================
+          THENEXTOPPORTUNITY — NECESSARY TO BUILD FOR PRODUCTION
+================================================================================
+
+### MUST BUILD (Critical Requirements Before Live Public Traffic)
+1. Centralized Pytest Session Fixtures (backend/conftest.py):
+   * Eliminate test errors so that 100% of the 133 automated tests pass cleanly under CI/CD.
+2. Dynamic Code Splitting & Chunk Optimization (web/src/App.jsx):
+   * Split the 4.49MB monolithic bundle with React.lazy() so mobile page load is under 200KB.
+3. Background Worker Scraper Tasks (backend/app/main.py):
+   * Offload live multi-portal scraping to non-blocking background workers to prevent gateway timeouts.
+4. HTTP-Only Cookie Session Hardening:
+   * Migrate token storage from browser localStorage to HttpOnly SameSite cookies for enterprise security.
+
+--------------------------------------------------------------------------------
+
+### SHOULD BUILD (Important Quality-of-Life & Conversion Polish)
+1. Google & GitHub OAuth 2.0 Single Sign-On:
+   * 1-click candidate onboarding for tech developers and college students.
+2. Progressive Web App (PWA) Installability:
+   * Enable homescreen installation on Android/iOS via web manifest.
+3. Replace Deprecated Datetime UTC Calls:
+   * Standardize on datetime.datetime.now(datetime.UTC) across models and routes.
+4. Live Response Body Job Expiration Detection:
+   * Parse target job HTML for "Position Closed" notices to guarantee 100% active links.
+
+--------------------------------------------------------------------------------
+
+### NICE TO HAVE (Future Expansion)
+1. WebRTC Peer-to-Peer Mock Interview Rooms.
+2. Recruiter B2B Talent Search Portal with candidate approval workflow.
+3. Automated GitHub Profile & Repository Star Synchronizer.

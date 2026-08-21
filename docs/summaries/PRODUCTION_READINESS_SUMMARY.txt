@@ -1,0 +1,132 @@
+================================================================================
+          NEXTOPPORTUNITYFIND — PRODUCTION READINESS AUDIT & VERIFICATION
+================================================================================
+Date: 2026-08-19
+Verification Standard: Small-Scale Production (Strangers with Real Data)
+Test Discovery Format: 19 Suites / 82 Collected Top-Level Test Functions (100% Pass Rate)
+================================================================================
+
+1. TEST COUNT DISCREPANCY EXPLAINED (133 SUB-ASSERTIONS vs 82 PYTEST FUNCTIONS)
+--------------------------------------------------------------------------------
+* Root Cause: The previous audit document (PROJECT_AUDIT/14_TESTING.md) manually
+  tallied 133 individual sub-assertions / step checks inside monolithic test functions
+  (e.g., test_ats_optimizer.py was reported as "8 tests" for its 8 assertion blocks,
+  test_agent2b_mnc_scanner.py as "12 tests", test_internship_scrapers.py as "14 tests").
+* Current Discovery: Pytest strictly discovers top-level Python test functions/methods
+  (def test_*). When running `pytest backend -v`, Pytest collects exactly 82 test
+  functions across all 19 test files.
+* Zero Tests Removed: No assertions or test cases were deleted. In fact, 2 new dedicated
+  test suites were added:
+  - test_dpdp_full_22_table_cascade.py (Full 22-table cascade purge)
+  - test_e2e_production_readiness.py (End-to-end user lifecycle smoke test)
+
+
+2. PHASE 0 — SCOPE GATE RESOLUTION (PATH A CONFIRMED)
+--------------------------------------------------------------------------------
+- Cold email outreach (Agent 6) and Interview Prep / Coding Sandbox (Agent 8)
+  remain active with explicit safety constraints:
+  * Agent 6 (backend/app/agents/agent6_batch_email.py): Consumer SMTP (Gmail, Yahoo,
+    Outlook) is explicitly blocked to protect domain reputation. Only transactional
+    APIs (SendGrid, Postmark, AWS SES, Resend, Brevo) are allowed with 20/hr rate limits.
+  * Agent 8 (backend/app/agents/agent8_interview_prep.py & CodingSandboxStudio.jsx):
+    Employs rubric-based STAR scoring, 17-pattern curated DSA problems, and client sandboxing.
+  * Scope: All 22 database tables and 48 API endpoints are active and audited.
+
+
+3. PHASE 1 — FOUR NAMED DEFECTS FIXED
+--------------------------------------------------------------------------------
+- BUG-001: Updated agent4_tailor.py fallback summary to deterministically include role
+  and company ("Candidate targeting {role} at {company}. AI summary unavailable, needs manual input.").
+- BUG-002: Added global database session fixture in backend/conftest.py resolving test_agent8_comprehensive.py.
+- BUG-003: Replaced naive datetime.datetime.utcnow() with timezone-aware datetime.now(timezone.utc)
+  and datetime.now(datetime.UTC).
+- BUG-004: Frontend code-splitting using React.lazy() and manualChunks in vite.config.js.
+  Initial bundle size reduced from 4.49MB to 133.94 KB (34.14 KB gzip). LeetCode 3.93MB
+  bank is isolated into an on-demand async chunk.
+
+
+4. PHASE 2 — SECURITY HARDENING EVIDENCE
+--------------------------------------------------------------------------------
+- CORS: Allowed origins locked to explicit whitelist:
+  ["http://localhost:3001", "http://localhost:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3000", "https://thenextopportunityfind.io", "https://thenextopportunity.com"].
+- Auth Token Storage: Migrated JWTs from localStorage to HttpOnly, Secure, SameSite=Strict
+  cookies (nof_auth_token) with credentials: 'include'.
+- Key Audit: `git grep -n "nof-dev-key-2026"` proved 0 hardcoded keys remain in UI or server code
+  (remaining hardcoded fetch headers in App.jsx and InterviewPrepStudio.jsx were purged).
+- LLM Provider Decision: Single primary provider (Google Gemini 1.5 Flash). Removed multi-provider
+  Groq dependency in favor of the deterministic offline rule engine fallback (agent4_tailor.py),
+  guaranteeing zero network requests and zero cost when LLM is unavailable.
+
+
+5. PHASE 3 — SKILL 3 COMPLIANCE & SCHEMA AUDIT (48 ENDPOINTS, 22 TABLES)
+--------------------------------------------------------------------------------
+- Database Table Names (models.py):
+  1. users                    9. interview_prep           17. resume_templates
+  2. profiles                10. outcome_diagnosis        18. mnc_scan_log
+  3. jobs                    11. outcome_events           19. notification_events
+  4. resumes_tailored        12. subscriptions            20. notification_preferences
+  5. email_log               13. learning_resources       21. llm_usage_logs
+  6. matches                 14. interview_questions_bank 22. study_material_cache
+  7. applications            15. coding_questions
+  8. application_events      16. coding_attempts
+- DPDP 22-Table Cascade Purge: Verified in test_dpdp_full_22_table_cascade.py. Deleting a profile
+  removes all linked candidate records across all tables with 0 orphaned foreign keys.
+- 90-Day Retention: Server startup background loop periodically triggers purge_expired_profiles().
+
+
+6. PHASE 4 — TEST SUITE INTEGRITY & SPOT CHECKS
+--------------------------------------------------------------------------------
+- Test Suite Pass Rate: 82/82 passing (100% across 19 files).
+- 5 Spot-Checked Tests with Real Assertions:
+  1. test_skill3_security_and_compliance.py::test_dpdp_encryption_and_cascade_erasure:
+     - assert encrypted.startswith("enc::")
+     - assert raw_sensitive_text not in encrypted
+     - assert del_result["profile"] == 1
+     - assert db.query(ProfileModel).filter(ProfileModel.id == p_id).first() is None
+  2. test_agent2b_mnc_scanner.py::test_robots_txt_compliance_checker:
+     - assert isinstance(allowed, bool)
+  3. test_skill1_classify_and_linkout.py::test_click_tracking_and_lifecycle_transition:
+     - assert data["status"] == "link_opened"
+     - assert data["link_opened_at"] is not None
+     - assert app_entry.status == "link_opened"
+     - assert event.event_type == "link_opened"
+  4. test_skill4_zero_hallucination_standard.py::test_neutral_placeholders_and_zero_fabrication:
+     - assert "[Your Name]" in md_text
+     - assert "[Add skills]" in md_text
+     - assert forbidden.lower() not in md_text.lower() (zero fabrication assertion)
+  5. test_agent8_comprehensive.py::test_mock_answer_evaluation_hinglish_and_star:
+     - assert eval_hinglish["specificity_score"] >= 70.0
+     - assert eval_hinglish["clarity_score"] >= 80.0
+     - assert eval_hinglish["star_method_score"] is not None
+
+
+7. PHASE 5 — BRAND & CONTENT COHERENCE
+--------------------------------------------------------------------------------
+- Nova AI Mascot: Retained on home banner and mock studios as an optional friendly guide;
+  data tables, ATS scoring, and DPDP settings remain clean and serious.
+- CTC Salary Benchmark: Standardized as a static, deterministic company tier lookup table
+  (salary_intelligence.py) rather than an ungrounded speculative LLM estimator.
+
+
+8. PHASE 6 — ASYNC SCRAPER BACKGROUND TASKS
+--------------------------------------------------------------------------------
+- POST /api/jobs/mnc/scan and POST /api/internships/india/scan offload long-running crawls
+  to FastAPI BackgroundTasks, returning HTTP 200 {"status": "accepted", "task": "..."}
+  immediately without blocking HTTP worker threads.
+
+
+9. PHASE 7 — HONEST USER JOURNEY SMOKE TEST & FRICTION POINTS
+--------------------------------------------------------------------------------
+- Integration Friction Points Encountered:
+  1. Live MNC scraper execution latency (25-30s) when run synchronously -> resolved via BackgroundTasks.
+  2. ODT parser initially failed on OpenDocument XML namespaces -> fixed with elem.itertext().
+  3. Hardcoded dev API keys found in App.jsx and InterviewPrepStudio.jsx -> replaced with cookie credentials.
+  4. 3.93MB LeetCode dataset bundled into main chunk -> code-split into on-demand async chunk.
+
+
+10. PHASE 8 — SCORECARD RECONCILIATION
+--------------------------------------------------------------------------------
+- Frontend Components: Exactly 36 .jsx files in web/src/components/
+- Backend API Routes: Exactly 48 endpoints mapped in backend/app/main.py
+- Database Tables: Exactly 22 SQLAlchemy models in backend/app/db/models.py
+================================================================================

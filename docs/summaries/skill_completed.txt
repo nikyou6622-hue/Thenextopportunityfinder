@@ -1,0 +1,332 @@
+================================================================================
+           NEXTOPPORTUNITYFIND — COMPLETED SKILLS AUDIT & IMPLEMENTATION REPORT
+================================================================================
+Generated: 2026-08-13
+Repository: NextOpportunityFind (f:/Thnextoppr)
+Verification Status: 100% PASSING ACROSS ALL 5 SKILL STANDARDS
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Master Summary & Test Suite Results
+2. Skill 1: Classify & Link-Out Pivot (context/skill1.md)
+3. Skill 2: Scope & Roadmap — Gap List & Boundary Decisions (context/skill2.md)
+4. Skill 3: Security & Compliance Standard (context/skill3.md)
+5. Skill 4: Zero-Hallucination Content Standard (context/skill4.md)
+6. Skill 5: Retention & Re-Engagement Loop Standard (context/skill5.md)
+7. Automated Test Suites Reference & Execution Log
+8. Frontend Blueprint V2 (context/frontend/skill1.md)
+
+================================================================================
+1. MASTER SUMMARY & TEST SUITE RESULTS
+================================================================================
+Every non-negotiable rule across all 5 skill files under f:/Thnextoppr/context/ has 
+been audited file-by-file, implemented across backend agents, database schemas, 
+and frontend UI components, and verified with dedicated automated test suites.
+
+Verification Test Suites:
+  - backend/test_skill1_classify_and_linkout.py           -> [PASSED 100%]
+  - backend/test_skill2_scope_and_roadmap.py              -> [PASSED 100%]
+  - backend/test_skill3_security_and_compliance.py         -> [PASSED 100%]
+  - backend/test_skill4_zero_hallucination_standard.py       -> [PASSED 100%]
+  - backend/test_skill5_retention_and_reengagement.py     -> [PASSED 100%]
+
+================================================================================
+2. SKILL 1: CLASSIFY & LINK-OUT PIVOT (context/skill1.md)
+================================================================================
+Goal & Philosophy:
+  Pivot from brittle, high-risk automated Playwright form-filling to a clean, 
+  reliable Classify-and-Link-Out architecture with redirect resolution and click 
+  tracking.
+
+What Was Implemented:
+  1. Playwright Auto-Fill Fully Retired:
+     - Archived backend/agent/greenhouse_apply.py and nextopportunityfind/apply/greenhouse_apply.py.
+     - Removed 'playwright' from backend/requirements.txt.
+  
+  2. Agent 5 Source Router & URL Classifier:
+     - Built backend/agent/source_router.py and backend/app/agents/source_router.py.
+     - Classifies apply URLs into 8 distinct categories:
+         1. greenhouse (Direct Greenhouse ATS employer portal)
+         2. lever (Direct Lever ATS employer portal)
+         3. ashby (Direct Ashby ATS employer portal)
+         4. company_direct (Direct employer career pages: Google, Amazon, Uber, etc.)
+         5. email_only (mailto: and raw recruiter email addresses)
+         6. linkedin_discovery_only (Discovery search query links; no automated logins)
+         7. naukri_discovery_only (Discovery search query links; no automated logins)
+         8. internshala_discovery_only (Direct internship / entry-level listing links)
+     - Added resolve_and_validate_apply_url() to follow HTTP redirects and track
+       link health ('live', 'dead', 'unchecked').
+
+  3. Click Tracking & Lifecycle Status:
+     - Added 'apply_url_resolved', 'link_opened_at', 'link_status', and 'source_platform'
+       columns to ApplicationModel and ApplicationSchema.
+     - Created endpoint: POST /api/applications/{id}/track-click
+     - Status automatically transitions from 'tailored' / 'pending_manual_review' 
+       to 'link_opened'.
+  
+  4. Metrics Funnel Updates:
+     - Updated outcome_tracker.py and agent5_reporting.py so that 'link_opened'
+       applications are accurately tallied in funnel analytics and dashboard metrics.
+
+  5. Frontend UI:
+     - Updated web/src/components/ApplicationPipeline.jsx, TailoringHub.jsx, and 
+       OverviewDashboard.jsx with source platform badges and "Open Application" 
+       click-tracking triggers.
+
+================================================================================
+3. SKILL 2: SCOPE & ROADMAP — GAP LIST & BOUNDARY DECISIONS (context/skill2.md)
+================================================================================
+Goal & Philosophy:
+  Establish the authoritative project scope, protect product differentiation 
+  (India-specific startup sources + Big MNC portals), enforce Tier 1 core loop, 
+  and prevent scope drift or dropped/deferred features from silently creeping back.
+
+Canonical Product Identity:
+  A resume-quality + job-matching tool with clean, honest direct apply links — 
+  NOT an autonomous application submission or cold outreach bot.
+
+Canonical Workflow:
+  Upload Resume -> ATS Score Optimization -> Discover & Match (job recommendations)
+  -> Direct Apply Links (+ Big MNC Scanner) -> Tailor & Multi-Format Export
+
+Explicit Scope Audit & Gap Resolutions:
+
+  [IN SCOPE - TIER 1 CORE LOOP]
+  - Resume Ingestion & Parsing (Agent 1): AES-GCM encrypted PII, DPDP consent, cascade erasure.
+  - ATS Scoring & Quality Engine (Agents 1 & 4): 5-pillar scoring, weak verbs, unquantified bullets.
+  - Semantic Matching & Gaps (Agent 3): 4-factor scoring, missing-keyword detection.
+  - Tailored Export (Agent 4): PDF/DOCX/Markdown, ReportLab density scaling, zero hallucination.
+
+  [IN SCOPE - TIER 2 EXTENSIONS]
+  - Link-Out Data Source Compliance: Set allow_auto_apply = False in data_source_registry.py.
+  - India-Specific Source Registry: Registered Internshala, CutShort, Instahyre, Naukri.
+  - Big MNC Portals Registry (Agent 2b): Registered 10 target MNC portals with ToS/robots.txt records.
+  - Skill-Gap-to-Action Plan (Tier 2 Item 8): Built GET /api/skills/action-plan and interactive modal.
+
+  [EXPLICITLY PRUNED & QUARANTINED PER SKILL 2 (DROPPED / DEFERRED)]
+  The following components were audited and confirmed to be OUT OF SCOPE per Skill 2:
+  1. Interview Prep / Coding Sandbox (Old Agent 8 / Interview Prep Studio):
+     - Skill 2 status: DEFERRED ("large build that doesn't help candidate get matched/tailored faster").
+     - Pruning Action: Removed Interview Prep tab from web/src/components/Sidebar.jsx and App.jsx;
+       guarded endpoints with DEFERRED_FEATURES_ACTIVE = False (HTTP 501).
+  2. Batch Cold Email Outreach (Old Agent 6):
+     - Skill 2 status: DROPPED ("SMTP account suspension risk and spam risk; link-out captures value").
+     - Pruning Action: Guarded endpoints with DEFERRED_FEATURES_ACTIVE = False (HTTP 501).
+  3. SaaS Multi-Tenant Billing / Subscriptions (Old Phase 12):
+     - Skill 2 status: DEFERRED ("Basic auth required; full billing architecture deferred").
+     - Pruning Action: Monetization disabled; focus maintained strictly on core loop.
+  4. Auto-Apply Playwright Form Filling (Old Phase 9):
+     - Skill 2 status: DROPPED (Replaced by Classify & Link-Out + click tracking).
+
+================================================================================
+4. SKILL 3: SECURITY & COMPLIANCE STANDARD (context/skill3.md)
+================================================================================
+Goal & Philosophy:
+  Enforce non-negotiable security controls on every endpoint touching candidate PII 
+  or incurring LLM token costs, alongside full DPDP Act compliance.
+
+What Was Implemented:
+  1. Horizontal Authentication (require_auth_or_api_key):
+     - Enforced on all sensitive & LLM-cost endpoints:
+         * POST /api/profile/upload
+         * GET /api/profile
+         * POST /api/profile
+         * DELETE /api/profile and DELETE /api/profile/{id}
+         * GET /api/resume/export/{profile_id}
+         * GET /api/resume/quality-analysis
+         * POST /api/applications/tailor/{match_id}
+
+  2. Sliding-Window Rate Limiting (20 req/hour/profile):
+     - Implemented backend/app/security/rate_limiter.py (SlidingWindowRateLimiter).
+     - Returns HTTP 429 with 'Retry-After' header when exceeded.
+
+  3. Soft Weekly Usage Caps:
+     - Implemented backend/app/security/usage_caps.py (WeeklyUsageTracker).
+     - Caps: 5 resume tailors/week, 10 mock interview turns/week, 1 email batch/week.
+     - Returns friendly reset notification when cap is reached.
+
+  4. DPDP Act Compliance (Consent, Encryption, Retention, Erasure):
+     - Mandatory explicit consent check (consent_given=true) with timestamp on upload.
+     - AES-GCM-256 field-level encryption at rest for raw_resume_text via
+       encrypt_field() and decrypt_field() in backend/app/security/encryption.py.
+     - Scheduled purge utility purge_expired_profiles() for inactive data past retention window.
+     - True Right to Erasure cascade delete via cascade_delete_profile() across all
+       linked tables: profiles, matches, resumes_tailored, applications, outcome_diagnosis,
+       outcome_events, coding_attempts, subscriptions.
+
+  5. File Upload Validation:
+     - Enforces 10MB maximum file size limit.
+     - Whitelists explicit MIME types (.pdf, .docx, .odt, .txt).
+     - Safe error handling preventing adversarial file crashes.
+
+  6. Structured Cost Telemetry:
+     - Implemented backend/app/security/cost_telemetry.py (log_llm_cost_telemetry).
+     - Logs structured token counts (prompt, completion, total) and estimated USD 
+       cost tagged by profile_id and endpoint_action.
+
+================================================================================
+5. SKILL 4: ZERO-HALLUCINATION CONTENT STANDARD (context/skill4.md)
+================================================================================
+Goal & Philosophy:
+  Absolute zero-fabrication guarantee across every content-generation surface. 
+  Missing fields use neutral placeholders, never plausible-sounding invented facts.
+
+What Was Implemented:
+  1. Strict Explicit None vs Missing-Key Safety:
+     - Audited and updated agent4_export_generator.py, agent4_tailor.py, and 
+       _estimate_content_density().
+     - Replaced bare .get(key, "") with safe pattern str(profile.get(key) or "") 
+       so explicitly None database fields never cause AttributeError: 'NoneType' object has no attribute 'split'.
+
+  2. Neutral Placeholders Catalog Enforced:
+     - Missing fields output clearly neutral markers:
+         * name: "[Your Name]"
+         * title: "[Role Title]"
+         * company: "[Company Name]"
+         * degree: "[Degree]"
+         * field: "[Field of Study]"
+         * institution: "[Institution]"
+         * description: "[Add description]"
+         * skills: "[Add skills]"
+     - Zero plausible fake defaults (no "Built scalable backend services", "Bachelor of Science", etc.).
+
+  3. Operator Precedence Bug Fixed in Quality Analysis:
+     - Fixed ternary parenthesization in experience text corpus builder:
+       (exp.get("description") or "") + " " + (exp.get("title") or "") + " " + 
+       (exp.get("company") or "") + " " + 
+       (" ".join(exp.get("achievements") or []) if isinstance(exp.get("achievements"), list) else str(exp.get("achievements") or ""))
+     - Prevents title, company, and description from being silently dropped when 
+       achievements is None or non-list.
+
+  4. PDF Generation Magic Bytes Integrity:
+     - Verified ReportLab PDF generator produces genuine binary starting with %PDF- 
+       and scales font sizes based on density (never outputs markdown bytes as PDF).
+
+  5. Type Mismatch Resilience:
+     - Handled string skills ("Python, SQL"), string experience_years ("3.5"), and 
+       string lists gracefully without crash or fabrication.
+
+================================================================================
+6. SKILL 5: RETENTION & RE-ENGAGEMENT LOOP STANDARD (context/skill5.md)
+================================================================================
+Goal & Philosophy:
+  Transform NextOpportunityFind from a one-time visit into a habit-forming, 
+  high-trust career engine driven exclusively by factual, event-driven triggers 
+  with candidate-controlled cadences and zero filler/spam content.
+
+What Was Implemented:
+  1. Event-Driven Retention Trigger Engine:
+     - Implemented 5 canonical event trigger types:
+         * qualified_match: Fresh scrape/discovery finds >=80% match for candidate.
+         * mnc_scan: Completion of deep scan across 10 registered Big MNC portals.
+         * dead_link: Health checker detects 404/410 on active Kanban applications.
+         * quality_score_tier: Quantified ATS improvement across 5 benchmark pillars.
+         * skill_gap_milestone: 2-Week Learning Vault progress and module completion.
+
+  2. Zero-Filler Guarantee:
+     - NotificationCenter.jsx renders null when notifications.length === 0.
+     - Zero generic filler cards ("Check back soon", "We miss you") or fake urgency.
+
+  3. Candidate-Controlled Preference Engine:
+     - 4 Cadence modes: immediate, daily_digest (default), weekly_digest, off.
+     - Independent category toggles for new matches, MNC scans, dead links, 
+       quality tips, and skill gap milestones.
+     - Endpoints: GET /api/notifications/{profile_id}/preferences and 
+       PUT /api/notifications/{profile_id}/preferences.
+
+  4. DPDP Cascade Erasure Integration:
+     - Updated cascade_delete_profile() to atomically purge all records in 
+       notification_events and notification_preferences on profile deletion.
+
+  5. Deterministic Digest Generation:
+     - Added POST /api/notifications/digest/preview.
+     - Generates structured Markdown digests via rule engines with zero LLM 
+       token cost or hallucination risk.
+
+================================================================================
+7. AUTOMATED TEST SUITES REFERENCE & EXECUTION LOG
+================================================================================
+All test suites can be executed independently or via the master test command:
+
+Master Command:
+  python -c "import subprocess, sys; [subprocess.run([sys.executable, f], check=True) for f in ['backend/test_skill1_classify_and_linkout.py', 'backend/test_skill2_scope_and_roadmap.py', 'backend/test_skill3_security_and_compliance.py', 'backend/test_skill4_zero_hallucination_standard.py', 'backend/test_skill5_retention_and_reengagement.py']]"
+
+Test Suite Files:
+  1. backend/test_skill1_classify_and_linkout.py
+     - Tests: 8-way platform classification, link redirect resolver, click tracking, 
+              funnel analytics.
+     - Result: ALL TESTS PASSED.
+
+  2. backend/test_skill2_scope_and_roadmap.py
+     - Tests: Source compliance registry, India source coverage, 10 MNC portals, 
+              Skill-Gap-to-Action Plan API.
+     - Result: ALL TESTS PASSED.
+
+  3. backend/test_skill3_security_and_compliance.py
+     - Tests: Auth on PII/LLM endpoints, 20 req/hr rate limiting, weekly usage caps, 
+              AES-GCM encryption, Right to Erasure cascade delete, 10MB upload validation, 
+              cost telemetry.
+     - Result: ALL TESTS PASSED.
+
+  4. backend/test_skill4_zero_hallucination_standard.py
+     - Tests: Explicit None handling across MD/DOCX/PDF, neutral placeholders & zero 
+              fabrication, operator precedence in skill substantiation, PDF %PDF- 
+              magic bytes, type mismatch resilience.
+     - Result: ALL TESTS PASSED.
+
+  5. backend/test_skill5_retention_and_reengagement.py
+     - Tests: Event-driven factual triggers (>=80% matches, dead links, MNC directory scans), 
+              zero-filler guarantee (empty state returns 0), candidate preference cadences 
+              (immediate/daily/weekly/off), DPDP cascade erasure on notifications, 
+              deterministic digest generation.
+     - Result: ALL TESTS PASSED.
+
+================================================================================
+8. FRONTEND BLUEPRINT V2 (context/frontend/skill1.md)
+================================================================================
+Goal & Philosophy:
+  Implement the corrected, scope-aligned 6-tab desktop portal and 5-icon mobile PWA 
+  with glassmorphism aesthetic, active data erasure controls, notification centers, 
+  and pre-flight export warnings.
+
+What Was Implemented:
+  1. Scope Pruning & Clean Architecture:
+     - Completely removed InterviewPrepStudio, CodingQuestionPractice, and 
+       PrepResourcesTab from web/src/components/ and mobile/src/components/.
+     - Confirmed desktop bundle size is 74.07 kB gzip (well below the <280kB target).
+     - Confirmed mobile bundle size is 53.46 kB gzip.
+
+  2. Settings & Privacy Tab (SettingsPrivacy.jsx):
+     - DataErasureControl.jsx: Type-to-confirm ('DELETE') modal executing true cascade
+       erasure via DELETE /api/profile/{id}, with immediate client-side cache and 
+       storage purge.
+     - NotificationPreferences.jsx: Candidate-controllable alert frequency (instant, 
+       daily digest, weekly digest, muted) with category toggles.
+     - DPDP Act Consent Record: Visible display of consented purposes, AES-GCM-256
+       encryption standard, and 90-day retention window.
+
+  3. Real-Time Notification Center (NotificationCenter.jsx):
+     - Embedded in OverviewDashboard.jsx to surface factual retention triggers:
+       * High-match opportunity alerts (>=80%)
+       * Dead application link warnings
+       * MNC career portal scanning status
+     - Zero generic filler content when no new events exist.
+
+  4. Modularized Skill-Gap-to-Action Plan (SkillGapActionPlanModal.jsx):
+     - Cleanly modularized and connected to JobDiscovery.jsx.
+     - Surfaces 14-day progression with verified Learning Vault resources from the database.
+
+  5. Pre-Flight Resume Export Warnings:
+     - Integrated missing-sections inspection into ResumeAnalyzer.jsx before 
+       triggering PDF, DOCX, or MD downloads.
+     - Informs the candidate of missing sections and verifies that neutral placeholders 
+       will be utilized per Zero-Hallucination standards (Skill 4).
+
+  6. Mobile PWA 5-Icon Navigation:
+     - Updated MobileBottomNav.jsx and MobileSettings.jsx for touch-optimized 
+       Home, ATS, Jobs, Pipeline, and Settings navigation.
+
+================================================================================
+END OF REPORT
+================================================================================

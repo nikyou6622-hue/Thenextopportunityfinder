@@ -1,0 +1,35 @@
+================================================================================
+                    THENEXTOPPORTUNITY — ACTIVE BUGS & FIXES
+================================================================================
+
+[!] BUG-001: Mismatched Summary Test Assertion Failure
+SEVERITY: MEDIUM
+LOCATION: backend/test_skill4_zero_hallucination_standard.py:227
+SYMPTOM: `assert 'TypeSafe' in 'AI summary unavailable, needs manual input.'` fails.
+ROOT CAUSE: Fallback summary for empty profile summaries does not include target company name.
+FIX: Update fallback string in agent4_tailor.py to format target role and company name explicitly.
+STATUS: IDENTIFIED / FIX READY
+
+[!] BUG-002: Missing db Fixture in Comprehensive Tests
+SEVERITY: HIGH
+LOCATION: backend/test_agent8_comprehensive.py:84, 135, 173, 237
+SYMPTOM: Pytest raises `fixture 'db' not found`.
+ROOT CAUSE: conftest.py not defined in test directory.
+FIX: Create backend/conftest.py exporting `@pytest.fixture def db(): ...`.
+STATUS: IDENTIFIED / FIX READY
+
+[!] BUG-003: Python 3.12 datetime.utcnow() Deprecation Warnings
+SEVERITY: LOW
+LOCATION: backend/app/main.py, backend/app/db/models.py
+SYMPTOM: DeprecationWarning emitted on datetime.datetime.utcnow().
+ROOT CAUSE: Python 3.12 deprecated naive utcnow().
+FIX: Replace with timezone-aware datetime.datetime.now(datetime.UTC).
+STATUS: IDENTIFIED / FIX READY
+
+[!] BUG-004: Monolithic Vite Bundle Size (4.49 MB)
+SEVERITY: LOW
+LOCATION: web/dist/assets/index-363eb2c9.js
+SYMPTOM: Vite emits warning during `npm run build`: Some chunks are larger than 1200 kBs.
+ROOT CAUSE: Synchronous import of 4.8MB LeetCode company questions index.
+FIX: Wrap CodingSandboxStudio and sub-studios in React.lazy() and configure manualChunks in vite.config.js.
+STATUS: IDENTIFIED / FIX READY

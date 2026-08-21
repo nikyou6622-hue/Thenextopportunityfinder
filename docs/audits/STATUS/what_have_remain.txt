@@ -1,0 +1,102 @@
+================================================================================
+                    THENEXTOPPORTUNITY — REMAINING TASKS INVENTORY
+================================================================================
+
+P0 — CRITICAL
+--------------------------------------------------------------------------------
+TASK: Fix conftest.py Pytest Fixture Setup
+WHY: 3 tests in test_agent8_comprehensive.py error when run via global pytest.
+CURRENT STATE: Functions accept `db: Session` but fixture is undefined in root/backend.
+WHAT NEEDS TO BE DONE: Create backend/conftest.py defining `@pytest.fixture def db(): ...`.
+FILES LIKELY AFFECTED: backend/conftest.py
+DEPENDENCIES: pytest, sqlalchemy
+TEST REQUIRED: Run `python -m pytest backend/test_agent8_comprehensive.py`.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Low (15 minutes).
+STATUS: PENDING
+
+TASK: Fix Fallback Summary Company Name in test_skill4_zero_hallucination_standard.py
+WHY: 1 test assertion fails when testing type-mismatched candidate profiles with empty summaries.
+CURRENT STATE: Fallback string returns "AI summary unavailable, needs manual input."
+WHAT NEEDS TO BE DONE: Include target role and company name in the fallback template string in agent4_tailor.py.
+FILES LIKELY AFFECTED: backend/app/agents/agent4_tailor.py
+DEPENDENCIES: agent4_tailor
+TEST REQUIRED: Run `python -m pytest backend/test_skill4_zero_hallucination_standard.py`.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Low (10 minutes).
+STATUS: PENDING
+
+
+P1 — HIGH
+--------------------------------------------------------------------------------
+TASK: Implement Dynamic Code Splitting for LeetCode Index and Studio Views
+WHY: The main client bundle is 4.49 MB because of static LeetCode problem data.
+CURRENT STATE: All studios are bundled synchronously into a single index.js chunk.
+WHAT NEEDS TO BE DONE: Wrap CodingSandboxStudio, InterviewPrepStudio, ResumeAnalyzer in React.lazy() and configure manualChunks in vite.config.js.
+FILES LIKELY AFFECTED: web/src/App.jsx, web/vite.config.js
+DEPENDENCIES: React.lazy, Suspense
+TEST REQUIRED: Run `npm run build` in web/ and verify index chunk < 250 kB.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Low (1-2 hours).
+STATUS: PENDING
+
+TASK: Convert Synchronous Scraper Endpoints to FastAPI BackgroundTasks
+WHY: Running scrapers synchronously can take 3-5 seconds and block the HTTP connection.
+CURRENT STATE: /api/jobs/mnc/scan and /api/internships/india/scan run in the request thread.
+WHAT NEEDS TO BE DONE: Add BackgroundTasks to endpoints, return 202 Accepted immediately, and poll /scan-status.
+FILES LIKELY AFFECTED: backend/app/main.py
+DEPENDENCIES: fastapi.BackgroundTasks
+TEST REQUIRED: Verify endpoint returns in < 50ms while background worker syncs jobs.
+SECURITY IMPACT: Low (Rate limit simultaneous background scans).
+ESTIMATED COMPLEXITY: Medium (2-3 hours).
+STATUS: PENDING
+
+
+P2 — MEDIUM
+--------------------------------------------------------------------------------
+TASK: Replace Deprecated datetime.datetime.utcnow()
+WHY: Python 3.12 emits deprecation warnings on datetime.utcnow().
+CURRENT STATE: Used across backend models and routes.
+WHAT NEEDS TO BE DONE: Batch replace with datetime.datetime.now(datetime.UTC).
+FILES LIKELY AFFECTED: backend/app/main.py, backend/app/db/models.py, backend/app/agents/*.py
+DEPENDENCIES: datetime.timezone
+TEST REQUIRED: Run pytest and check for zero datetime warnings.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Low (1 hour).
+STATUS: PENDING
+
+TASK: Clean Unused SalaryIntelligenceStudio.jsx Stub
+WHY: File is a 6-line dead stub; salary intelligence is embedded in OverviewDashboard.jsx.
+CURRENT STATE: Empty component.
+WHAT NEEDS TO BE DONE: Extract CTC widget into this component for clean modularity.
+FILES LIKELY AFFECTED: web/src/components/SalaryIntelligenceStudio.jsx
+DEPENDENCIES: None.
+TEST REQUIRED: Verify salary calculator works in both views.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Low (30 minutes).
+STATUS: PENDING
+
+
+P3 — LOW
+--------------------------------------------------------------------------------
+TASK: Configure Progressive Web App (PWA) Manifest & Service Worker
+WHY: Allows candidates to install Thenextopportunity as a native mobile app on iOS/Android.
+CURRENT STATE: Web app only.
+WHAT NEEDS TO BE DONE: Create web/public/manifest.json with icons and offline cache.
+FILES LIKELY AFFECTED: web/public/manifest.json, web/index.html
+DEPENDENCIES: Workbox / ServiceWorker
+TEST REQUIRED: Lighthouse PWA audit.
+SECURITY IMPACT: Cache only public static assets.
+ESTIMATED COMPLEXITY: Medium (2-3 hours).
+STATUS: PENDING
+
+TASK: Implement Global Command Palette (Cmd+K / Ctrl+K)
+WHY: Power user keyboard shortcut navigation.
+CURRENT STATE: Click navigation only.
+WHAT NEEDS TO BE DONE: Create floating dialog triggered by Cmd+K for quick-jumping.
+FILES LIKELY AFFECTED: web/src/components/CommandPaletteModal.jsx, web/src/App.jsx
+DEPENDENCIES: None.
+TEST REQUIRED: Verify keyboard navigation.
+SECURITY IMPACT: None.
+ESTIMATED COMPLEXITY: Medium (2 hours).
+STATUS: PENDING
