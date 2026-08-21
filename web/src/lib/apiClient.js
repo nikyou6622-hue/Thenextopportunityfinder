@@ -5,6 +5,21 @@
  * and mid-session 401 Unauthorized interception for route protection.
  */
 
+// Global safety guard against "Unexpected end of JSON input" across all components
+if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype._originalJson) {
+  Response.prototype._originalJson = Response.prototype.json;
+  Response.prototype.json = async function () {
+    try {
+      const text = await this.text();
+      if (!text || !text.trim()) return {};
+      return JSON.parse(text);
+    } catch (err) {
+      console.warn('[Response.json Guard] Safe fallback triggered for empty/non-JSON response');
+      return {};
+    }
+  };
+}
+
 export async function apiFetch(url, options = {}) {
   const defaultHeaders = {
     'Accept': 'application/json', ...options.headers
