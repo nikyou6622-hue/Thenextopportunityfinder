@@ -734,14 +734,16 @@ export default function ResumeAnalyzer({
     const match = matches.find(m => m.job?.id === parseInt(selectedJobId, 10));
     if (!match || !match.job) return null;
 
-    const jobSkills = match.job.required_skills || [];
-    const candidateSkills = formData.skills || [];
+    const jobSkills = Array.isArray(match.job.required_skills) ? match.job.required_skills : [];
+    const candidateSkills = (Array.isArray(formData.skills) ? formData.skills : [])
+      .map(s => String(s || '').toLowerCase().trim())
+      .filter(Boolean);
     
     const matchedSkills = jobSkills.filter(s => 
-      candidateSkills.some(cs => cs.toLowerCase() === s.toLowerCase())
+      candidateSkills.some(cs => cs === String(s || '').toLowerCase().trim())
     );
     const missingSkills = jobSkills.filter(s => 
-      !candidateSkills.some(cs => cs.toLowerCase() === s.toLowerCase())
+      !candidateSkills.some(cs => cs === String(s || '').toLowerCase().trim())
     );
 
     const matchPercent = jobSkills.length > 0 

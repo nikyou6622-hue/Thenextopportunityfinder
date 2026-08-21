@@ -46,11 +46,13 @@ export function getTierConfig(score) {
 }
 
 export function calculateAtsScore(formData) {
-  const skills = Array.isArray(formData?.skills) ? formData.skills : [];
-  const summary = formData?.summary || '';
+  const skills = Array.isArray(formData?.skills) 
+    ? formData.skills.map(s => String(s || '')) 
+    : [];
+  const summary = String(formData?.summary || '');
   const expList = Array.isArray(formData?.experience_list) 
     ? formData.experience_list 
-    : (Array.isArray(formData?.past_roles) ? formData.past_roles : []);
+    : (Array.isArray(formData?.experience) ? formData.experience : (Array.isArray(formData?.past_roles) ? formData.past_roles : []));
   const eduList = Array.isArray(formData?.education) 
     ? formData.education 
     : (Array.isArray(formData?.education_list) ? formData.education_list : []);
@@ -58,7 +60,14 @@ export function calculateAtsScore(formData) {
 
   let textForAnalysis = `${summary}`.toLowerCase();
   expList.forEach(exp => {
-    textForAnalysis += ` ${exp.title || ''} ${exp.company || ''} ${exp.description || ''}`.toLowerCase();
+    if (typeof exp === 'string') {
+      textForAnalysis += ` ${exp}`.toLowerCase();
+    } else if (exp && typeof exp === 'object') {
+      const bulletsStr = Array.isArray(exp.bullets) 
+        ? exp.bullets.join(' ') 
+        : String(exp.bullets || exp.description || '');
+      textForAnalysis += ` ${exp.title || exp.role || ''} ${exp.company || ''} ${bulletsStr}`.toLowerCase();
+    }
   });
 
   // 1. Hard Tech Skills Density (Max 30)
