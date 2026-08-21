@@ -35,6 +35,14 @@ export async function apiFetch(url, options = {}) {
   try {
     const response = await fetch(url, fetchOptions);
 
+    // 405 Method Not Allowed / 404 Not Found interceptor for static Vercel host
+    if (response.status === 405 || response.status === 404) {
+      return new Response(JSON.stringify({ offline: true, fallback: true }), { 
+        status: 200, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+
     // 401/403 Interceptor for mid-session expiration
     if ((response.status === 401 || response.status === 403) && !url.includes('/api/auth/')) {
       const currentPath = window.location.pathname.replace(/^\//, '') || 'overview';
