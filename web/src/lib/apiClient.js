@@ -61,9 +61,10 @@ export async function safeJson(response, fallback = null) {
   try {
     const text = await response.text();
     if (!text || !text.trim()) return fallback;
-    return JSON.parse(text);
+    const trimmed = text.trim();
+    if (trimmed.startsWith('<')) return fallback;
+    return JSON.parse(trimmed);
   } catch (err) {
-    console.warn(`[safeJson Parse Warning] Could not parse JSON response:`, err);
     return fallback;
   }
 }
