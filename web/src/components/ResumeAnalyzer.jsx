@@ -2188,7 +2188,7 @@ export default function ResumeAnalyzer({
                           
                           {activeTemplate.skillFormat === 'chips' ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                              {formData.skills.map((skill, sIdx) => (
+                              {(formData?.skills || []).map((skill, sIdx) => (
                                 <span 
                                   key={sIdx}
                                   style={{
@@ -2207,7 +2207,7 @@ export default function ResumeAnalyzer({
                                   <InlineEditableText
                                     value={skill}
                                     onChange={(newSkill) => {
-                                      const updated = [...formData.skills];
+                                      const updated = [...(formData?.skills || [])];
                                       updated[sIdx] = newSkill;
                                       updateFormData({ skills: updated });
                                     }}
@@ -2238,7 +2238,7 @@ export default function ResumeAnalyzer({
                             <div style={{ fontSize: activeDensity.baseFontSize, color: '#334155', lineHeight: activeDensity.lineHeight }}>
                               <InlineEditableText
                                 multiline
-                                value={formData.skills.join(' • ')}
+                                value={(formData?.skills || []).join(' • ')}
                                 onChange={(val) => {
                                   const parsed = val.split('•').map(s => s.trim()).filter(Boolean);
                                   updateFormData({ skills: parsed });
@@ -2256,7 +2256,7 @@ export default function ResumeAnalyzer({
                         <div key="experience" style={{ marginBottom: activeDensity.sectionGap }}>
                           {renderSectionHeader('Professional Experience')}
                           
-                          {formData.experience_list.map((exp, expIdx) => (
+                          {(formData?.experience_list || formData?.experience || []).map((exp, expIdx) => (
                             <div key={expIdx} style={{ marginBottom: activeDensity.itemGap }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2901,7 +2901,7 @@ export default function ResumeAnalyzer({
                       
                       {activeTemplate.skillFormat === 'chips' ? (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                          {formData.skills.map((skill, sIdx) => (
+                          {(formData?.skills || []).map((skill, sIdx) => (
                             <span 
                               key={sIdx}
                               style={{
@@ -2920,7 +2920,7 @@ export default function ResumeAnalyzer({
                               <InlineEditableText
                                 value={skill}
                                 onChange={(newSkill) => {
-                                  const updated = [...formData.skills];
+                                  const updated = [...(formData?.skills || [])];
                                   updated[sIdx] = newSkill;
                                   updateFormData({ skills: updated });
                                 }}
@@ -2951,7 +2951,7 @@ export default function ResumeAnalyzer({
                         <div style={{ fontSize: activeDensity.baseFontSize, color: '#334155', lineHeight: activeDensity.lineHeight }}>
                           <InlineEditableText
                             multiline
-                            value={formData.skills.join(' • ')}
+                            value={(formData?.skills || []).join(' • ')}
                             onChange={(val) => {
                               const parsed = val.split('•').map(s => s.trim()).filter(Boolean);
                               updateFormData({ skills: parsed });
@@ -2970,7 +2970,7 @@ export default function ResumeAnalyzer({
                     <div key="experience" style={{ marginBottom: activeDensity.sectionGap }}>
                       {renderSectionHeader('Professional Experience')}
                       
-                      {formData.experience_list.map((exp, expIdx) => (
+                      {(formData?.experience_list || formData?.experience || []).map((exp, expIdx) => (
                         <div key={expIdx} style={{ marginBottom: activeDensity.itemGap }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3411,8 +3411,8 @@ export default function ResumeAnalyzer({
               <div>
                 <h4 style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f8fafc', marginBottom: '6px' }}>Skills Diff</h4>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                  {formData.skills.map((s, i) => {
-                    const isNew = !initialProfileRef.current.skills.includes(s);
+                  {(formData?.skills || []).map((s, i) => {
+                    const isNew = !(initialProfileRef.current?.skills || []).includes(s);
                     return (
                       <span key={i} style={{ background: isNew ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255,255,255,0.06)', color: isNew ? '#4ade80' : '#cbd5e1', border: `1px solid ${isNew ? '#22c55e' : 'rgba(255,255,255,0.1)'}`, padding: '2px 8px', borderRadius: '6px', fontSize: '0.74rem' }}>
                         {isNew ? `+ ${s}` : s}
