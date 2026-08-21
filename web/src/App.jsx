@@ -13,7 +13,7 @@ import SoundSystem from './components/characters/SoundEffects';
 import BrandedLoadingState from './components/characters/BrandedLoadingState';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProPaywallModal from './components/ProPaywallModal';
-import apiFetch from './lib/apiClient';
+import apiFetch, { safeJson } from './lib/apiClient';
 
 // Dynamically code-split studio tabs to keep initial JS bundle under 200KB
 const OverviewDashboard = lazy(() => import('./components/OverviewDashboard'));
@@ -125,9 +125,12 @@ export default function App() {
   const fetchSubscriptionStatus = async () => {
     try {
       const res = await apiFetch('/api/subscription/status');
-      if (res) {
-        setUserSubscription(res);
-        localStorage.setItem('nof_user_sub', JSON.stringify(res));
+      if (res && res.ok) {
+        const subData = await safeJson(res);
+        if (subData) {
+          setUserSubscription(subData);
+          localStorage.setItem('nof_user_sub', JSON.stringify(subData));
+        }
       }
     } catch (e) {
       console.warn("Could not fetch subscription status:", e);
@@ -241,30 +244,30 @@ export default function App() {
     try {
       // 1. Profile
       const profRes = await apiFetch('/api/profile');
-      if (profRes.ok) {
-        const profData = await profRes.json();
-        setProfile(profData);
+      if (profRes && profRes.ok) {
+        const profData = await safeJson(profRes);
+        if (profData) setProfile(profData);
       }
 
       // 2. Matches
       const matchRes = await apiFetch('/api/matches');
-      if (matchRes.ok) {
-        const matchData = await matchRes.json();
-        setMatches(matchData);
+      if (matchRes && matchRes.ok) {
+        const matchData = await safeJson(matchRes);
+        if (matchData) setMatches(matchData);
       }
 
       // 3. Applications
       const appRes = await apiFetch('/api/applications');
-      if (appRes.ok) {
-        const appData = await appRes.json();
-        setApplications(appData);
+      if (appRes && appRes.ok) {
+        const appData = await safeJson(appRes);
+        if (appData) setApplications(appData);
       }
 
       // 4. Metrics
       const metRes = await apiFetch('/api/dashboard/metrics');
-      if (metRes.ok) {
-        const metData = await metRes.json();
-        setMetrics(metData);
+      if (metRes && metRes.ok) {
+        const metData = await safeJson(metRes);
+        if (metData) setMetrics(metData);
       }
     } catch (e) {
       console.error("API error loading data:", e);

@@ -40,4 +40,16 @@ export async function apiFetch(url, options = {}) {
   }
 }
 
+export async function safeJson(response, fallback = null) {
+  if (!response) return fallback;
+  try {
+    const text = await response.text();
+    if (!text || !text.trim()) return fallback;
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn(`[safeJson Parse Warning] Could not parse JSON response:`, err);
+    return fallback;
+  }
+}
+
 export default apiFetch;
