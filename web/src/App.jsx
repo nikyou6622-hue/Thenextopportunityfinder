@@ -342,17 +342,11 @@ export default function App() {
       'System Design', 'Microservices', 'Kafka', 'Android', 'iOS', 'Swift', 'Kotlin', 'Flutter', 'React Native'
     ];
 
-    const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const foundSkills = [];
+    const lowerText = fileText.toLowerCase();
     TECH_KEYWORDS.forEach(kw => {
-      try {
-        const escaped = escapeRegExp(kw);
-        const regex = new RegExp(`(?:^|\\b|\\s)${escaped}(?:$|\\b|\\s)`, 'i');
-        if (regex.test(fileText)) {
-          foundSkills.push(kw);
-        }
-      } catch (err) {
-        // Ignore regex compilation edge cases
+      if (lowerText.includes(kw.toLowerCase())) {
+        foundSkills.push(kw);
       }
     });
 
