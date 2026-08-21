@@ -14,6 +14,7 @@ import BrandedLoadingState from './components/characters/BrandedLoadingState';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProPaywallModal from './components/ProPaywallModal';
 import apiFetch, { safeJson } from './lib/apiClient';
+import { saveProfileToSupabase, loadProfileFromLocal } from './lib/supabaseClient';
 
 // Dynamically code-split studio tabs to keep initial JS bundle under 200KB
 const OverviewDashboard = lazy(() => import('./components/OverviewDashboard'));
@@ -246,7 +247,15 @@ export default function App() {
       const profRes = await apiFetch('/api/profile');
       if (profRes && profRes.ok) {
         const profData = await safeJson(profRes);
-        if (profData) setProfile(profData);
+        if (profData && (profData.name || profData.skills)) {
+          setProfile(profData);
+        } else {
+          const localProf = loadProfileFromLocal();
+          if (localProf) setProfile(localProf);
+        }
+      } else {
+        const localProf = loadProfileFromLocal();
+        if (localProf) setProfile(localProf);
       }
 
       // 2. Matches
@@ -422,11 +431,13 @@ export default function App() {
       } catch {}
 
       if (res.ok && responseData && (responseData.name || responseData.skills)) {
+        await saveProfileToSupabase(responseData);
         setProfile(responseData);
         setActiveTab('profile');
         SoundSystem.playSuccess();
       } else {
         const parsedProfile = await parseResumeFileClient(file);
+        await saveProfileToSupabase(parsedProfile);
         setProfile(parsedProfile);
         setActiveTab('profile');
         SoundSystem.playSuccess();
@@ -434,6 +445,7 @@ export default function App() {
     } catch (e) {
       console.error("Upload error:", e);
       const parsedProfile = await parseResumeFileClient(file);
+      await saveProfileToSupabase(parsedProfile);
       setProfile(parsedProfile);
       setActiveTab('profile');
     } finally {
@@ -444,6 +456,8 @@ export default function App() {
   const handleUpdateProfile = async (updatedProfile) => {
     setLoading(true);
     try {
+      await saveProfileToSupabase(updatedProfile);
+      setProfile(updatedProfile);
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -454,6 +468,8 @@ export default function App() {
       }
     } catch (e) {
       console.error("Update profile error:", e);
+      await saveProfileToSupabase(updatedProfile);
+      setProfile(updatedProfile);
     } finally {
       setLoading(false);
     }
