@@ -88,7 +88,6 @@ export default function JobDiscovery({
       platform: 'Wellfound',
       location: 'Gurugram / Remote',
       salary_range: '₹30L - ₹50L / yr',
-      platform: 'Wellfound',
       apply_url: 'https://wellfound.com/jobs',
       posted_date: '1 hour ago',
       tech_stack: ['Python', 'FastAPI', 'PyTorch', 'LangChain', 'Docker'],
