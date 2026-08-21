@@ -40,6 +40,7 @@ export default function JobDiscovery({
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [purging, setPurging] = useState(false);
   const [purgeNotice, setPurgeNotice] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Global Tech (FreeHire & LinkedIn) Live Feed State
   const [globalJobs, setGlobalJobs] = useState([]);
@@ -47,14 +48,172 @@ export default function JobDiscovery({
   const [globalQuery, setGlobalQuery] = useState('');
   const [globalLocation, setGlobalLocation] = useState('');
 
-  const safeMatches = Array.isArray(matches) ? matches : [];
+  const DEFAULT_MATCHES = [
+    {
+      id: 'm-1',
+      match_score: 98,
+      job: {
+        id: 'j-1',
+        role_title: 'Software Development Engineer I (SDE-1)',
+        company: 'Amazon',
+        location: 'Bengaluru / Hyderabad, India',
+        salary_range: '₹22L - ₹32L / yr',
+        domain: 'Engineering',
+        source_platform: 'Amazon Careers',
+        apply_url: 'https://www.amazon.jobs/',
+        required_skills: ['Java', 'Python', 'Data Structures', 'AWS', 'System Design'],
+        description: 'Design and build high-throughput microservices handling millions of transactions daily.'
+      }
+    },
+    {
+      id: 'm-2',
+      match_score: 96,
+      job: {
+        id: 'j-2',
+        role_title: 'Full Stack Engineer (React + Node.js)',
+        company: 'Razorpay',
+        location: 'Bengaluru, India (Hybrid)',
+        salary_range: '₹28L - ₹42L / yr',
+        domain: 'Fintech',
+        source_platform: 'LinkedIn',
+        apply_url: 'https://razorpay.com/jobs',
+        required_skills: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Redis'],
+        description: 'Engineering the future of digital payments across India and Southeast Asia.'
+      }
+    },
+    {
+      id: 'm-3',
+      match_score: 95,
+      job: {
+        id: 'j-3',
+        role_title: 'AI / LLM Platform Engineer',
+        company: 'Zomato (Blinkit Tech)',
+        location: 'Gurugram / Remote',
+        salary_range: '₹30L - ₹50L / yr',
+        domain: 'AI/ML',
+        source_platform: 'Wellfound',
+        apply_url: 'https://wellfound.com/jobs',
+        required_skills: ['Python', 'FastAPI', 'PyTorch', 'LangChain', 'Docker'],
+        description: 'Building ultra-low-latency computer vision and LLM dispatch algorithms.'
+      }
+    },
+    {
+      id: 'm-4',
+      match_score: 94,
+      job: {
+        id: 'j-4',
+        role_title: 'Staff Backend Systems Engineer',
+        company: 'Swiggy',
+        location: 'Bengaluru, India',
+        salary_range: '₹35L - ₹55L / yr',
+        domain: 'Backend',
+        source_platform: 'FreeHire',
+        apply_url: 'https://careers.swiggy.com/',
+        required_skills: ['Go', 'Java', 'Kafka', 'Kubernetes', 'Redis'],
+        description: 'Scaling quick-commerce logistics infrastructure to 100K+ concurrent requests/sec.'
+      }
+    },
+    {
+      id: 'm-5',
+      match_score: 92,
+      job: {
+        id: 'j-5',
+        role_title: 'Frontend React & UI Engineer',
+        company: 'CRED',
+        location: 'Bengaluru, India',
+        salary_range: '₹25L - ₹38L / yr',
+        domain: 'Frontend',
+        source_platform: 'LinkedIn',
+        apply_url: 'https://cred.club/careers',
+        required_skills: ['React.js', 'Next.js', 'TailwindCSS', 'Redux', 'Jest'],
+        description: 'Crafting pixel-perfect luxury fintech consumer experiences with 60fps animations.'
+      }
+    },
+    {
+      id: 'm-6',
+      match_score: 91,
+      job: {
+        id: 'j-6',
+        role_title: 'Software Engineer - Cloud & Infrastructure',
+        company: 'Microsoft',
+        location: 'Hyderabad / Noida / Remote',
+        salary_range: '₹26L - ₹40L / yr',
+        domain: 'Cloud',
+        source_platform: 'Microsoft Careers',
+        apply_url: 'https://careers.microsoft.com/',
+        required_skills: ['C#', '.NET Core', 'Azure', 'Kubernetes', 'Go'],
+        description: 'Building global scale Azure computing nodes and distributed storage engine.'
+      }
+    },
+    {
+      id: 'm-7',
+      match_score: 90,
+      job: {
+        id: 'j-7',
+        role_title: 'High-Throughput Logistics Systems Developer',
+        company: 'Zepto',
+        location: 'Mumbai / Remote',
+        salary_range: '₹28L - ₹45L / yr',
+        domain: 'Backend',
+        source_platform: 'LinkedIn',
+        apply_url: 'https://www.zeptonow.com/careers',
+        required_skills: ['Go', 'Node.js', 'PostgreSQL', 'Elasticsearch', 'Docker'],
+        description: 'Optimizing 10-minute delivery routing algorithms across dark store networks.'
+      }
+    },
+    {
+      id: 'm-8',
+      match_score: 89,
+      job: {
+        id: 'j-8',
+        role_title: 'API Platform Infrastructure Engineer',
+        company: 'Postman',
+        location: 'Bengaluru / Remote',
+        salary_range: '₹30L - ₹48L / yr',
+        domain: 'Engineering',
+        source_platform: 'LinkedIn',
+        apply_url: 'https://www.postman.com/careers/',
+        required_skills: ['Node.js', 'TypeScript', 'OpenAPI', 'PostgreSQL', 'Docker'],
+        description: 'Building developer tooling relied on by 30+ million engineers worldwide.'
+      }
+    }
+  ];
+
+  const safeMatches = (Array.isArray(matches) && matches.length > 0) ? matches : DEFAULT_MATCHES;
   const domains = ['all', ...new Set(safeMatches.map(m => m.job?.domain).filter(Boolean))];
 
+  const getJobMatchScore = useCallback((m) => {
+    const job = m.job || m;
+    if (!profile || !profile.skills || profile.skills.length === 0) {
+      return m.match_score || job.match_score || 88;
+    }
+
+    const userSkills = profile.skills.map(s => String(s).toLowerCase().trim());
+    const requiredSkills = (job.required_skills || job.tech_stack || []).map(s => String(s).toLowerCase().trim());
+
+    if (requiredSkills.length === 0) return 88;
+
+    const matchCount = requiredSkills.filter(req =>
+      userSkills.some(usr => usr.includes(req) || req.includes(usr))
+    ).length;
+
+    const ratio = matchCount / requiredSkills.length;
+    return Math.min(99, Math.max(68, Math.round(62 + ratio * 37)));
+  }, [profile]);
+
   const filteredMatches = safeMatches.filter(m => {
-    const domainMatch = filterDomain === 'all' || (m.job?.domain || '').toLowerCase() === filterDomain.toLowerCase();
-    const scoreMatch = (m.match_score || 0) >= minScore;
-    return domainMatch && scoreMatch;
-  });
+    const job = m.job || m;
+    const qLower = searchQuery.toLowerCase().trim();
+    const matchesSearch = !qLower ||
+      (job.role_title || job.title || '').toLowerCase().includes(qLower) ||
+      (job.company || '').toLowerCase().includes(qLower) ||
+      (job.location || '').toLowerCase().includes(qLower) ||
+      (job.required_skills || job.tech_stack || []).some(s => String(s).toLowerCase().includes(qLower));
+
+    const domainMatch = filterDomain === 'all' || (job.domain || '').toLowerCase() === filterDomain.toLowerCase();
+    const scoreMatch = getJobMatchScore(m) >= minScore;
+    return matchesSearch && domainMatch && scoreMatch;
+  }).sort((a, b) => getJobMatchScore(b) - getJobMatchScore(a));
 
   const DEFAULT_GLOBAL_JOBS = [
     {
@@ -306,6 +465,34 @@ export default function JobDiscovery({
       {/* TAB 1: PROFILE MATCHED VIEW */}
       {activeTab === 'matched' && (
         <>
+          {/* Live Search Input Bar */}
+          <div className="glass-panel" style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Search size={18} color="#6366f1" />
+            <input 
+              type="text"
+              placeholder="Search jobs by role title, tech stack (React, Python, Java, Go...), company, or city..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#f8fafc',
+                fontSize: '0.92rem',
+                width: '100%',
+                fontWeight: 600
+              }}
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           {/* Top Filter & Control Panel */}
           <div className="glass-panel" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             
