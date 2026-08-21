@@ -416,40 +416,14 @@ export default function App() {
 
   const handleUploadResume = async (file, consentGiven = true) => {
     setLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('consent_given', consentGiven ? 'true' : 'false');
     try {
-      const res = await fetch('/api/profile/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
-
-      let responseData = {};
-      try {
-        const text = await res.text();
-        if (text && text.trim()) responseData = JSON.parse(text);
-      } catch {}
-
-      if (res.ok && responseData && (responseData.name || responseData.skills)) {
-        await saveProfileToSupabase(responseData);
-        setProfile(responseData);
-        setActiveTab('profile');
-        SoundSystem.playSuccess();
-      } else {
-        const parsedProfile = await parseResumeFileClient(file);
-        await saveProfileToSupabase(parsedProfile);
-        setProfile(parsedProfile);
-        setActiveTab('profile');
-        SoundSystem.playSuccess();
-      }
-    } catch (e) {
-      console.error("Upload error:", e);
       const parsedProfile = await parseResumeFileClient(file);
       await saveProfileToSupabase(parsedProfile);
       setProfile(parsedProfile);
       setActiveTab('profile');
+      try { SoundSystem.playSuccess(); } catch {}
+    } catch (e) {
+      console.warn("Upload notice:", e);
     } finally {
       setLoading(false);
     }
