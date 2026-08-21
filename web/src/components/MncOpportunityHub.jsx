@@ -183,7 +183,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
       return item.match_score || jobObj.match_score || 88;
     }
 
-    const userSkills = profile.(Array.isArray(skills) ? skills : []).map(s => String(s).toLowerCase().trim());
+    const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (jobObj.tech_stack || jobObj.required_skills || []).map(s => String(s).toLowerCase().trim());
 
     if (requiredSkills.length === 0) return 88;

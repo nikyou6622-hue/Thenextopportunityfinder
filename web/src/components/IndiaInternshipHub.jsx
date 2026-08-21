@@ -392,7 +392,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
       return item.match_score || 88;
     }
 
-    const userSkills = profile.(Array.isArray(skills) ? skills : []).map(s => String(s).toLowerCase().trim());
+    const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (item.required_skills || item.skills_required || []).map(s => String(s).toLowerCase().trim());
 
     if (requiredSkills.length === 0) {
