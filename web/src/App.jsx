@@ -263,15 +263,15 @@ export default function App() {
       // 2. Matches
       const matchRes = await apiFetch('/api/matches');
       if (matchRes && matchRes.ok) {
-        const matchData = await safeJson(matchRes);
-        if (matchData) setMatches(matchData);
+        const matchData = await safeJson(matchRes, []);
+        if (Array.isArray(matchData) && matchData.length > 0) setMatches(matchData);
       }
 
       // 3. Applications
       const appRes = await apiFetch('/api/applications');
       if (appRes && appRes.ok) {
-        const appData = await safeJson(appRes);
-        if (appData) setApplications(appData);
+        const appData = await safeJson(appRes, []);
+        if (Array.isArray(appData) && appData.length > 0) setApplications(appData);
       }
 
       // 4. Metrics

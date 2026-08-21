@@ -71,7 +71,11 @@ export async function safeJson(response, fallback = null) {
     if (!text || !text.trim()) return fallback;
     const trimmed = text.trim();
     if (trimmed.startsWith('<')) return fallback;
-    return JSON.parse(trimmed);
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object' && parsed.offline) {
+      return fallback;
+    }
+    return parsed;
   } catch (err) {
     return fallback;
   }
