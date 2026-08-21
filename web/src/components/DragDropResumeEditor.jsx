@@ -172,7 +172,7 @@ export default function DragDropResumeEditor({ profile, onUpdateProfile }) {
           Reorder Technical Skills Priority
         </h4>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {skills.map((sk, idx) => (
+          {(Array.isArray(skills) ? skills : []).map((sk, idx) => (
             <div
               key={sk}
               style={{

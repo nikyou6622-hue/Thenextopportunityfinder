@@ -341,7 +341,7 @@ export default function CommunityForumView({ onNavigate, onTriggerCelebration })
 
             {/* Rounds List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {exp.rounds.map((r, rIdx) => (
+              {(Array.isArray(exp?.rounds) ? exp.rounds : []).map((r, rIdx) => (
                 <div key={rIdx} style={{ padding: '12px 14px', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#38bdf8', display: 'block', marginBottom: '4px' }}>{r.round}</span>
                   <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5 }}>{r.detail}</p>
@@ -352,7 +352,7 @@ export default function CommunityForumView({ onNavigate, onTriggerCelebration })
             {/* Tags & Action */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {exp.tags.map((t, idx) => (
+                {(Array.isArray(exp?.tags) ? exp.tags : []).map((t, idx) => (
                   <span key={idx} style={{ padding: '3px 8px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.04)', color: '#64748b', fontSize: '0.7rem', fontWeight: 600 }}>
                     #{t}
                   </span>

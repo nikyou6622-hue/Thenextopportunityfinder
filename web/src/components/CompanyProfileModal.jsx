@@ -178,7 +178,7 @@ export default function CompanyProfileModal({
                   {companyDetails.about}
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
-                  {companyDetails.tags.map((tag, idx) => (
+                  {(Array.isArray(companyDetails?.tags) ? companyDetails.tags : []).map((tag, idx) => (
                     <span key={idx} className="tag-pill-light" style={{ background: 'rgba(124, 58, 237, 0.2)', color: '#C4B5FD', border: '1px solid rgba(124, 58, 237, 0.3)' }}>
                       {tag}
                     </span>
@@ -200,7 +200,7 @@ export default function CompanyProfileModal({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {companyDetails.openPositions.map((pos) => (
+                  {(Array.isArray(companyDetails?.openPositions) ? companyDetails.openPositions : []).map((pos) => (
                     <div
                       key={pos.id}
                       onClick={() => {

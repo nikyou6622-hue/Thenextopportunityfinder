@@ -833,7 +833,7 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
                         <td style={{ padding: '14px 18px' }}>
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '240px' }}>
                             {u.skills && u.skills.length > 0 ? (
-                              u.skills.map((s, idx) => (
+                              (Array.isArray(u?.skills) ? u.skills : []).map((s, idx) => (
                                 <span key={idx} style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.15)', color: '#c7d2fe', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '2px 6px', borderRadius: '6px' }}>
                                   {s}
                                 </span>

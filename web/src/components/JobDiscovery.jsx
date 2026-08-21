@@ -189,7 +189,7 @@ export default function JobDiscovery({
       return m.match_score || job.match_score || 88;
     }
 
-    const userSkills = profile.skills.map(s => String(s).toLowerCase().trim());
+    const userSkills = profile.(Array.isArray(skills) ? skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (job.required_skills || job.tech_stack || []).map(s => String(s).toLowerCase().trim());
 
     if (requiredSkills.length === 0) return 88;
