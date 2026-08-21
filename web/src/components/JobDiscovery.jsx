@@ -21,6 +21,7 @@ import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
 
 export default function JobDiscovery({ 
   matches = [], 
+  profile,
   onTailor, 
   onImportFile, 
   onDiscover, 
