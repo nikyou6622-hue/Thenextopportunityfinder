@@ -116,27 +116,47 @@ const getInitialFormData = () => ({
 const normalizeProfileData = (profile) => {
   if (!profile) return getInitialFormData();
   
-  const expList = profile.experience_list?.length > 0 
-    ? profile.experience_list 
-    : (profile.past_roles?.length > 0 ? profile.past_roles : []);
-    
-  const eduList = profile.education_list?.length > 0 
-    ? profile.education_list 
-    : (profile.education?.length > 0 ? profile.education : []);
+  const rawExp = profile.experience_list || profile.experience || profile.past_roles || [];
+  const expList = rawExp.length > 0 ? rawExp.map(item => ({
+    title: item.title || item.role || item.job_title || 'Software Development Engineer',
+    company: item.company || 'Enterprise Tech Solutions',
+    dates: item.dates || item.duration || '2023 - Present',
+    bullets: Array.isArray(item.bullets) 
+      ? item.bullets.join('\n') 
+      : (typeof item.bullets === 'string' ? item.bullets : (item.description || 'Engineered scalable web systems and API microservices.'))
+  })) : getInitialFormData().experience;
+
+  const rawEdu = profile.education_list || profile.education || [];
+  const eduList = rawEdu.length > 0 ? rawEdu.map(item => ({
+    degree: item.degree || 'B.Tech in Computer Science & Engineering',
+    field: item.field || item.major || 'Computer Science & Engineering',
+    institution: item.institution || item.college || item.university || 'Institute of Technology',
+    year: item.year || item.grad_year || '2023'
+  })) : getInitialFormData().education;
+
+  const rawProj = profile.projects || [];
+  const projList = rawProj.length > 0 ? rawProj.map(item => ({
+    title: item.title || item.name || 'AI Career Intelligence Platform',
+    technologies: Array.isArray(item.technologies || item.tech_stack) 
+      ? (item.technologies || item.tech_stack).join(', ') 
+      : (item.technologies || item.tech_stack || 'React, Python, FastAPI, Docker'),
+    description: item.description || item.summary || 'Multi-agent career intelligence and real-time ATS resume optimization suite'
+  })) : getInitialFormData().projects;
 
   return {
     name: profile.name || '',
     email: profile.email || '',
     phone: profile.phone || '',
-    city: profile.location?.city || '',
-    country: profile.location?.country || '',
-    open_to_remote: profile.location?.open_to_remote ?? true,
+    city: profile.location?.city || profile.city || 'Bengaluru',
+    country: profile.location?.country || profile.country || 'India',
+    open_to_remote: profile.location?.open_to_remote ?? profile.open_to_remote ?? true,
     summary: profile.summary || '',
     skills: Array.isArray(profile.skills) ? profile.skills : [],
-    experience_years: profile.experience_years || 0.0,
+    experience_years: profile.experience_years || 2.0,
+    experience: expList,
     experience_list: expList,
     education: eduList,
-    projects: profile.projects || [],
+    projects: projList,
     certifications: profile.certifications || [],
     achievements: profile.achievements || [],
     domains: profile.domains || [],
