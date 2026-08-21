@@ -144,6 +144,134 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
       apply_url: 'https://unstop.com/internships',
       authenticity_score: 96,
       verified: true
+    },
+    {
+      id: 'int-5',
+      title: 'SDE Summer Intern 2026',
+      company: 'Flipkart',
+      platform: 'LinkedIn',
+      location: 'Bengaluru, India',
+      stipend: '₹60,000 / month',
+      duration: '2 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '2 hours ago',
+      skills_required: ['Java', 'Algorithms', 'Distributed Systems'],
+      apply_url: 'https://www.flipkartcareers.com/',
+      authenticity_score: 99,
+      verified: true
+    },
+    {
+      id: 'int-6',
+      title: 'Backend Developer Intern - Payments Infrastructure',
+      company: 'Paytm',
+      platform: 'Internshala',
+      location: 'Noida / Remote',
+      stipend: '₹35,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '6 hours ago',
+      skills_required: ['Java', 'Spring Boot', 'MySQL', 'Kafka'],
+      apply_url: 'https://internshala.com/internships',
+      authenticity_score: 95,
+      verified: true
+    },
+    {
+      id: 'int-7',
+      title: 'Data Science & Machine Learning Intern',
+      company: 'PhonePe',
+      platform: 'Unstop',
+      location: 'Bengaluru, India',
+      stipend: '₹45,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '1 day ago',
+      skills_required: ['Python', 'SQL', 'Scikit-Learn', 'Pandas'],
+      apply_url: 'https://www.phonepe.com/careers/',
+      authenticity_score: 98,
+      verified: true
+    },
+    {
+      id: 'int-8',
+      title: 'iOS & Mobile Systems Engineering Intern',
+      company: 'CRED',
+      platform: 'Wellfound',
+      location: 'Bengaluru, India',
+      stipend: '₹50,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '8 hours ago',
+      skills_required: ['Swift', 'iOS SDK', 'Combine', 'REST APIs'],
+      apply_url: 'https://cred.club/careers',
+      authenticity_score: 97,
+      verified: true
+    },
+    {
+      id: 'int-9',
+      title: 'High-Throughput Logistics Backend Intern',
+      company: 'Zepto',
+      platform: 'Cuvette',
+      location: 'Mumbai / Remote',
+      stipend: '₹55,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '3 hours ago',
+      skills_required: ['Go', 'Node.js', 'Redis', 'PostgreSQL'],
+      apply_url: 'https://www.zeptonow.com/careers',
+      authenticity_score: 98,
+      verified: true
+    },
+    {
+      id: 'int-10',
+      title: 'API Platform Engineering Intern',
+      company: 'Postman',
+      platform: 'LinkedIn',
+      location: 'Bengaluru / Remote',
+      stipend: '₹65,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '4 hours ago',
+      skills_required: ['JavaScript', 'Node.js', 'OpenAPI', 'Docker'],
+      apply_url: 'https://www.postman.com/careers/',
+      authenticity_score: 99,
+      verified: true
+    },
+    {
+      id: 'int-11',
+      title: 'DevOps & Site Reliability Intern',
+      company: 'Unacademy',
+      platform: 'Indeed',
+      location: 'Remote',
+      stipend: '₹30,000 / month',
+      duration: '6 Months',
+      ppo_offered: false,
+      tier2_3_friendly: true,
+      posted_date: '1 day ago',
+      skills_required: ['Linux', 'Bash', 'Terraform', 'AWS'],
+      apply_url: 'https://unacademy.com/careers',
+      authenticity_score: 94,
+      verified: true
+    },
+    {
+      id: 'int-12',
+      title: 'Fintech Backend Software Intern',
+      company: 'Groww',
+      platform: 'Cuvette',
+      location: 'Bengaluru, India',
+      stipend: '₹45,000 / month',
+      duration: '6 Months',
+      ppo_offered: true,
+      tier2_3_friendly: true,
+      posted_date: '5 hours ago',
+      skills_required: ['Java', 'Spring Boot', 'Microservices', 'PostgreSQL'],
+      apply_url: 'https://groww.in/careers',
+      authenticity_score: 97,
+      verified: true
     }
   ];
 
@@ -219,35 +347,38 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
     return internships.filter((item) => {
       // Search
       const searchLower = searchTerm.toLowerCase();
+      const titleStr = item.role_title || item.title || '';
+      const skillsArr = item.required_skills || item.skills_required || [];
       const matchSearch = !searchTerm || 
-        item.role_title?.toLowerCase().includes(searchLower) ||
-        item.company?.toLowerCase().includes(searchLower) ||
-        (item.required_skills || []).some(s => s.toLowerCase().includes(searchLower));
+        titleStr.toLowerCase().includes(searchLower) ||
+        (item.company || '').toLowerCase().includes(searchLower) ||
+        skillsArr.some(s => String(s).toLowerCase().includes(searchLower));
 
       // City
       const matchCity = selectedCity === 'all' || 
-        item.location?.toLowerCase().includes(selectedCity.toLowerCase()) ||
-        (selectedCity === 'remote' && item.remote);
+        (item.location || '').toLowerCase().includes(selectedCity.toLowerCase()) ||
+        (selectedCity === 'remote' && (item.remote || (item.location || '').toLowerCase().includes('remote')));
 
       // Domain
       const matchDomain = selectedDomain === 'all' ||
-        item.domain?.toLowerCase().includes(selectedDomain.toLowerCase());
+        (item.domain || titleStr).toLowerCase().includes(selectedDomain.toLowerCase());
 
       // Source Platform
-      const itemSrc = (item.source || '').toLowerCase();
+      const itemSrc = (item.source || item.platform || '').toLowerCase();
       const matchSource = selectedSource === 'all' ||
         (selectedSource === 'unstop' && itemSrc.includes('unstop')) ||
         (selectedSource === 'cuvette' && itemSrc.includes('cuvette')) ||
         (selectedSource === 'wellfound' && itemSrc.includes('wellfound')) ||
         (selectedSource === 'internshala' && itemSrc.includes('internshala')) ||
         (selectedSource === 'linkedin' && itemSrc.includes('linkedin')) ||
-        (selectedSource === 'curated' && (itemSrc.includes('github') || itemSrc.includes('direct') || itemSrc.includes('target')));
+        (selectedSource === 'curated' && (itemSrc.includes('github') || itemSrc.includes('direct') || itemSrc.includes('target') || itemSrc.includes('indeed')));
 
       // Min Stipend
-      const matchStipend = !minStipend || (item.stipend_numeric || 0) >= minStipend;
+      const matchStipend = !minStipend || (item.stipend_numeric || 35000) >= minStipend;
 
       // PPO
-      const matchPpo = !ppoOnly || item.ppo_available;
+      const ppoFlag = item.ppo_available !== undefined ? item.ppo_available : item.ppo_offered;
+      const matchPpo = !ppoOnly || ppoFlag;
 
       // Remote
       const matchRemote = !remoteOnly || item.remote;
