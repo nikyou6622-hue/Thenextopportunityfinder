@@ -1761,7 +1761,7 @@ export default function ResumeAnalyzer({
             </SectionCard>
 
             {/* Technical Skills */}
-            <SectionCard title="Core Skills & Competencies" icon={Award} count={formData.skills.length}>
+            <SectionCard title="Core Skills & Competencies" icon={Award} count={(formData?.skills || []).length}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <input 
                   type="text" 
@@ -1780,7 +1780,7 @@ export default function ResumeAnalyzer({
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {formData.skills.map((skill, idx) => (
+                {(formData?.skills || []).map((skill, idx) => (
                   <span key={idx} style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '4px 8px', borderRadius: '10px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                     {skill}
                     <X 
@@ -1798,7 +1798,7 @@ export default function ResumeAnalyzer({
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                   {COMMON_SUGGESTED_SKILLS
-                    .filter(s => !formData.skills.includes(s))
+                    .filter(s => !(formData?.skills || []).includes(s))
                     .slice(0, 8)
                     .map((skill, idx) => (
                       <button 
@@ -1817,21 +1817,21 @@ export default function ResumeAnalyzer({
             <SectionCard 
               title="Experience" 
               icon={Building}
-              count={formData.experience_list.length}
+              count={(formData?.experience_list || formData?.experience || []).length}
               action={handleAddExperience}
               actionLabel="Add Role"
             >
-              {formData.experience_list.map((exp, idx) => {
-                const descLower = (exp.description || '').toLowerCase();
+              {(formData?.experience_list || formData?.experience || []).map((exp, idx) => {
+                const descLower = String(exp.description || exp.bullets || '').toLowerCase();
                 const hasVerbs = ACTION_VERBS.some(v => descLower.includes(v));
-                const hasMetrics = /\b\d+(?:[\.,]\d+)?%?|[₹$]\d+|\b\d+\+\b/.test(exp.description || '');
+                const hasMetrics = /\b\d+(?:[\.,]\d+)?%?|[₹$]\d+|\b\d+\+\b/.test(descLower);
 
                 return (
                   <div key={idx} style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.08)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
                       <input 
                         type="text" 
-                        value={exp.title || ''}
+                        value={exp.title || exp.role || ''}
                         onChange={(e) => handleUpdateExperience(idx, 'title', e.target.value)}
                         placeholder="Job Title"
                         style={{ flex: 1, minWidth: '110px', padding: '7px 9px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem' }}
@@ -1853,7 +1853,7 @@ export default function ResumeAnalyzer({
 
                     <textarea 
                       rows={2}
-                      value={exp.description || ''}
+                      value={exp.description || (Array.isArray(exp.bullets) ? exp.bullets.join('\n') : exp.bullets || '')}
                       onChange={(e) => handleUpdateExperience(idx, 'description', e.target.value)}
                       placeholder="Achievements... (e.g. Engineered REST APIs with FastAPI, reducing latency by 35%.)"
                       style={{ width: '100%', padding: '7px 9px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#e2e8f0', fontSize: '0.8rem', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
@@ -1876,7 +1876,7 @@ export default function ResumeAnalyzer({
             <SectionCard 
               title="Education" 
               icon={GraduationCap}
-              count={formData.education.length}
+              count={(formData?.education || []).length}
               action={handleAddEducation}
               actionLabel="Add Education"
             >
@@ -3424,7 +3424,7 @@ export default function ResumeAnalyzer({
 
               {/* Summary word count */}
               <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
-                <strong>Summary length:</strong> {formData.summary.length} chars (Baseline: {initialProfileRef.current.summary.length} chars)
+                <strong>Summary length:</strong> {formData?.summary?.length || 0} chars (Baseline: {initialProfileRef.current?.summary?.length || 0} chars)
               </div>
             </div>
 
