@@ -875,8 +875,8 @@ def fetch_capgemini_postings(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any
 
 
 def get_active_companies() -> List[Dict[str, Any]]:
-    """Get all configured enterprise MNC companies."""
-    return MNC_TARGET_CONFIG
+    """Get active enterprise MNC company target adapters."""
+    return [c for c in MNC_TARGET_CONFIG if c.get("data_access_method") != "unreliable"]
 
 
 def adapter_health_check(config: Dict[str, Any]) -> Dict[str, Any]:

@@ -191,8 +191,8 @@ async def check_robots_allowed(url: str) -> Tuple[bool, str]:
                 allowed = True
                 reason = f"http_{response.status_code}"
     except Exception as e:
-        allowed = True
-        reason = f"fallback_error: {type(e).__name__}"
+        allowed = False
+        reason = f"error: {type(e).__name__}"
     
     _robots_cache.set(cache_key, (allowed, reason))
     return allowed, reason
