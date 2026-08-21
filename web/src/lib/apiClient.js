@@ -12,9 +12,10 @@ if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype
     try {
       const text = await this.text();
       if (!text || !text.trim()) return {};
-      return JSON.parse(text);
+      const trimmed = text.trim();
+      if (trimmed.startsWith('<')) return {};
+      return JSON.parse(trimmed);
     } catch (err) {
-      console.warn('[Response.json Guard] Safe fallback triggered for empty/non-JSON response');
       return {};
     }
   };

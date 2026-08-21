@@ -380,11 +380,14 @@ export default function App() {
   const handleDiscover = async () => {
     setLoading(true);
     try {
-      await fetch('/api/jobs/discover', { method: 'POST' });
-      await loadData();
+      const res = await apiFetch('/api/jobs/discover', { method: 'POST' });
+      if (res && res.ok) {
+        await loadData();
+      }
       setActiveTab('jobs');
     } catch (e) {
-      console.error("Discover jobs error:", e);
+      console.warn("Discover jobs notice:", e);
+      setActiveTab('jobs');
     } finally {
       setLoading(false);
     }
@@ -393,13 +396,14 @@ export default function App() {
   const handleTailor = async (matchId) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/applications/tailor/${matchId}`, { method: 'POST' });
-      if (res.ok) {
+      const res = await apiFetch(`/api/applications/tailor/${matchId}`, { method: 'POST' });
+      if (res && res.ok) {
         await loadData();
-        setActiveTab('tailor');
       }
+      setActiveTab('tailor');
     } catch (e) {
-      console.error("Tailor application error:", e);
+      console.warn("Tailor application notice:", e);
+      setActiveTab('tailor');
     } finally {
       setLoading(false);
     }
