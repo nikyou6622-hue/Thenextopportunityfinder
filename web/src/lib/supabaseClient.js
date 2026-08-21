@@ -52,6 +52,27 @@ export async function saveProfileToSupabase(profile) {
   return profile;
 }
 
+export async function fetchProfileFromSupabase() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/candidate_profiles?order=updated_at.desc&limit=1`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+    }
+  } catch (e) {
+    console.warn('[Supabase Cloud Fetch Notice]:', e);
+  }
+  return null;
+}
+
 export function loadProfileFromLocal() {
   try {
     const raw = localStorage.getItem('nof_user_profile');

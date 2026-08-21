@@ -14,7 +14,7 @@ import BrandedLoadingState from './components/characters/BrandedLoadingState';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProPaywallModal from './components/ProPaywallModal';
 import apiFetch, { safeJson } from './lib/apiClient';
-import { saveProfileToSupabase, loadProfileFromLocal } from './lib/supabaseClient';
+import { saveProfileToSupabase, loadProfileFromLocal, fetchProfileFromSupabase } from './lib/supabaseClient';
 
 // Dynamically code-split studio tabs to keep initial JS bundle under 200KB
 const OverviewDashboard = lazy(() => import('./components/OverviewDashboard'));
@@ -250,11 +250,13 @@ export default function App() {
         if (profData && (profData.name || profData.skills)) {
           setProfile(profData);
         } else {
-          const localProf = loadProfileFromLocal();
+          const cloudProf = await fetchProfileFromSupabase();
+          const localProf = cloudProf || loadProfileFromLocal();
           if (localProf) setProfile(localProf);
         }
       } else {
-        const localProf = loadProfileFromLocal();
+        const cloudProf = await fetchProfileFromSupabase();
+        const localProf = cloudProf || loadProfileFromLocal();
         if (localProf) setProfile(localProf);
       }
 
