@@ -49,4 +49,5 @@ desktop.ini
 # Logs & Temp
 *.log
 scratch/
+/public/assets/
 
