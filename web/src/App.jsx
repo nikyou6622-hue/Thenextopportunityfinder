@@ -38,6 +38,8 @@ const SystemStatusPage = lazy(() => import('./components/SystemStatusPage'));
 const SkillAssessmentStudio = lazy(() => import('./components/SkillAssessmentStudio'));
 const CommunityForumView = lazy(() => import('./components/CommunityForumView'));
 const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+
 const DEFAULT_FALLBACK_PROFILE = {
   id: 'usr_sample_01',
   name: 'Aditya Tamta',
