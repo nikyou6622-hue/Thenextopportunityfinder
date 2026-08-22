@@ -87,7 +87,48 @@ export default function App() {
     return 'home';
   };
 
+  // ALL STATE DECLARATIONS AT THE VERY TOP (Prevents TDZ ReferenceError on minified variable access)
   const [activeTab, setActiveTabState] = useState(getInitialTab);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nof_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [profile, setProfile] = useState(() => {
+    return loadProfileFromLocal() || DEFAULT_FALLBACK_PROFILE;
+  });
+  const [matches, setMatches] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [confettiActive, setConfettiActive] = useState(false);
+  const [selectedPrepAppId, setSelectedPrepAppId] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userSubscription, setUserSubscription] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nof_user_sub');
+      return saved ? JSON.parse(saved) : { tier: 'free', is_pro: false, scrapes_used: 0, scrapes_remaining: 5, free_limit: 5 };
+    } catch {
+      return { tier: 'free', is_pro: false, scrapes_used: 0, scrapes_remaining: 5, free_limit: 5 };
+    }
+  });
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [selectedJobDetails, setSelectedJobDetails] = useState(null);
+  const [selectedJobApply, setSelectedJobApply] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [searchFiltersOpen, setSearchFiltersOpen] = useState(false);
+  const [selectedProblemForSandbox, setSelectedProblemForSandbox] = useState(null);
+  const [savedJobs, setSavedJobs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nof_saved_jobs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const setActiveTab = (tab, keepQuery = false) => {
     setActiveTabState(tab);
@@ -130,33 +171,10 @@ export default function App() {
     };
   }, []);
 
-  const [selectedPrepAppId, setSelectedPrepAppId] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profile, setProfile] = useState(() => {
-    return loadProfileFromLocal() || DEFAULT_FALLBACK_PROFILE;
-  });
-  const [matches, setMatches] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [metrics, setMetrics] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [confettiActive, setConfettiActive] = useState(false);
-
   const handleTriggerCelebration = () => {
     SoundSystem.playSuccess();
     setConfettiActive(true);
   };
-
-  // Subscription & Monetization State (5 Free Scrapes & ₹99 Pro Tier)
-  const [userSubscription, setUserSubscription] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nof_user_sub');
-      return saved ? JSON.parse(saved) : { tier: 'free', is_pro: false, scrapes_used: 0, scrapes_remaining: 5, free_limit: 5 };
-    } catch {
-      return { tier: 'free', is_pro: false, scrapes_used: 0, scrapes_remaining: 5, free_limit: 5 };
-    }
-  });
-
-  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -220,29 +238,7 @@ export default function App() {
     handleTriggerCelebration();
   };
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nof_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  // NextDream / NextOppr UI State
-  const [selectedJobDetails, setSelectedJobDetails] = useState(null);
-  const [selectedJobApply, setSelectedJobApply] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [searchFiltersOpen, setSearchFiltersOpen] = useState(false);
-  const [selectedProblemForSandbox, setSelectedProblemForSandbox] = useState(null);
-  const [savedJobs, setSavedJobs] = useState(() => {
-    try {
-      const saved = localStorage.getItem('nof_saved_jobs');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // NextDream / NextOppr UI Handlers
 
   const handleToggleSaveJob = (job) => {
     setSavedJobs((prev) => {
