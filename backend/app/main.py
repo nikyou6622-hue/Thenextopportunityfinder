@@ -77,8 +77,11 @@ from backend.app.data_source_registry import is_source_compliant, DATA_SOURCE_RE
 
 logger = logging.getLogger(__name__)
 
-# Initialize DB tables
-Base.metadata.create_all(bind=engine)
+# Initialize DB tables with serverless exception protection
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logger.warning(f"Database table initialization notice: {e}")
 
 def auto_migrate_sqlite():
     try:
@@ -231,9 +234,16 @@ async def daily_dpdp_retention_purge_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    _ensure_default_admin_account()
-    asyncio.create_task(daily_mnc_scanner_loop())
-    asyncio.create_task(daily_dpdp_retention_purge_loop())
+    try:
+        _ensure_default_admin_account()
+    except Exception as e:
+        logger.warning(f"Startup admin account initialization notice: {e}")
+    if not os.getenv("VERCEL"):
+        try:
+            asyncio.create_task(daily_mnc_scanner_loop())
+            asyncio.create_task(daily_dpdp_retention_purge_loop())
+        except Exception as e:
+            logger.warning(f"Background task startup notice: {e}")
 
 # Response compression middleware for high-performance payload delivery
 app.add_middleware(GZipMiddleware, minimum_size=1000)
