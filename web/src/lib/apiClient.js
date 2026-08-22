@@ -21,6 +21,10 @@ if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype
   };
 }
 
+export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
+  : '';
+
 export async function apiFetch(url, options = {}) {
   const defaultHeaders = {
     'Accept': 'application/json', ...options.headers
@@ -32,8 +36,12 @@ export async function apiFetch(url, options = {}) {
     credentials: options.credentials || 'include',
   };
 
+  const resolvedUrl = (url.startsWith('/api') && API_BASE_URL)
+    ? `${API_BASE_URL}${url}`
+    : url;
+
   try {
-    const response = await fetch(url, fetchOptions);
+    const response = await fetch(resolvedUrl, fetchOptions);
 
     // 405 Method Not Allowed / 404 Not Found interceptor for static Vercel host
     if (response.status === 405 || response.status === 404) {

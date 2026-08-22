@@ -241,12 +241,13 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # CORS middleware - restrict to configured frontend origins with strict production lockdown
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 default_origins = [
-    "http://localhost:3001",
-    "http://localhost:3000",
+    "https://thenextopportunityfinder.vercel.app",
     "http://localhost:5173",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://localhost:3001",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
     "https://thenextopportunityfind.io",
     "https://thenextopportunity.com"
 ]
@@ -608,7 +609,7 @@ def auth_send_otp(req: SendOtpRequest, background_tasks: BackgroundTasks = None)
         message=f"6-digit authentication token generated and sent to {email_clean}.",
         email=email_clean,
         expires_in=600,
-        demo_otp=None
+        demo_otp=otp_code if ENVIRONMENT != "production" else None
     )
 
 @app.post("/api/auth/verify-otp", response_model=AuthResponse)

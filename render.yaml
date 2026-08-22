@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: thenextopportunityfinder-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://thenextopportunityfinder.vercel.app,http://localhost:5173
+      - key: DATABASE_URL
+        value: postgresql://postgres:SupabaseSecurePass2026!@db.hoobggdrjghfqxgjfoqf.supabase.co:5432/postgres
+    healthCheckPath: /healthz
