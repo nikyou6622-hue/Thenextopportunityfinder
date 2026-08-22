@@ -2,7 +2,15 @@ import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./nextoppr.db")
+DEFAULT_SUPABASE_URL = "postgresql://postgres:SupabaseSecurePass2026!@db.hoobggdrjghfqxgjfoqf.supabase.co:5432/postgres"
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    # Enforce Supabase Postgres Cloud on cloud deployments
+    if os.getenv("VERCEL") or os.getenv("RENDER"):
+        SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
+    else:
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL or "sqlite:///./nextoppr.db"
+
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
