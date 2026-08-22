@@ -38,7 +38,38 @@ const SystemStatusPage = lazy(() => import('./components/SystemStatusPage'));
 const SkillAssessmentStudio = lazy(() => import('./components/SkillAssessmentStudio'));
 const CommunityForumView = lazy(() => import('./components/CommunityForumView'));
 const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const DEFAULT_FALLBACK_PROFILE = {
+  id: 'usr_sample_01',
+  name: 'Aditya Tamta',
+  email: 'aditya.tamta@dev.io',
+  phone: '+91 98765 43210',
+  city: 'Bengaluru',
+  country: 'India',
+  summary: 'Experienced tech professional specializing in full-stack web applications, scalable backend microservices, and system architecture.',
+  skills: ['React', 'JavaScript', 'Python', 'FastAPI', 'Node.js', 'PostgreSQL', 'Docker', 'Git'],
+  experience_list: [
+    {
+      title: 'Backend & Systems Engineer',
+      company: 'Enterprise Tech Solutions',
+      dates: '2023 - Present',
+      description: 'Engineered REST APIs with FastAPI, reducing latency by 35%. Architected high-throughput microservices using React, Python, and PostgreSQL.'
+    }
+  ],
+  education: [
+    {
+      degree: 'B.Tech in Computer Science & Engineering',
+      institution: 'Institute of Technology',
+      year: '2023'
+    }
+  ],
+  projects: [
+    {
+      title: 'React AI Career Intelligence Platform',
+      description: 'High-throughput real-time resume optimization and ATS scanner built with React, Python, and FastAPI.'
+    }
+  ],
+  ats_score: 91
+};
 
 export default function App() {
   const getInitialTab = () => {
@@ -99,7 +130,9 @@ export default function App() {
 
   const [selectedPrepAppId, setSelectedPrepAppId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(() => {
+    return loadProfileFromLocal() || DEFAULT_FALLBACK_PROFILE;
+  });
   const [matches, setMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -241,6 +274,39 @@ export default function App() {
     });
   };
 
+const DEFAULT_FALLBACK_PROFILE = {
+  id: 'usr_sample_01',
+  name: 'Aditya Tamta',
+  email: 'aditya.tamta@dev.io',
+  phone: '+91 98765 43210',
+  city: 'Bengaluru',
+  country: 'India',
+  summary: 'Experienced tech professional specializing in full-stack web applications, scalable backend microservices, and system architecture.',
+  skills: ['React', 'JavaScript', 'Python', 'FastAPI', 'Node.js', 'PostgreSQL', 'Docker', 'Git'],
+  experience_list: [
+    {
+      title: 'Backend & Systems Engineer',
+      company: 'Enterprise Tech Solutions',
+      dates: '2023 - Present',
+      description: 'Engineered REST APIs with FastAPI, reducing latency by 35%. Architected high-throughput microservices using React, Python, and PostgreSQL.'
+    }
+  ],
+  education: [
+    {
+      degree: 'B.Tech in Computer Science & Engineering',
+      institution: 'Institute of Technology',
+      year: '2023'
+    }
+  ],
+  projects: [
+    {
+      title: 'React AI Career Intelligence Platform',
+      description: 'High-throughput real-time resume optimization and ATS scanner built with React, Python, and FastAPI.'
+    }
+  ],
+  ats_score: 91
+};
+
   const loadData = async () => {
     try {
       // 1. Profile
@@ -252,12 +318,12 @@ export default function App() {
         } else {
           const cloudProf = await fetchProfileFromSupabase();
           const localProf = cloudProf || loadProfileFromLocal();
-          if (localProf) setProfile(localProf);
+          setProfile(localProf || DEFAULT_FALLBACK_PROFILE);
         }
       } else {
         const cloudProf = await fetchProfileFromSupabase();
         const localProf = cloudProf || loadProfileFromLocal();
-        if (localProf) setProfile(localProf);
+        setProfile(localProf || DEFAULT_FALLBACK_PROFILE);
       }
 
       // 2. Matches
@@ -305,10 +371,21 @@ export default function App() {
           if (typeof raw === 'string') {
             resolve(raw);
           } else {
-            const decoder = new TextDecoder('utf-8');
-            const str = decoder.decode(raw);
-            const clean = str.replace(/[^\x20-\x7E\n\r\t]/g, ' ');
-            resolve(clean);
+            try {
+              const bytes = new Uint8Array(raw);
+              let printable = '';
+              for (let i = 0; i < bytes.length; i++) {
+                const b = bytes[i];
+                if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9) {
+                  printable += String.fromCharCode(b);
+                } else {
+                  printable += ' ';
+                }
+              }
+              resolve(printable.replace(/\s+/g, ' '));
+            } catch {
+              resolve('');
+            }
           }
         };
         reader.onerror = () => resolve('');
