@@ -124,7 +124,7 @@ const normalizeProfileData = (profile) => {
     bullets: Array.isArray(item.bullets) 
       ? item.bullets.join('\n') 
       : (typeof item.bullets === 'string' ? item.bullets : (item.description || 'Engineered scalable web systems and API microservices.'))
-  })) : getInitialFormData().experience;
+  })) : [];
 
   const rawEdu = profile.education_list || profile.education || [];
   const eduList = rawEdu.length > 0 ? rawEdu.map(item => ({
@@ -132,7 +132,7 @@ const normalizeProfileData = (profile) => {
     field: item.field || item.major || 'Computer Science & Engineering',
     institution: item.institution || item.college || item.university || 'Institute of Technology',
     year: item.year || item.grad_year || '2023'
-  })) : getInitialFormData().education;
+  })) : [];
 
   const rawProj = profile.projects || [];
   const projList = rawProj.length > 0 ? rawProj.map(item => ({
@@ -141,7 +141,7 @@ const normalizeProfileData = (profile) => {
       ? (item.technologies || item.tech_stack).join(', ') 
       : (item.technologies || item.tech_stack || 'React, Python, FastAPI, Docker'),
     description: item.description || item.summary || 'Multi-agent career intelligence and real-time ATS resume optimization suite'
-  })) : getInitialFormData().projects;
+  })) : [];
 
   return {
     name: profile.name || '',
