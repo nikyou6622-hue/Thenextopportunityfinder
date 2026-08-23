@@ -1079,24 +1079,28 @@ export default function ResumeAnalyzer({
   }, [onUpload]);
 
   // Export handlers
-  const getMissingSections = useCallback(() => {
-    const missing = [];
-    if (!formData.name?.trim()) missing.push("Full Name");
-    if (!formData.summary?.trim()) missing.push("Professional Summary");
-    if (!formData.skills || formData.skills.length < 3) missing.push("Core Skills (≥3)");
-    if (!formData.experience_list || formData.experience_list.length === 0) missing.push("Work Experience");
-    if (!formData.education || formData.education.length === 0) missing.push("Education");
-    return missing;
-  }, [formData]);
+  const handleExportMarkdown = useCallback(() => {
+    let md = `# ${formData.name || '[Your Name]'}\n`;
+    md += `**Email:** ${formData.email || '[Your Email]'} | **Phone:** ${formData.phone || '[Your Phone]'} | **Location:** ${formData.city || '[City]'}, ${formData.country || '[Country]'} (Remote: ${formData.open_to_remote ? 'Yes' : 'No'})\n\n`;
+    md += `## Professional Summary\n${formData.summary || '[Add description]'}\n\n`;
+    md += `## Core Skills\n${(formData.skills && formData.skills.length > 0 ? formData.skills.join(', ') : '[Add skills]')}\n\n`;
+    md += `## Work Experience\n`;
+    (formData.experience_list || []).forEach(exp => {
+      md += `### ${exp.title || '[Role Title]'} — ${exp.company || '[Company Name]'} (${exp.duration_months || 0} mos)\n${exp.description || '[Add description]'}\n\n`;
+    });
+    md += `## Education\n`;
+    (formData.education || []).forEach(edu => {
+      md += `- **${edu.degree || '[Degree]'} in ${edu.field || '[Field of Study]'}** (${edu.institution || '[Institution]'})\n`;
+    });
 
-  const handleTriggerExport = useCallback((format) => {
-    const missing = getMissingSections();
-    if (missing.length > 0) {
-      setExportPreflightModal({ format, missing });
-    } else {
-      executeDownload(format);
-    }
-  }, [getMissingSections]);
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(formData.name || 'Resume').replace(/\s+/g, '_')}_${selectedTemplateId.toUpperCase()}_ATS.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [formData, selectedTemplateId]);
 
   const executeDownload = useCallback((format) => {
     const fmt = (format || 'pdf').toLowerCase();
@@ -1138,28 +1142,24 @@ export default function ResumeAnalyzer({
     showToast(`Exported ${fmt.toUpperCase()} Resume successfully!`, 'success');
   }, [formData, selectedTemplateId, handleExportMarkdown, showToast]);
 
-  const handleExportMarkdown = useCallback(() => {
-    let md = `# ${formData.name || '[Your Name]'}\n`;
-    md += `**Email:** ${formData.email || '[Your Email]'} | **Phone:** ${formData.phone || '[Your Phone]'} | **Location:** ${formData.city || '[City]'}, ${formData.country || '[Country]'} (Remote: ${formData.open_to_remote ? 'Yes' : 'No'})\n\n`;
-    md += `## Professional Summary\n${formData.summary || '[Add description]'}\n\n`;
-    md += `## Core Skills\n${(formData.skills && formData.skills.length > 0 ? formData.skills.join(', ') : '[Add skills]')}\n\n`;
-    md += `## Work Experience\n`;
-    (formData.experience_list || []).forEach(exp => {
-      md += `### ${exp.title || '[Role Title]'} — ${exp.company || '[Company Name]'} (${exp.duration_months || 0} mos)\n${exp.description || '[Add description]'}\n\n`;
-    });
-    md += `## Education\n`;
-    (formData.education || []).forEach(edu => {
-      md += `- **${edu.degree || '[Degree]'} in ${edu.field || '[Field of Study]'}** (${edu.institution || '[Institution]'})\n`;
-    });
+  const getMissingSections = useCallback(() => {
+    const missing = [];
+    if (!formData.name?.trim()) missing.push("Full Name");
+    if (!formData.summary?.trim()) missing.push("Professional Summary");
+    if (!formData.skills || formData.skills.length < 3) missing.push("Core Skills (≥3)");
+    if (!formData.experience_list || formData.experience_list.length === 0) missing.push("Work Experience");
+    if (!formData.education || formData.education.length === 0) missing.push("Education");
+    return missing;
+  }, [formData]);
 
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(formData.name || 'Resume').replace(/\s+/g, '_')}_${selectedTemplateId.toUpperCase()}_ATS.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [formData, selectedTemplateId]);
+  const handleTriggerExport = useCallback((format) => {
+    const missing = getMissingSections();
+    if (missing.length > 0) {
+      setExportPreflightModal({ format, missing });
+    } else {
+      executeDownload(format);
+    }
+  }, [getMissingSections, executeDownload]);
 
   // Load Template Sample Preset Data (From resume-templates configuration)
   const handleLoadSamplePreset = useCallback((sampleData, templateId) => {
