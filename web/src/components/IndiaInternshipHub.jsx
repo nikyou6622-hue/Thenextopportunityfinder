@@ -345,48 +345,72 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
   // Filtered internships
   const filteredList = useMemo(() => {
-    return internships.filter((item) => {
+    const listToFilter = (Array.isArray(internships) && internships.length > 0) ? internships : DEFAULT_INTERNSHIPS;
+    return listToFilter.filter((item) => {
       // Search
-      const searchLower = searchTerm.toLowerCase();
-      const titleStr = item.role_title || item.title || '';
-      const skillsArr = item.required_skills || item.skills_required || [];
-      const matchSearch = !searchTerm || 
-        titleStr.toLowerCase().includes(searchLower) ||
-        (item.company || '').toLowerCase().includes(searchLower) ||
-        skillsArr.some(s => String(s).toLowerCase().includes(searchLower));
+      const searchLower = searchTerm.toLowerCase().trim();
+      const titleStr = (item.role_title || item.title || '').toLowerCase();
+      const companyStr = (item.company || '').toLowerCase();
+      const skillsArr = (item.required_skills || item.skills_required || []).map(s => String(s).toLowerCase());
+      
+      const matchSearch = !searchLower || 
+        titleStr.includes(searchLower) ||
+        companyStr.includes(searchLower) ||
+        skillsArr.some(s => s.includes(searchLower));
 
       // City
-      const matchCity = selectedCity === 'all' || 
-        (item.location || '').toLowerCase().includes(selectedCity.toLowerCase()) ||
-        (selectedCity === 'remote' && (item.remote || (item.location || '').toLowerCase().includes('remote')));
+      const locLower = (item.location || '').toLowerCase();
+      let matchCity = selectedCity === 'all';
+      if (!matchCity) {
+        if (selectedCity === 'remote') {
+          matchCity = locLower.includes('remote') || item.remote === true;
+        } else if (selectedCity === 'gurugram' || selectedCity === 'noida' || selectedCity === 'delhi') {
+          matchCity = locLower.includes('gurugram') || locLower.includes('noida') || locLower.includes('delhi') || locLower.includes('ncr');
+        } else {
+          matchCity = locLower.includes(selectedCity.toLowerCase());
+        }
+      }
 
       // Domain
-      const matchDomain = selectedDomain === 'all' ||
-        (item.domain || titleStr).toLowerCase().includes(selectedDomain.toLowerCase());
+      let matchDomain = selectedDomain === 'all';
+      if (!matchDomain) {
+        const domLower = selectedDomain.toLowerCase();
+        const fullText = `${item.domain || ''} ${titleStr} ${skillsArr.join(' ')}`.toLowerCase();
+        if (domLower === 'backend') matchDomain = fullText.includes('backend') || fullText.includes('api') || fullText.includes('node') || fullText.includes('python') || fullText.includes('java') || fullText.includes('go');
+        else if (domLower === 'frontend') matchDomain = fullText.includes('front') || fullText.includes('react') || fullText.includes('ui');
+        else if (domLower === 'ai') matchDomain = fullText.includes('ai') || fullText.includes('ml') || fullText.includes('data') || fullText.includes('llm');
+        else if (domLower === 'fullstack') matchDomain = fullText.includes('full') || fullText.includes('web') || fullText.includes('stack');
+        else if (domLower === 'devops') matchDomain = fullText.includes('cloud') || fullText.includes('devops') || fullText.includes('docker') || fullText.includes('aws');
+        else if (domLower === 'mobile') matchDomain = fullText.includes('mobile') || fullText.includes('ios') || fullText.includes('android') || fullText.includes('swift');
+        else matchDomain = fullText.includes(domLower);
+      }
 
       // Source Platform
       const itemSrc = (item.source || item.platform || '').toLowerCase();
-      const matchSource = selectedSource === 'all' ||
-        (selectedSource === 'unstop' && itemSrc.includes('unstop')) ||
-        (selectedSource === 'cuvette' && itemSrc.includes('cuvette')) ||
-        (selectedSource === 'wellfound' && itemSrc.includes('wellfound')) ||
-        (selectedSource === 'internshala' && itemSrc.includes('internshala')) ||
-        (selectedSource === 'linkedin' && itemSrc.includes('linkedin')) ||
-        (selectedSource === 'curated' && (itemSrc.includes('github') || itemSrc.includes('direct') || itemSrc.includes('target') || itemSrc.includes('indeed')));
+      let matchSource = selectedSource === 'all';
+      if (!matchSource) {
+        if (selectedSource === 'unstop') matchSource = itemSrc.includes('unstop');
+        else if (selectedSource === 'cuvette') matchSource = itemSrc.includes('cuvette');
+        else if (selectedSource === 'wellfound') matchSource = itemSrc.includes('wellfound');
+        else if (selectedSource === 'internshala') matchSource = itemSrc.includes('internshala');
+        else if (selectedSource === 'linkedin') matchSource = itemSrc.includes('linkedin');
+        else if (selectedSource === 'curated') matchSource = itemSrc.includes('curated') || itemSrc.includes('mnc') || itemSrc.includes('github') || itemSrc.includes('google') || itemSrc.includes('microsoft');
+        else matchSource = itemSrc.includes(selectedSource.toLowerCase());
+      }
 
       // Min Stipend
       const matchStipend = !minStipend || (item.stipend_numeric || 35000) >= minStipend;
 
       // PPO
       const ppoFlag = item.ppo_available !== undefined ? item.ppo_available : item.ppo_offered;
-      const matchPpo = !ppoOnly || ppoFlag;
+      const matchPpo = !ppoOnly || Boolean(ppoFlag);
 
       // Remote
-      const matchRemote = !remoteOnly || item.remote;
+      const matchRemote = !remoteOnly || locLower.includes('remote') || Boolean(item.remote);
 
       return matchSearch && matchCity && matchDomain && matchSource && matchStipend && matchPpo && matchRemote;
     });
-  }, [internships, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly]);
+  }, [internships, DEFAULT_INTERNSHIPS, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly]);
 
   const getDynamicMatchScore = useCallback((item) => {
     if (!profile || !profile.skills || profile.skills.length === 0) {
