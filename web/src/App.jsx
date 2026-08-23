@@ -395,11 +395,11 @@ export default function App() {
     const cleanedFileBasename = fn.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
     const headerNameLine = textLines.find(l => 
       !l.includes('@') && 
-      !/\d{5,}/.test(l) && 
-      !/resume|cv|curriculum|profile|sample|document|pdf/i.test(l) && 
+      !/\d{3,}/.test(l) && 
+      !/resume|cv|curriculum|profile|sample|document|pdf|page|education|skills|experience/i.test(l) && 
       l.length >= 3 && 
       l.length <= 40 &&
-      /^[A-Za-z\s.'-]+$/.test(l)
+      /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$/.test(l)
     );
     const name = headerNameLine || (cleanedFileBasename && !/resume|sample|document|pdf/i.test(cleanedFileBasename) ? cleanedFileBasename : (currentUser?.full_name || 'Candidate Name'));
 
@@ -438,24 +438,35 @@ export default function App() {
     const expRegex = /([A-Z][A-Za-z0-9\s&/.-]+(?:Engineer|Developer|Architect|Manager|Lead|Intern|Analyst|Consultant))\s*(?:at|@|,|-|–)\s*([A-Z][A-Za-z0-9\s&.]+)/g;
     let match;
     while ((match = expRegex.exec(fileText)) !== null) {
-      expMatches.push({
-        title: match[1].trim(),
-        role: match[1].trim(),
-        company: match[2].trim().split('\n')[0],
-        dates: '2023 - Present',
-        description: `Delivered engineering milestones using ${finalSkills.slice(0, 3).join(', ') || 'core technologies'}.`
-      });
+      const roleTitle = match[1].trim();
+      const compName = match[2].trim().split('\n')[0];
+      if (roleTitle.length >= 4 && compName.length >= 2 && !/\b[a-z]\s+[a-z]\b/i.test(compName)) {
+        expMatches.push({
+          title: roleTitle,
+          role: roleTitle,
+          company: compName,
+          dates: '2023 - Present',
+          description: `Delivered engineering milestones using ${finalSkills.slice(0, 3).join(', ') || 'core technologies'}.`
+        });
+      }
     }
 
     const eduMatches = [];
-    const eduRegex = /(B\.?Tech|B\.?E\.?|B\.?S\.?|M\.?Tech|M\.?S\.?|MBA|Bachelor|Master)[\s,]+(?:of\s+|in\s+)?([A-Za-z\s&]+)/gi;
+    const eduRegex = /(B\.?Tech|B\.?E\.?|B\.?S\.?|M\.?Tech|M\.?S\.?|MBA|Ph\.?D|Bachelor|Master)[\s,]+(?:of\s+|in\s+)?([A-Za-z\s&]{3,40})/gi;
     while ((match = eduRegex.exec(fileText)) !== null) {
-      eduMatches.push({
-        degree: match[1].trim(),
-        field: match[2].trim().split('\n')[0].slice(0, 40),
-        institution: 'University / Institute',
-        year: '2023'
-      });
+      const deg = match[1].trim();
+      const rawField = match[2].trim().split('\n')[0].trim();
+      const cleanField = rawField.replace(/\s+/g, ' ');
+      if (cleanField.length >= 3 && !/\b[a-z]\s+[a-z]\s+[a-z]\b/i.test(cleanField) && !/^[a-z\s]+$/i.test(cleanField) === false) {
+        if (!eduMatches.some(e => e.degree.toLowerCase() === deg.toLowerCase())) {
+          eduMatches.push({
+            degree: deg,
+            field: cleanField,
+            institution: 'University / Institute',
+            year: '2023'
+          });
+        }
+      }
     }
 
     const githubMatch = fileText.match(/https?:\/\/(?:www\.)?github\.com\/[^\s\)]+/);
