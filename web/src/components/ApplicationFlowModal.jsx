@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   X, 
   ArrowLeft, 
@@ -70,7 +71,7 @@ export default function ApplicationFlowModal({
     SoundSystem.playPop();
     try {
       if (match?.id) {
-        await fetch(`/api/applications/tailor/${match.id}`, { method: 'POST' });
+        await apiFetch(`/api/applications/tailor/${match.id}`, { method: 'POST' });
       }
       setSubmitted(true);
       SoundSystem.playSuccess();

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, AlertTriangle, ShieldAlert, X, Loader2 } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 
 export default function DataErasureControl({ profileId, onErasureSuccess }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -17,7 +18,7 @@ export default function DataErasureControl({ profileId, onErasureSuccess }) {
     setErrorMsg('');
 
     try {
-      const res = await fetch(`/api/profile${profileId ? `/${profileId}` : ''}`, {
+      const res = await apiFetch(`/api/profile${profileId ? `/${profileId}` : ''}`, {
         method: 'DELETE',
         credentials: 'include'
       });

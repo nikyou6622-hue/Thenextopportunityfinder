@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   Zap, 
   CheckCircle2, 
@@ -143,7 +144,7 @@ export default function TailoringHub({ applications, onUpdateAppStatus, onLaunch
                 className="btn-primary"
                 onClick={async () => {
                   try {
-                    const res = await fetch(`/api/applications/${selectedApp.id}/track-click`, { method: 'POST' });
+                    const res = await apiFetch(`/api/applications/${selectedApp.id}/track-click`, { method: 'POST' });
                     const data = await res.json();
                     const url = data.apply_url_resolved || selectedApp.apply_url_resolved || job.apply_url;
                     if (url && url !== '#') window.open(url, '_blank', 'noopener,noreferrer');

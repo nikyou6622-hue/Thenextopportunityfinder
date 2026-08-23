@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Clock, Check, Sparkles, AlertTriangle, Building2, CheckCircle2 } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 
 export default function NotificationPreferences({ profileId }) {
   const [preferences, setPreferences] = useState({
@@ -18,7 +19,7 @@ export default function NotificationPreferences({ profileId }) {
 
   const fetchPreferences = async () => {
     try {
-      const res = await fetch(`/api/notifications${profileId ? `/${profileId}` : ''}/preferences`);
+      const res = await apiFetch(`/api/notifications${profileId ? `/${profileId}` : ''}/preferences`);
       if (res.ok) {
         const data = await res.json();
         setPreferences(prev => ({ ...prev, ...data }));
@@ -35,7 +36,7 @@ export default function NotificationPreferences({ profileId }) {
     setSavedSuccess(false);
 
     try {
-      const res = await fetch(`/api/notifications${profileId ? `/${profileId}` : ''}/preferences`, {
+      const res = await apiFetch(`/api/notifications${profileId ? `/${profileId}` : ''}/preferences`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)

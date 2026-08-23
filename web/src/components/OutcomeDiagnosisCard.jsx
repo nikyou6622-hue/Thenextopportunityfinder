@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Lightbulb, RefreshCw, CheckCircle, Target, ArrowRight } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 
 export default function OutcomeDiagnosisCard({ profileId, onNavigate }) {
   const [diagnoses, setDiagnoses] = useState([]);
@@ -9,7 +10,7 @@ export default function OutcomeDiagnosisCard({ profileId, onNavigate }) {
     if (!profileId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/diagnosis/${profileId}`);
+      const res = await apiFetch(`/api/diagnosis/${profileId}`);
       if (res.ok) {
         const data = await res.json();
         setDiagnoses(data);
@@ -25,7 +26,7 @@ export default function OutcomeDiagnosisCard({ profileId, onNavigate }) {
     if (!profileId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/diagnosis/${profileId}/analyze`, { method: 'POST' });
+      const res = await apiFetch(`/api/diagnosis/${profileId}/analyze`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setDiagnoses(data);

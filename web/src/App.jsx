@@ -641,7 +641,7 @@ export default function App() {
 
   const handleUpdateAppStatus = async (appId, newStatus) => {
     try {
-      const res = await fetch(`/api/applications/${appId}`, {
+      const res = await apiFetch(`/api/applications/${appId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

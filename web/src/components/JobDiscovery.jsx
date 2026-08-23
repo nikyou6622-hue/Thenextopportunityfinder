@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   Search, 
   ExternalLink, 
@@ -282,7 +283,7 @@ export default function JobDiscovery({
   const fetchGlobalJobs = async (q = '', loc = '') => {
     setLoadingGlobal(true);
     try {
-      const res = await fetch(`/api/jobs/global?query=${encodeURIComponent(q)}&location=${encodeURIComponent(loc)}&limit=25`);
+      const res = await apiFetch(`/api/jobs/global?query=${encodeURIComponent(q)}&location=${encodeURIComponent(loc)}&limit=25`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -311,7 +312,7 @@ export default function JobDiscovery({
   const handleOpenActionPlan = async (matchId) => {
     setLoadingPlan(true);
     try {
-      const res = await fetch(`/api/skills/action-plan?match_id=${matchId}`);
+      const res = await apiFetch(`/api/skills/action-plan?match_id=${matchId}`);
       const data = await res.json();
       setActionPlanData(data);
     } catch (err) {

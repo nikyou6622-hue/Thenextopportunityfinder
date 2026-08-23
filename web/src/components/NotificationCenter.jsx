@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Sparkles, AlertTriangle, Building2, CheckCircle2, ArrowRight, X } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 
 export default function NotificationCenter({ profileId, onNavigate }) {
   const [notifications, setNotifications] = useState([]);
@@ -13,7 +14,7 @@ export default function NotificationCenter({ profileId, onNavigate }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/notifications${profileId ? `/${profileId}` : ''}`);
+      const res = await apiFetch(`/api/notifications${profileId ? `/${profileId}` : ''}`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);

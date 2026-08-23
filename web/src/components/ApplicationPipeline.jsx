@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   Layers, 
   CheckCircle2, 
@@ -126,7 +127,7 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
     const rawApp = app.raw || app;
     setOpeningId(app.id);
     try {
-      const res = await fetch(`/api/applications/${app.id}/track-click`, {
+      const res = await apiFetch(`/api/applications/${app.id}/track-click`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });

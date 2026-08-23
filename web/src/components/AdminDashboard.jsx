@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   ShieldAlert, 
   Users, 
@@ -189,7 +190,7 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
   // Handle Cascade User Purge
   const handleDeleteUser = async (userId) => {
     try {
-      const res = await fetch(`/api/admin/user/${userId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/admin/user/${userId}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to delete user.');
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Lock, FileText, CheckCircle2, User, Key, RefreshCw } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 import DataErasureControl from './DataErasureControl';
 import NotificationPreferences from './NotificationPreferences';
 
@@ -14,7 +15,7 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
   const fetchConsentRecord = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/profile/consent`, {
+      const res = await apiFetch(`/api/profile/consent`, {
         credentials: 'include'
       });
       if (res.ok) {

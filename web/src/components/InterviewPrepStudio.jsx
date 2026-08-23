@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '../lib/apiClient';
 import {
   BrainCircuit,
   Building2,
@@ -314,7 +315,7 @@ export default function InterviewPrepStudio({
     setLoadingPrep(true);
     setPrepError(null);
     try {
-      const res = await fetch(`/api/interview-prep/${appId}`, {
+      const res = await apiFetch(`/api/interview-prep/${appId}`, {
         credentials: 'include'
       });
       if (res.ok) {
@@ -349,7 +350,7 @@ export default function InterviewPrepStudio({
   useEffect(() => {
     const fetchCoding = async () => {
       try {
-        const res = await fetch('/api/coding-questions');
+        const res = await apiFetch('/api/coding-questions');
         if (res.ok) {
           const list = await res.json();
           setCodingQuestions(list);
@@ -370,7 +371,7 @@ export default function InterviewPrepStudio({
     try {
       const job = activeApp?.job || {};
       const skills = activeApp?.tailored_skills || profile?.skills || job.required_skills || ['Python', 'System Design'];
-      const res = await fetch('/api/interview-prep/study-materials', {
+      const res = await apiFetch('/api/interview-prep/study-materials', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -407,7 +408,7 @@ export default function InterviewPrepStudio({
     }
     setEvaluating(true);
     try {
-      const res = await fetch(`/api/interview-prep/${activeAppId}/mock-session`, {
+      const res = await apiFetch(`/api/interview-prep/${activeAppId}/mock-session`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -444,7 +445,7 @@ export default function InterviewPrepStudio({
     if (!selectedCodingQ) return;
     setSubmittingAttempt(true);
     try {
-      const res = await fetch(`/api/coding-questions/${selectedCodingQ.question_id}/attempt`, {
+      const res = await apiFetch(`/api/coding-questions/${selectedCodingQ.question_id}/attempt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

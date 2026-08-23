@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   Activity, 
   CheckCircle2, 
@@ -27,7 +28,7 @@ export default function SystemStatusPage({ onTriggerCelebration }) {
   const fetchHealth = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/health');
+      const res = await apiFetch('/api/health');
       if (res.ok) {
         const data = await res.json();
         setHealthData(data);
