@@ -14,6 +14,19 @@ export default class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo });
     console.error("NextOpportunityFind Uncaught Error Boundary:", error, errorInfo);
+
+    // Auto-recover from stale Vercel deployment chunk load errors
+    if (error && (
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Importing a module script failed') ||
+      error.name === 'ChunkLoadError'
+    )) {
+      const pageHasBeenReloaded = sessionStorage.getItem('nof_chunk_reloaded');
+      if (!pageHasBeenReloaded) {
+        sessionStorage.setItem('nof_chunk_reloaded', 'true');
+        window.location.reload(true);
+      }
+    }
   }
 
   handleReload = () => {

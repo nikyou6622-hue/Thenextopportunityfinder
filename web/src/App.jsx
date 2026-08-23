@@ -17,29 +17,47 @@ import apiFetch, { safeJson } from './lib/apiClient';
 import { saveProfileToSupabase, loadProfileFromLocal, fetchProfileFromSupabase } from './lib/supabaseClient';
 import { extractPdfTextClient } from './utils/pdfExtractor';
 
+function lazyWithRetry(componentImport) {
+  return lazy(async () => {
+    const pageHasBeenReloaded = sessionStorage.getItem('nof_chunk_reloaded');
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('nof_chunk_reloaded');
+      return component;
+    } catch (error) {
+      if (!pageHasBeenReloaded) {
+        sessionStorage.setItem('nof_chunk_reloaded', 'true');
+        window.location.reload(true);
+        return { default: () => null };
+      }
+      throw error;
+    }
+  });
+}
+
 // Dynamically code-split studio tabs to keep initial JS bundle under 200KB
-const OverviewDashboard = lazy(() => import('./components/OverviewDashboard'));
-const ResumeAnalyzer = lazy(() => import('./components/ResumeAnalyzer'));
-const JobDiscovery = lazy(() => import('./components/JobDiscovery'));
-const IndiaInternshipHub = lazy(() => import('./components/IndiaInternshipHub'));
-const MncOpportunityHub = lazy(() => import('./components/MncOpportunityHub'));
-const TailoringHub = lazy(() => import('./components/TailoringHub'));
-const ApplicationPipeline = lazy(() => import('./components/ApplicationPipeline'));
-const InterviewPrepStudio = lazy(() => import('./components/InterviewPrepStudio'));
-const CodingSandboxStudio = lazy(() => import('./components/CodingSandboxStudio'));
-const RecruiterOutreachStudio = lazy(() => import('./components/RecruiterOutreachStudio'));
-const LearningRoadmapStudio = lazy(() => import('./components/LearningRoadmapStudio'));
-const SavedJobsView = lazy(() => import('./components/SavedJobsView'));
-const UserProfileView = lazy(() => import('./components/UserProfileView'));
-const SettingsPrivacy = lazy(() => import('./components/SettingsPrivacy'));
-const AuthView = lazy(() => import('./components/AuthView'));
-const PrivacyPolicyPage = lazy(() => import('./components/PrivacyPolicyPage'));
-const TermsOfServicePage = lazy(() => import('./components/TermsOfServicePage'));
-const SystemStatusPage = lazy(() => import('./components/SystemStatusPage'));
-const SkillAssessmentStudio = lazy(() => import('./components/SkillAssessmentStudio'));
-const CommunityForumView = lazy(() => import('./components/CommunityForumView'));
-const ChangelogPage = lazy(() => import('./components/ChangelogPage'));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const OverviewDashboard = lazyWithRetry(() => import('./components/OverviewDashboard'));
+const ResumeAnalyzer = lazyWithRetry(() => import('./components/ResumeAnalyzer'));
+const JobDiscovery = lazyWithRetry(() => import('./components/JobDiscovery'));
+const IndiaInternshipHub = lazyWithRetry(() => import('./components/IndiaInternshipHub'));
+const MncOpportunityHub = lazyWithRetry(() => import('./components/MncOpportunityHub'));
+const TailoringHub = lazyWithRetry(() => import('./components/TailoringHub'));
+const ApplicationPipeline = lazyWithRetry(() => import('./components/ApplicationPipeline'));
+const InterviewPrepStudio = lazyWithRetry(() => import('./components/InterviewPrepStudio'));
+const CodingSandboxStudio = lazyWithRetry(() => import('./components/CodingSandboxStudio'));
+const RecruiterOutreachStudio = lazyWithRetry(() => import('./components/RecruiterOutreachStudio'));
+const LearningRoadmapStudio = lazyWithRetry(() => import('./components/LearningRoadmapStudio'));
+const SavedJobsView = lazyWithRetry(() => import('./components/SavedJobsView'));
+const UserProfileView = lazyWithRetry(() => import('./components/UserProfileView'));
+const SettingsPrivacy = lazyWithRetry(() => import('./components/SettingsPrivacy'));
+const AuthView = lazyWithRetry(() => import('./components/AuthView'));
+const PrivacyPolicyPage = lazyWithRetry(() => import('./components/PrivacyPolicyPage'));
+const TermsOfServicePage = lazyWithRetry(() => import('./components/TermsOfServicePage'));
+const SystemStatusPage = lazyWithRetry(() => import('./components/SystemStatusPage'));
+const SkillAssessmentStudio = lazyWithRetry(() => import('./components/SkillAssessmentStudio'));
+const CommunityForumView = lazyWithRetry(() => import('./components/CommunityForumView'));
+const ChangelogPage = lazyWithRetry(() => import('./components/ChangelogPage'));
+const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
 
 const DEFAULT_FALLBACK_PROFILE = {
   id: 'usr_sample_01',
