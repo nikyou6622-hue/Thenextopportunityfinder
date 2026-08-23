@@ -505,7 +505,7 @@ export default function App() {
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       try {
-        const response = await fetch('/api/profile/upload', {
+        const response = await apiFetch('/api/profile/upload', {
           method: 'POST',
           body: formData,
           credentials: 'include',

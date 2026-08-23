@@ -23,7 +23,7 @@ if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype
 
 export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
-  : '';
+  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://127.0.0.1:8000' : '');
 
 export async function apiFetch(url, options = {}) {
   const defaultHeaders = {
@@ -35,6 +35,17 @@ export async function apiFetch(url, options = {}) {
     headers: defaultHeaders,
     credentials: options.credentials || 'include',
   };
+
+  const isStaticHostWithoutBackend = typeof window !== 'undefined' && 
+    !API_BASE_URL && 
+    (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev'));
+
+  if (url.startsWith('/api') && isStaticHostWithoutBackend) {
+    return new Response(JSON.stringify({ offline: true, fallback: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
   const resolvedUrl = (url.startsWith('/api') && API_BASE_URL)
     ? `${API_BASE_URL}${url}`
