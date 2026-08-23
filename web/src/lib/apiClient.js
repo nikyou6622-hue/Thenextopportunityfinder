@@ -23,7 +23,7 @@ if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype
 
 export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
   ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
-  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://127.0.0.1:8000' : '');
+  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? `http://${window.location.hostname}:8000` : '');
 
 export async function apiFetch(url, options = {}) {
   const defaultHeaders = {
