@@ -219,16 +219,19 @@ export default function App() {
 
     try {
       const res = await apiFetch('/api/subscription/scrape', { method: 'POST' });
-      if (res && res.allowed) {
-        const updated = {
-          ...userSubscription,
-          scrapes_used: res.scrapes_used,
-          scrapes_remaining: res.scrapes_remaining,
-          is_pro: res.is_pro
-        };
-        setUserSubscription(updated);
-        localStorage.setItem('nof_user_sub', JSON.stringify(updated));
-        return true;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.allowed || data.ok)) {
+          const updated = {
+            ...userSubscription,
+            scrapes_used: data.scrapes_used ?? userSubscription.scrapes_used,
+            scrapes_remaining: data.scrapes_remaining ?? userSubscription.scrapes_remaining,
+            is_pro: data.is_pro ?? userSubscription.is_pro
+          };
+          setUserSubscription(updated);
+          localStorage.setItem('nof_user_sub', JSON.stringify(updated));
+          return true;
+        }
       }
     } catch (err) {
       if (err.status === 402 || (err.message && err.message.includes('limit reached'))) {
