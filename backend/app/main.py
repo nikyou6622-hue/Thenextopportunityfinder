@@ -1,4 +1,5 @@
 import os
+import json
 import datetime
 import logging
 import asyncio
@@ -3304,7 +3305,7 @@ def export_candidate_resume_endpoint(
             headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_{template.upper()}_ATS.pdf"}
         )
     elif fmt in ["json"]:
-        content_json = json.dumps(prof_dict, indent=2)
+        content_json = json.dumps(prof_dict, default=str, indent=2)
         return Response(
             content=content_json,
             media_type="application/json",
