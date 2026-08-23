@@ -856,6 +856,30 @@ export default function ResumeAnalyzer({
     });
   }, [formData, selectedTemplateId, density, customSectionOrder, onUpdateProfile]);
 
+  // Save handler
+  const handleSave = useCallback(() => {
+    const payload = {
+      ...formData,
+      template: selectedTemplateId,
+      density,
+      section_order: customSectionOrder,
+      location: {
+        city: formData.city,
+        country: formData.country,
+        open_to_remote: formData.open_to_remote
+      },
+      past_roles: formData.experience_list,
+      key_strengths: formData.skills.slice(0, 5),
+      ats_score: atsEvaluation.totalScore
+    };
+    if (onUpdateProfile) onUpdateProfile(payload);
+    setSaveStatus('saved');
+    setSaveSuccessNotice(true);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => setSaveSuccessNotice(false), 3000);
+    showToast('Profile saved successfully! ATS scoring re-benchmarked.', 'success');
+  }, [formData, selectedTemplateId, density, customSectionOrder, atsEvaluation.totalScore, onUpdateProfile, showToast]);
+
   // Keyboard Shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+S)
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -873,7 +897,7 @@ export default function ResumeAnalyzer({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, handleSave]);
 
   // Skill handlers
   const handleAddSkill = useCallback((skillToAdd) => {
@@ -1053,30 +1077,6 @@ export default function ResumeAnalyzer({
       onUpload(file);
     }
   }, [onUpload]);
-
-  // Save handler
-  const handleSave = useCallback(() => {
-    const payload = {
-      ...formData,
-      template: selectedTemplateId,
-      density,
-      section_order: customSectionOrder,
-      location: {
-        city: formData.city,
-        country: formData.country,
-        open_to_remote: formData.open_to_remote
-      },
-      past_roles: formData.experience_list,
-      key_strengths: formData.skills.slice(0, 5),
-      ats_score: atsEvaluation.totalScore
-    };
-    if (onUpdateProfile) onUpdateProfile(payload);
-    setSaveStatus('saved');
-    setSaveSuccessNotice(true);
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => setSaveSuccessNotice(false), 3000);
-    showToast('Profile saved successfully! ATS scoring re-benchmarked.', 'success');
-  }, [formData, selectedTemplateId, density, customSectionOrder, atsEvaluation.totalScore, onUpdateProfile, showToast]);
 
   // Export handlers
   const getMissingSections = useCallback(() => {
