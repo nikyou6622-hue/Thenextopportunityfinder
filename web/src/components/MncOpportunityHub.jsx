@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   Building2, 
   RefreshCw, 
@@ -145,7 +146,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
         ? '/api/jobs/mnc' 
         : `/api/jobs/mnc?company=${encodeURIComponent(selectedCompany)}`;
       
-      const jobsRes = await fetch(jobsUrl);
+      const jobsRes = await apiFetch(jobsUrl);
       if (jobsRes.ok) {
         const data = await jobsRes.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -158,10 +159,10 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
       }
 
       // 2. Fetch scan status
-      const statusRes = await fetch('/api/jobs/mnc/scan-status');
+      const statusRes = await apiFetch('/api/jobs/mnc/scan/status');
       if (statusRes.ok) {
         const sData = await statusRes.json();
-        if (sData && sData.scans_completed) {
+        if (sData) {
           setScanStatus(sData);
         }
       }

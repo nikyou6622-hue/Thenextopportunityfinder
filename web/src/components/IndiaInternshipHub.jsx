@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import apiFetch, { safeJson } from '../lib/apiClient';
 import { 
   GraduationCap, 
   MapPin, 
@@ -279,7 +280,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
   const fetchInternships = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/internships/india');
+      const res = await apiFetch('/api/internships/india');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
@@ -301,7 +302,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
   // Load real-time market stats
   const fetchMarketStats = async () => {
     try {
-      const res = await fetch('/api/internships/india/stats');
+      const res = await apiFetch('/api/internships/india/stats');
       if (res.ok) {
         const data = await res.json();
         setMarketStats(data);
@@ -328,10 +329,10 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
     setScanning(true);
     setScanResult(null);
     try {
-      const res = await fetch('/api/internships/india/scan', { method: 'POST' });
+      const res = await apiFetch('/api/internships/india/refresh', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        setScanResult(data.summary);
+        setScanResult(data.message || data.summary);
         await fetchInternships();
         await fetchMarketStats();
       }
