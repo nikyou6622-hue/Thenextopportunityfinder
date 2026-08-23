@@ -1099,14 +1099,44 @@ export default function ResumeAnalyzer({
   }, [getMissingSections]);
 
   const executeDownload = useCallback((format) => {
-    if (format === 'md') {
-      handleExportMarkdown();
+    const fmt = (format || 'pdf').toLowerCase();
+    const fileName = `${(formData.name || 'Candidate').replace(/\s+/g, '_')}_${selectedTemplateId.toUpperCase()}_ATS`;
+
+    if (fmt === 'pdf') {
+      // Direct print-to-PDF engine with @media print A4 formatting
+      window.print();
+    } else if (fmt === 'json') {
+      const jsonContent = JSON.stringify(formData, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (fmt === 'txt') {
+      let txt = `${formData.name || 'Candidate Name'}\n${formData.email || ''} | ${formData.phone || ''} | ${formData.city || ''}, ${formData.country || ''}\n\n`;
+      txt += `SUMMARY\n${formData.summary || ''}\n\nSKILLS\n${(formData.skills || []).join(', ')}\n\nEXPERIENCE\n`;
+      (formData.experience_list || []).forEach(e => {
+        txt += `${e.title || e.role} - ${e.company} (${e.dates || '2023 - Present'})\n${e.description || ''}\n\n`;
+      });
+      txt += `EDUCATION\n`;
+      (formData.education || []).forEach(edu => {
+        txt += `${edu.degree} in ${edu.field} - ${edu.institution}\n`;
+      });
+      const blob = new Blob([txt], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
     } else {
-      window.open(`/api/resume/export/${profile?.id || 1}?format=${format}&template=${selectedTemplateId}`, '_blank');
+      handleExportMarkdown();
     }
     setExportPreflightModal(null);
-    showToast(`Downloading ${format.toUpperCase()} Resume (${selectedTemplateId.toUpperCase()} template)...`, 'info');
-  }, [profile?.id, selectedTemplateId, showToast]);
+    showToast(`Exported ${fmt.toUpperCase()} Resume successfully!`, 'success');
+  }, [formData, selectedTemplateId, handleExportMarkdown, showToast]);
 
   const handleExportMarkdown = useCallback(() => {
     let md = `# ${formData.name || '[Your Name]'}\n`;
@@ -2759,6 +2789,7 @@ export default function ResumeAnalyzer({
           <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: '6px 0' }}>
             <div 
               ref={a4PreviewRef}
+              className="printable-resume-paper"
               style={{ 
                 minWidth: '720px', 
                 maxWidth: '820px', 
