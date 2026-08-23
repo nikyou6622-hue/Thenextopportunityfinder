@@ -376,8 +376,11 @@ export default function App() {
       );
 
     // 1. Extract Email
-    const emailMatch = fileText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i);
-    const email = emailMatch ? emailMatch[0].toLowerCase() : (currentUser?.email || '');
+    const emailMatch = fileText.match(/\b[A-Za-z0-9._%+-]+(?:\s*@\s*|\s+at\s+)[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i);
+    let email = emailMatch ? emailMatch[0].replace(/\s+/g, '').replace(/\bat\b/i, '@').toLowerCase() : '';
+    if (!email && currentUser?.email && !currentUser.email.includes('google') && !currentUser.email.includes('candidate')) {
+      email = currentUser.email;
+    }
 
     // 2. Extract Phone (Ignore creation timestamps starting with 202)
     const phoneMatches = fileText.match(/(?:\+?\d{1,3}[\s-]?)?\(?\d{3,5}\)?[\s-]?\d{3,5}[\s-]?\d{3,5}/g);
@@ -390,18 +393,36 @@ export default function App() {
       if (validPhone) phone = validPhone.trim();
     }
 
-    // 3. Extract Name from Header or File Name
+    // 3. Extract Name from Header or Clean File Name
     const fn = file.name || '';
-    const cleanedFileBasename = fn.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+    const cleanedFileBasename = fn
+      .split('.')[0]
+      .replace(/[-_]/g, ' ')
+      .replace(/resume|cv|curriculum|vitae|profile|pdf|doc|docx/gi, '')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim();
+
     const headerNameLine = textLines.find(l => 
       !l.includes('@') && 
       !/\d{3,}/.test(l) && 
-      !/resume|cv|curriculum|profile|sample|document|pdf|page|education|skills|experience/i.test(l) && 
+      !/resume|cv|curriculum|profile|sample|document|pdf|page|education|skills|experience|summary|projects|contact|technical|frameworks|tools/i.test(l) && 
       l.length >= 3 && 
       l.length <= 40 &&
-      /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}$/.test(l)
+      /^[A-Za-z\s.'-]+$/.test(l) &&
+      l.split(/\s+/).length >= 1 &&
+      l.split(/\s+/).length <= 4
     );
-    const name = headerNameLine || (cleanedFileBasename && !/resume|sample|document|pdf/i.test(cleanedFileBasename) ? cleanedFileBasename : (currentUser?.full_name || 'Candidate Name'));
+
+    let name = '';
+    if (headerNameLine) {
+      name = headerNameLine;
+    } else if (cleanedFileBasename && cleanedFileBasename.length >= 3) {
+      name = cleanedFileBasename;
+    } else if (currentUser?.full_name && !currentUser.full_name.includes('Google') && !currentUser.full_name.includes('Candidate')) {
+      name = currentUser.full_name;
+    } else {
+      name = 'Candidate Name';
+    }
 
     // 4. Dynamic Skills Extraction
     const TECH_KEYWORDS = [
@@ -453,11 +474,15 @@ export default function App() {
 
     const eduMatches = [];
     const eduRegex = /(B\.?Tech|B\.?E\.?|B\.?S\.?|M\.?Tech|M\.?S\.?|MBA|Ph\.?D|Bachelor|Master)[\s,]+(?:of\s+|in\s+)?([A-Za-z\s&]{3,40})/gi;
+    const INVALID_EDU_KEYWORDS = ['skills', 'apis', 'resumes', 'technical', 'projects', 'experience', 'scores', 'tools', 'frameworks'];
     while ((match = eduRegex.exec(fileText)) !== null) {
       const deg = match[1].trim();
       const rawField = match[2].trim().split('\n')[0].trim();
       const cleanField = rawField.replace(/\s+/g, ' ');
-      if (cleanField.length >= 3 && !/\b[a-z]\s+[a-z]\s+[a-z]\b/i.test(cleanField) && !/^[a-z\s]+$/i.test(cleanField) === false) {
+      const lowerField = cleanField.toLowerCase();
+      
+      const containsInvalid = INVALID_EDU_KEYWORDS.some(kw => lowerField.includes(kw));
+      if (!containsInvalid && cleanField.length >= 3 && !/\b[a-z]\s+[a-z]\s+[a-z]\b/i.test(cleanField)) {
         if (!eduMatches.some(e => e.degree.toLowerCase() === deg.toLowerCase())) {
           eduMatches.push({
             degree: deg,
@@ -481,8 +506,16 @@ export default function App() {
       });
     }
 
-    // 7. Summary
-    const summary = `Parsed candidate profile for ${name}.${finalSkills.length > 0 ? ' Core Technical Skills: ' + finalSkills.slice(0, 6).join(', ') + '.' : ''}`;
+    // 7. Extract Authored Summary or Generate Professional Technical Summary
+    const summaryMatch = fileText.match(/(?:summary|profile|objective|about me)\s*[:\-–]?\s*\n(.*?)(?=\n\s*(?:skills|experience|education|projects)|$)/is);
+    let summary = '';
+    if (summaryMatch && summaryMatch[1].trim().length > 20) {
+      summary = summaryMatch[1].trim().replace(/\s+/g, ' ').slice(0, 500);
+    } else if (finalSkills.length > 0) {
+      summary = `Experienced software engineering professional specializing in ${finalSkills.slice(0, 5).join(', ')}. Proven track record in technical architecture, clean code delivery, and scalable systems.`;
+    } else {
+      summary = `Software engineering professional with proven technical capabilities and project delivery experience.`;
+    }
 
     return {
       id: `usr_${Date.now()}`,
