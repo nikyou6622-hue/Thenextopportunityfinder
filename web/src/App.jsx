@@ -346,10 +346,10 @@ export default function App() {
                 if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9) {
                   printable += String.fromCharCode(b);
                 } else {
-                  printable += ' ';
+                  printable += '\n';
                 }
               }
-              resolve(printable.replace(/\s+/g, ' '));
+              resolve(printable);
             } catch {
               resolve('');
             }
@@ -366,26 +366,27 @@ export default function App() {
       fileText = '';
     }
 
+    const textLines = fileText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
     // 1. Extract Email
     const emailMatch = fileText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i);
-    const email = emailMatch ? emailMatch[0] : (currentUser?.email || 'aditya.tamta@dev.io');
+    const email = emailMatch ? emailMatch[0].toLowerCase() : (currentUser?.email || '');
 
     // 2. Extract Phone
     const phoneMatch = fileText.match(/(?:\+?\d{1,3}[\s-]?)?\(?\d{3,5}\)?[\s-]?\d{3,5}[\s-]?\d{3,5}/);
-    const phone = phoneMatch && phoneMatch[0].length >= 8 ? phoneMatch[0].trim() : '+91 98765 43210';
+    const phone = phoneMatch && phoneMatch[0].length >= 8 ? phoneMatch[0].trim() : '';
 
-    // 3. Extract Name
-    let name = currentUser?.full_name || '';
+    // 3. Extract Name from Header or File Name
+    const headerNameLine = textLines.find(l => 
+      !l.includes('@') && 
+      !/\d{5,}/.test(l) && 
+      !/resume|cv|curriculum|profile/i.test(l) && 
+      l.length >= 3 && 
+      l.length <= 40
+    );
     const fn = file.name || '';
     const cleanedFileBasename = fn.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
-    
-    if (!name || name === 'Software Engineer Candidate') {
-      if (cleanedFileBasename && !cleanedFileBasename.toLowerCase().includes('sample') && !cleanedFileBasename.toLowerCase().includes('resume')) {
-        name = cleanedFileBasename;
-      } else {
-        name = 'Aditya Tamta';
-      }
-    }
+    const name = headerNameLine || (cleanedFileBasename && !/resume|sample/i.test(cleanedFileBasename) ? cleanedFileBasename : (currentUser?.full_name || 'Candidate'));
 
     // 4. Dynamic Skills Extraction
     const TECH_KEYWORDS = [
@@ -405,56 +406,75 @@ export default function App() {
       }
     });
 
-    const finalSkills = foundSkills.length > 0 
-      ? [...new Set(foundSkills)] 
-      : ['React', 'TypeScript', 'Node.js', 'Python', 'FastAPI', 'PostgreSQL', 'Docker', 'AWS'];
+    const finalSkills = Array.from(new Set(foundSkills));
 
     // 5. City & Country
-    let city = 'Bengaluru';
+    let city = '';
     let country = 'India';
-    if (/mumbai/i.test(fileText)) city = 'Mumbai';
+    if (/bengaluru|bangalore/i.test(fileText)) city = 'Bengaluru';
+    else if (/mumbai/i.test(fileText)) city = 'Mumbai';
     else if (/delhi|noida|gurugram|gurgaon/i.test(fileText)) city = 'Gurugram';
     else if (/hyderabad/i.test(fileText)) city = 'Hyderabad';
     else if (/pune/i.test(fileText)) city = 'Pune';
-    else if (/remote/i.test(fileText)) city = 'Remote';
+    else if (/san francisco|seattle|austin|new york/i.test(fileText)) { city = 'San Francisco'; country = 'USA'; }
 
-    // 6. Summary
-    const summary = `Parsed career profile for ${name}. Full-Stack Software Engineer with expertise in ${finalSkills.slice(0, 5).join(', ')}. Experienced in building high-concurrency microservices, cloud deployments, and responsive UI web applications.`;
+    // 6. Section Parsing (Experience, Education, Projects)
+    const expMatches = [];
+    const expRegex = /([A-Z][A-Za-z0-9\s&/.-]+(?:Engineer|Developer|Architect|Manager|Lead|Intern|Analyst|Consultant))\s*(?:at|@|,|-|–)\s*([A-Z][A-Za-z0-9\s&.]+)/g;
+    let match;
+    while ((match = expRegex.exec(fileText)) !== null) {
+      expMatches.push({
+        title: match[1].trim(),
+        role: match[1].trim(),
+        company: match[2].trim().split('\n')[0],
+        dates: '2023 - Present',
+        description: `Delivered engineering milestones using ${finalSkills.slice(0, 3).join(', ') || 'core technologies'}.`
+      });
+    }
+
+    const eduMatches = [];
+    const eduRegex = /(B\.?Tech|B\.?E\.?|B\.?S\.?|M\.?Tech|M\.?S\.?|MBA|Bachelor|Master)[\s,]+(?:of\s+|in\s+)?([A-Za-z\s&]+)/gi;
+    while ((match = eduRegex.exec(fileText)) !== null) {
+      eduMatches.push({
+        degree: match[1].trim(),
+        field: match[2].trim().split('\n')[0].slice(0, 40),
+        institution: 'University / Institute',
+        year: '2023'
+      });
+    }
+
+    const githubMatch = fileText.match(/https?:\/\/(?:www\.)?github\.com\/[^\s\)]+/);
+    const projMatches = [];
+    const projRegex = /(?:project|portfolio)\s*[:\-–]?\s*\n?([A-Z0-9][A-Za-z0-9\s\-_]{3,40})/gi;
+    while ((match = projRegex.exec(fileText)) !== null) {
+      projMatches.push({
+        title: match[1].trim(),
+        description: `Project built with ${finalSkills.slice(0, 3).join(', ') || 'software stack'}.`,
+        technologies: finalSkills.slice(0, 4).join(', '),
+        link: githubMatch ? githubMatch[0] : null
+      });
+    }
+
+    // 7. Summary
+    const summary = `Parsed candidate profile for ${name}.${finalSkills.length > 0 ? ' Core Technical Skills: ' + finalSkills.slice(0, 6).join(', ') + '.' : ''}`;
 
     return {
       id: `usr_${Date.now()}`,
-      name,
-      email,
-      phone,
-      city,
-      country,
-      summary,
+      name: name,
+      email: email,
+      phone: phone,
+      city: city,
+      country: country,
+      summary: summary,
       skills: finalSkills,
-      experience_list: [
-        {
-          role: finalSkills.includes('Python') || finalSkills.includes('FastAPI') ? 'Backend & Systems Engineer' : 'Full Stack Software Engineer',
-          company: 'Enterprise Tech Solutions',
-          dates: '2023 - Present',
-          bullets: [
-            `Architected high-throughput microservices using ${finalSkills.slice(0, 3).join(', ')}`,
-            `Optimized database query performance and automated CI/CD pipeline deployments with ${finalSkills.includes('Docker') ? 'Docker & AWS' : 'cloud automation'}`
-          ]
-        }
-      ],
-      education: [
-        {
-          degree: 'B.Tech in Computer Science & Engineering',
-          institution: 'Institute of Technology',
-          year: '2023'
-        }
-      ],
-      projects: [
-        {
-          title: `${finalSkills[0] || 'Full Stack'} AI Career Intelligence Platform`,
-          description: `High-throughput real-time resume optimization and ATS scanner built with ${finalSkills.slice(0, 3).join(', ')}.`
-        }
-      ],
-      ats_score: Math.min(96, Math.max(82, 75 + finalSkills.length * 2))
+      experience_list: expMatches,
+      experience: expMatches,
+      past_roles: expMatches,
+      education: eduMatches,
+      education_list: eduMatches,
+      projects: projMatches,
+      section_order: ['summary', 'skills', 'experience', 'projects', 'education'],
+      ats_score: Math.min(98, Math.max(60, 65 + finalSkills.length * 2))
     };
   };
 
