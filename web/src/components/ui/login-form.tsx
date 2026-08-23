@@ -157,8 +157,10 @@ export function SmokeyBackground({
     gl.uniform3f(uColorLocation, r, g, b);
 
     let animationFrameId: number;
+    let canvasWidth = canvas.clientWidth || 300;
+    let canvasHeight = canvas.clientHeight || 150;
 
-    const render = () => {
+    const resizeCanvas = () => {
       const width = canvas.clientWidth || 300;
       const height = canvas.clientHeight || 150;
       if (canvas.width !== width || canvas.height !== height) {
@@ -166,12 +168,19 @@ export function SmokeyBackground({
         canvas.height = height;
         gl.viewport(0, 0, width, height);
       }
+      canvasWidth = width;
+      canvasHeight = height;
+    };
 
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const render = () => {
       const currentTime = (Date.now() - startTime) / 1000;
 
-      gl.uniform2f(iResolutionLocation, width, height);
+      gl.uniform2f(iResolutionLocation, canvasWidth, canvasHeight);
       gl.uniform1f(iTimeLocation, currentTime);
-      gl.uniform2f(iMouseLocation, isHovering ? mousePosition.x : width / 2, isHovering ? height - mousePosition.y : height / 2);
+      gl.uniform2f(iMouseLocation, isHovering ? mousePosition.x : canvasWidth / 2, isHovering ? canvasHeight - mousePosition.y : canvasHeight / 2);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       animationFrameId = requestAnimationFrame(render);
@@ -192,6 +201,7 @@ export function SmokeyBackground({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("resize", resizeCanvas);
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("mouseenter", handleMouseEnter);
       canvas.removeEventListener("mouseleave", handleMouseLeave);

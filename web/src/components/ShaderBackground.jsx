@@ -387,7 +387,6 @@ export default function ShaderBackground() {
 
     const render = () => {
       if (isVisible) {
-        resize();
         const seconds = (performance.now() - startTime) / 1000;
         const time = seconds * 0.73;
         gl.uniform4f(uSceneLoc, canvas.width, canvas.height, time, 4.0);
