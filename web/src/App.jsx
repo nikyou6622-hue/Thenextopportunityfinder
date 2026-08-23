@@ -15,6 +15,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProPaywallModal from './components/ProPaywallModal';
 import apiFetch, { safeJson } from './lib/apiClient';
 import { saveProfileToSupabase, loadProfileFromLocal, fetchProfileFromSupabase } from './lib/supabaseClient';
+import { extractPdfTextClient } from './utils/pdfExtractor';
 
 // Dynamically code-split studio tabs to keep initial JS bundle under 200KB
 const OverviewDashboard = lazy(() => import('./components/OverviewDashboard'));
@@ -331,62 +332,58 @@ export default function App() {
   const parseResumeFileClient = async (file) => {
     let fileText = '';
     try {
-      fileText = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const raw = e.target.result || '';
-          if (typeof raw === 'string') {
-            resolve(raw);
-          } else {
-            try {
-              const bytes = new Uint8Array(raw);
-              let printable = '';
-              for (let i = 0; i < bytes.length; i++) {
-                const b = bytes[i];
-                if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9) {
-                  printable += String.fromCharCode(b);
-                } else {
-                  printable += '\n';
-                }
-              }
-              resolve(printable);
-            } catch {
-              resolve('');
-            }
-          }
-        };
-        reader.onerror = () => resolve('');
-        if (file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.json')) {
-          reader.readAsText(file);
-        } else {
-          reader.readAsArrayBuffer(file);
-        }
-      });
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        const arrayBuffer = await file.arrayBuffer();
+        fileText = await extractPdfTextClient(arrayBuffer);
+      } else if (file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.json')) {
+        fileText = await file.text();
+      } else {
+        const arrayBuffer = await file.arrayBuffer();
+        fileText = await extractPdfTextClient(arrayBuffer);
+      }
     } catch {
       fileText = '';
     }
 
-    const textLines = fileText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const textLines = fileText
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => 
+        l.length >= 2 && 
+        !l.startsWith('%PDF') && 
+        !l.startsWith('<<') && 
+        !l.startsWith('>>') && 
+        !/^(obj|endobj|stream|endstream|xref|trailer|startxref|Font|MediaBox|Catalog)/i.test(l) &&
+        !/^\d{10,}/.test(l)
+      );
 
     // 1. Extract Email
     const emailMatch = fileText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i);
     const email = emailMatch ? emailMatch[0].toLowerCase() : (currentUser?.email || '');
 
-    // 2. Extract Phone
-    const phoneMatch = fileText.match(/(?:\+?\d{1,3}[\s-]?)?\(?\d{3,5}\)?[\s-]?\d{3,5}[\s-]?\d{3,5}/);
-    const phone = phoneMatch && phoneMatch[0].length >= 8 ? phoneMatch[0].trim() : '';
+    // 2. Extract Phone (Ignore creation timestamps starting with 202)
+    const phoneMatches = fileText.match(/(?:\+?\d{1,3}[\s-]?)?\(?\d{3,5}\)?[\s-]?\d{3,5}[\s-]?\d{3,5}/g);
+    let phone = '';
+    if (phoneMatches) {
+      const validPhone = phoneMatches.find(p => {
+        const cleaned = p.replace(/\D/g, '');
+        return cleaned.length >= 8 && cleaned.length <= 13 && !cleaned.startsWith('202');
+      });
+      if (validPhone) phone = validPhone.trim();
+    }
 
     // 3. Extract Name from Header or File Name
+    const fn = file.name || '';
+    const cleanedFileBasename = fn.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
     const headerNameLine = textLines.find(l => 
       !l.includes('@') && 
       !/\d{5,}/.test(l) && 
-      !/resume|cv|curriculum|profile/i.test(l) && 
+      !/resume|cv|curriculum|profile|sample|document|pdf/i.test(l) && 
       l.length >= 3 && 
-      l.length <= 40
+      l.length <= 40 &&
+      /^[A-Za-z\s.'-]+$/.test(l)
     );
-    const fn = file.name || '';
-    const cleanedFileBasename = fn.split('.')[0].replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
-    const name = headerNameLine || (cleanedFileBasename && !/resume|sample/i.test(cleanedFileBasename) ? cleanedFileBasename : (currentUser?.full_name || 'Candidate'));
+    const name = headerNameLine || (cleanedFileBasename && !/resume|sample|document|pdf/i.test(cleanedFileBasename) ? cleanedFileBasename : (currentUser?.full_name || 'Candidate Name'));
 
     // 4. Dynamic Skills Extraction
     const TECH_KEYWORDS = [
