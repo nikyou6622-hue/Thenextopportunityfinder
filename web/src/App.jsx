@@ -272,38 +272,7 @@ export default function App() {
     });
   };
 
-const DEFAULT_FALLBACK_PROFILE = {
-  id: 'usr_sample_01',
-  name: 'Aditya Tamta',
-  email: 'aditya.tamta@dev.io',
-  phone: '+91 98765 43210',
-  city: 'Bengaluru',
-  country: 'India',
-  summary: 'Experienced tech professional specializing in full-stack web applications, scalable backend microservices, and system architecture.',
-  skills: ['React', 'JavaScript', 'Python', 'FastAPI', 'Node.js', 'PostgreSQL', 'Docker', 'Git'],
-  experience_list: [
-    {
-      title: 'Backend & Systems Engineer',
-      company: 'Enterprise Tech Solutions',
-      dates: '2023 - Present',
-      description: 'Engineered REST APIs with FastAPI, reducing latency by 35%. Architected high-throughput microservices using React, Python, and PostgreSQL.'
-    }
-  ],
-  education: [
-    {
-      degree: 'B.Tech in Computer Science & Engineering',
-      institution: 'Institute of Technology',
-      year: '2023'
-    }
-  ],
-  projects: [
-    {
-      title: 'React AI Career Intelligence Platform',
-      description: 'High-throughput real-time resume optimization and ATS scanner built with React, Python, and FastAPI.'
-    }
-  ],
-  ats_score: 91
-};
+
 
   const loadData = async () => {
     try {
