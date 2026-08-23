@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class LocationInfo(BaseModel):
     city: Optional[str] = ""
     country: Optional[str] = ""
-    open_to_remote: bool = True
+    open_to_remote: Optional[bool] = True
 
 class ProfileSchema(BaseModel):
     id: Optional[int] = None

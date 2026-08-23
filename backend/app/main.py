@@ -1419,6 +1419,7 @@ def root():
 async def upload_resume(
     file: UploadFile = File(...),
     consent_given: bool = Form(True),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     auth_user: str = Depends(require_auth_or_api_key)
 ):
@@ -1457,17 +1458,26 @@ async def upload_resume(
         db.rollback()
     
     now = datetime.datetime.now(datetime.timezone.utc)
+    exp_items = parsed_data.get("experience_list") or parsed_data.get("past_roles") or []
+    edu_items = parsed_data.get("education_list") or parsed_data.get("education") or []
+    proj_items = parsed_data.get("projects") or []
+    strengths = parsed_data.get("key_strengths") or (parsed_data.get("skills", [])[:5] if parsed_data.get("skills") else [])
+
     profile = ProfileModel(
-        name=parsed_data["name"],
+        name=parsed_data.get("name") or "Candidate",
         email=parsed_data.get("email"),
         phone=parsed_data.get("phone"),
-        location=parsed_data["location"],
-        skills=parsed_data["skills"],
-        experience_years=parsed_data["experience_years"],
-        past_roles=parsed_data["past_roles"],
-        domains=parsed_data["domains"],
-        education=parsed_data["education"],
-        summary=parsed_data["summary"],
+        location=parsed_data.get("location") or {},
+        skills=parsed_data.get("skills") or [],
+        experience_years=parsed_data.get("experience_years") or 0.0,
+        past_roles=exp_items,
+        experience_list=exp_items,
+        domains=parsed_data.get("domains") or [],
+        education=edu_items,
+        education_list=edu_items,
+        projects=proj_items,
+        summary=parsed_data.get("summary"),
+        key_strengths=strengths,
         section_order=parsed_data.get("section_order", ["summary", "skills", "experience", "projects", "education"]),
         raw_resume_text=encrypted_raw_text,
         consent_given=True,
@@ -1478,7 +1488,14 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    run_matching_pipeline(db, profile)
+    # Run heavy job-matching and CV tailoring pipeline in background task so upload returns instantly
+    if background_tasks:
+        background_tasks.add_task(run_matching_pipeline, SessionLocal(), profile)
+    else:
+        try:
+            asyncio.create_task(asyncio.to_thread(run_matching_pipeline, SessionLocal(), profile))
+        except Exception:
+            pass
     
     quality_eval = compute_resume_quality_score(parsed_data)
     res_dict = {
@@ -1489,10 +1506,14 @@ async def upload_resume(
         "location": profile.location or {},
         "skills": profile.skills or [],
         "experience_years": profile.experience_years or 0.0,
-        "past_roles": profile.past_roles or [],
+        "past_roles": exp_items,
+        "experience_list": exp_items,
         "domains": profile.domains or [],
-        "education": profile.education or [],
+        "education": edu_items,
+        "education_list": edu_items,
+        "projects": proj_items,
         "summary": profile.summary,
+        "key_strengths": strengths,
         "section_order": profile.section_order or ["summary", "skills", "experience", "projects", "education"],
         "consent_given": True,
         "consent_timestamp": now.isoformat(),

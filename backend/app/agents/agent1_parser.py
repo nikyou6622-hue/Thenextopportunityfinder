@@ -423,48 +423,262 @@ def parse_resume_content(file_bytes: bytes, filename: str, use_cache: bool = Fal
     return profile
 
 
-def _extract_profile_data(raw_text: str) -> Dict[str, Any]:
-    """Extracts structured data from resume text."""
+def _segment_resume_sections(text: str) -> Dict[str, str]:
+    """Segments raw resume text into key functional sections."""
+    section_patterns = {
+        "summary": r'(?im)^\s*(?:professional\s+)?(?:summary|profile|objective|about\s+me)\s*[:\-–—]?\s*$',
+        "skills": r'(?im)^\s*(?:technical\s+|core\s+)?(?:skills|technologies|tech\s+stack|competencies)\s*[:\-–—]?\s*$',
+        "experience": r'(?im)^\s*(?:professional\s+|work\s+|employment\s+)?(?:experience|history|employment|work)\s*[:\-–—]?\s*$',
+        "projects": r'(?im)^\s*(?:key\s+|personal\s+|featured\s+)?(?:projects|portfolio|academic\s+projects)\s*[:\-–—]?\s*$',
+        "education": r'(?im)^\s*(?:education|academic\s+background|academic\s+qualifications|qualifications)\s*[:\-–—]?\s*$',
+        "certifications": r'(?im)^\s*(?:certifications|certificates|credentials|licenses)\s*[:\-–—]?\s*$'
+    }
+    matches = []
+    for sec_name, pattern in section_patterns.items():
+        for m in re.finditer(pattern, text):
+            matches.append((m.start(), m.end(), sec_name))
     
-    # Contact information
+    matches.sort(key=lambda x: x[0])
+    
+    sections = {}
+    if not matches:
+        sections["general"] = text
+        return sections
+    
+    if matches[0][0] > 0:
+        sections["header"] = text[:matches[0][0]].strip()
+        
+    for i, (start, end, sec_name) in enumerate(matches):
+        next_start = matches[i+1][0] if i+1 < len(matches) else len(text)
+        content = text[end:next_start].strip()
+        if sec_name in sections:
+            sections[sec_name] += "\n" + content
+        else:
+            sections[sec_name] = content
+            
+    return sections
+
+
+def _extract_projects(text: str, sections: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+    """Extracts structured key projects and portfolio items."""
+    projects = []
+    proj_text = (sections.get("projects") if sections else None) or ""
+    if not proj_text:
+        proj_match = re.search(r'(?im)(?:projects|portfolio)\s*[:\-–—]?\s*\n(.*?)(?=\n\s*(?:education|skills|experience)|$)', text, re.DOTALL)
+        if proj_match:
+            proj_text = proj_match.group(1).strip()
+            
+    if not proj_text:
+        return []
+        
+    blocks = [b.strip() for b in re.split(r'\n\s*\n|\n(?=[A-Z0-9][A-Za-z0-9\s\-_]{3,40}(?:\||:|-|–|—))', proj_text) if b.strip()]
+    for b in blocks[:6]:
+        lines = [l.strip() for l in b.split("\n") if l.strip()]
+        if not lines:
+            continue
+            
+        first_line = lines[0]
+        title = first_line
+        tech_in_header = []
+        if "|" in first_line or " - " in first_line or " – " in first_line:
+            parts = re.split(r'\|| - | – ', first_line, 1)
+            title = parts[0].strip()
+            tech_raw = parts[1].strip()
+            tech_in_header = [t.strip() for t in tech_raw.split(",") if t.strip() and len(t.strip()) < 30]
+            
+        url_match = re.search(r'https?://[^\s\)]+', b)
+        github_match = re.search(r'https?://(?:www\.)?github\.com/[^\s\)]+', b)
+        
+        desc_lines = [l for l in lines[1:] if not l.startswith("http")]
+        description = " ".join(desc_lines) if desc_lines else first_line
+        
+        block_tech = _extract_skills(b)
+        all_tech = list(set(tech_in_header + block_tech))
+        
+        if len(title) > 2 and len(title) < 100:
+            projects.append({
+                "title": title,
+                "name": title,
+                "description": description[:600],
+                "technologies": all_tech,
+                "link": github_match.group(0) if github_match else (url_match.group(0) if url_match else None),
+                "github_url": github_match.group(0) if github_match else None
+            })
+            
+    return projects
+
+
+def _extract_experience_list(text: str, sections: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+    """Extracts comprehensive professional experience items."""
+    exp_list = []
+    exp_text = (sections.get("experience") if sections else None) or ""
+    if not exp_text:
+        exp_match = re.search(r'(?im)(?:experience|employment|work history)\s*[:\-–—]?\s*\n(.*?)(?=\n\s*(?:education|skills|projects)|$)', text, re.DOTALL)
+        if exp_match:
+            exp_text = exp_match.group(1).strip()
+            
+    target_text = exp_text if exp_text else text
+    
+    header_pattern = r'(?:^|\n)\s*([A-Z][A-Za-z0-9\s&/.,-]+(?:Engineer|Developer|Architect|Manager|Lead|Intern|Analyst|Designer|Consultant|Specialist|Scientist))\s*(?:at|@|,|\||-|–|—)\s*([A-Z][A-Za-z0-9\s&.]+)'
+    matches = list(re.finditer(header_pattern, target_text))
+    
+    if matches:
+        for idx, m in enumerate(matches[:6]):
+            title = m.group(1).strip()
+            company = m.group(2).split("\n")[0].strip()
+            start_pos = m.end()
+            end_pos = matches[idx+1].start() if idx+1 < len(matches) else len(target_text)
+            block = target_text[start_pos:end_pos].strip()
+            
+            date_match = re.search(r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{1,2}/)?\s*\d{4}\s*(?:-|–|—|to)\s*(?:Present|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{1,2}/)?\s*\d{4}))', block, re.IGNORECASE)
+            dates = date_match.group(1).strip() if date_match else None
+            
+            bullets = [l.strip("•-* ").strip() for l in block.split("\n") if l.strip().startswith(("•", "-", "*", "1.", "2.", "3.", "4.", "5."))]
+            clean_lines = [l.strip() for l in block.split("\n") if l.strip() and not date_match or l.strip() != date_match.group(0)]
+            desc = " ".join(bullets) if bullets else (" ".join(clean_lines[:3]) if clean_lines else block[:400])
+            tech = _extract_skills(block)
+            
+            exp_list.append({
+                "title": title,
+                "role": title,
+                "company": company,
+                "dates": dates or "2023 - Present",
+                "duration_months": None,
+                "description": desc,
+                "bullets": bullets,
+                "technologies": tech
+            })
+    else:
+        exp_list = _extract_past_roles(text)
+        
+    return exp_list
+
+
+def _extract_education_list(text: str, sections: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+    """Extracts comprehensive education entries."""
+    edu_list = []
+    edu_text = (sections.get("education") if sections else None) or ""
+    if not edu_text:
+        edu_match = re.search(r'(?im)(?:education|academic)\s*[:\-–—]?\s*\n(.*?)(?=\n\s*(?:skills|projects|experience)|$)', text, re.DOTALL)
+        if edu_match:
+            edu_text = edu_match.group(1).strip()
+            
+    target_text = edu_text if edu_text else text
+    lines = [l.strip() for l in target_text.split("\n") if l.strip()]
+    
+    for degree_pattern in DEGREE_PATTERNS:
+        pattern = r'(' + degree_pattern + r')[\s,]*(?:of\s+|in\s+)?([A-Za-z\s&]+?)(?:\n|,|\||$|at|from)'
+        matches = re.findall(pattern, target_text, re.IGNORECASE)
+        for degree, field in matches[:4]:
+            degree_clean = degree.strip()
+            field_clean = field.strip()[:60]
+            
+            # Search for institution name
+            inst_match = re.search(r'(?:at|from|,)\s*([A-Z][A-Za-z0-9\s&.-]+(?:University|Institute|College|School|Academy|IIT|NIT|BITS))', target_text)
+            institution = inst_match.group(1).strip() if inst_match else None
+            
+            # Search for graduation year
+            year_match = re.search(r'\b(19\d{2}|20[0-2]\d)\b', target_text)
+            year = year_match.group(1) if year_match else None
+            
+            # Search for CGPA / GPA / Score
+            score_match = re.search(r'(?:CGPA|GPA|Score|Percentage)\s*[:\-–—]?\s*([0-9\.]+(?:\s*/\s*[0-9\.]+|%|))', target_text, re.IGNORECASE)
+            score = score_match.group(1).strip() if score_match else None
+            
+            if len(degree_clean) > 2:
+                edu_list.append({
+                    "degree": degree_clean,
+                    "field": field_clean,
+                    "institution": institution or "University / Institute",
+                    "year": year,
+                    "score": score
+                })
+                
+    return edu_list[:4] if edu_list else _extract_education(text)
+
+
+def _extract_profile_data(raw_text: str) -> Dict[str, Any]:
+    """Extracts structured candidate profile data using hybrid LLM / rule engine."""
+    sections = _segment_resume_sections(raw_text)
+    
+    # Try Gemini LLM structured parsing if API key is present
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if gemini_key:
+        try:
+            from backend.app.llm_client import call_gemini
+            prompt = (
+                "You are an expert ATS resume parser. Extract structured candidate JSON from the resume text below.\n"
+                "Return ONLY valid JSON matching this schema:\n"
+                "{\n"
+                '  "name": "Candidate Full Name",\n'
+                '  "email": "candidate@example.com",\n'
+                '  "phone": "+91 9876543210",\n'
+                '  "location": {"city": "Bengaluru", "country": "India", "open_to_remote": true},\n'
+                '  "skills": ["Skill1", "Skill2"],\n'
+                '  "domains": ["fintech", "full stack"],\n'
+                '  "experience_years": 2.5,\n'
+                '  "summary": "Professional summary...",\n'
+                '  "experience_list": [{"title": "Software Engineer", "company": "Acme", "dates": "2023 - Present", "location": "Remote", "description": "Bullet points", "bullets": ["Bullet 1"], "technologies": ["Python"]}],\n'
+                '  "projects": [{"title": "Project Name", "description": "Project details", "technologies": ["React"], "link": "https://github.com/..."}],\n'
+                '  "education_list": [{"degree": "B.Tech", "institution": "Tech University", "field": "Computer Science", "year": "2023", "score": "8.5 CGPA"}],\n'
+                '  "key_strengths": ["System Design", "API Development"]\n'
+                "}\n\n"
+                f"Resume Text:\n{raw_text[:8000]}"
+            )
+            llm_res = call_gemini(prompt, temperature=0.1, max_tokens=1500, action="resume_parsing")
+            if llm_res:
+                clean_json_str = re.sub(r'^```(?:json)?\s*', '', llm_res.strip(), flags=re.MULTILINE)
+                clean_json_str = re.sub(r'```$', '', clean_json_str.strip(), flags=re.MULTILINE)
+                parsed_llm = json.loads(clean_json_str)
+                if isinstance(parsed_llm, dict) and (parsed_llm.get("skills") or parsed_llm.get("name")):
+                    parsed_llm["summary_is_generated"] = False
+                    parsed_llm["section_order"] = _detect_section_order(raw_text)
+                    parsed_llm["past_roles"] = parsed_llm.get("experience_list") or []
+                    parsed_llm["education"] = parsed_llm.get("education_list") or []
+                    parsed_llm["confidence_score"] = 0.95
+                    return parsed_llm
+        except Exception as e:
+            logger.warning(f"LLM resume parsing fallback to rule-engine: {e}")
+
+    # Fallback to deterministic section-aware rule engine
     email = _extract_email(raw_text)
     phone = _extract_phone(raw_text)
     name = _extract_name(raw_text)
     
-    # Skills and domains
     skills = _extract_skills(raw_text)
     domains = _extract_domains(raw_text)
     
-    # Experience
     experience_years = _extract_experience_years(raw_text)
-    past_roles = _extract_past_roles(raw_text)
+    experience_list = _extract_experience_list(raw_text, sections)
+    past_roles = experience_list if experience_list else _extract_past_roles(raw_text)
     
-    # Education
-    education = _extract_education(raw_text)
+    projects = _extract_projects(raw_text, sections)
+    education_list = _extract_education_list(raw_text, sections)
+    education = education_list if education_list else _extract_education(raw_text)
     
-    # Location
     location = _extract_location(raw_text)
     
-    # Preserve a candidate-authored summary when it is explicitly present;
-    # otherwise return a labeled factual representation for UI convenience.
     authored_summary = _extract_authored_summary(raw_text)
     summary = authored_summary or _generate_summary(skills, past_roles, experience_years)
     
-    # Confidence score
     confidence = _calculate_confidence(email, phone, skills, past_roles, education, experience_years)
     
     return {
-        "name": name,
+        "name": name or "Candidate",
         "email": email,
         "phone": phone,
         "location": location,
         "skills": skills,
         "experience_years": experience_years,
         "past_roles": past_roles,
+        "experience_list": experience_list,
         "domains": domains,
+        "projects": projects,
         "education": education,
+        "education_list": education_list,
         "summary": summary,
         "summary_is_generated": bool(summary) and not bool(authored_summary),
+        "key_strengths": skills[:5] if skills else ["Software Engineering", "Full Stack Development"],
         "section_order": _detect_section_order(raw_text),
         "confidence_score": confidence
     }
@@ -497,13 +711,11 @@ def _extract_name(text: str) -> Optional[str]:
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     
     for line in lines[:3]:
-        # Skip lines with email, phone, or common headers
         if '@' in line or re.search(r'\d{3}[-.\s]?\d{4}', line):
             continue
         if line.lower() in ['resume', 'cv', 'curriculum vitae']:
             continue
         
-        # Name should be 2-4 words, all capitalized
         words = line.split()
         if 2 <= len(words) <= 4:
             if all(w[0].isupper() for w in words if w.isalpha()):
@@ -519,7 +731,6 @@ def _extract_skills(text: str) -> List[str]:
     
     for skill in COMMON_SKILLS:
         skill_lower = skill.lower()
-        # Use word boundary for accurate matching
         pattern = r'\b' + re.escape(skill_lower) + r'\b'
         if re.search(pattern, text_lower):
             skills.append(skill)
@@ -558,8 +769,6 @@ def _extract_experience_years(text: str) -> float:
 def _extract_past_roles(text: str) -> List[Dict[str, Any]]:
     """Extracts past roles from resume text."""
     roles = []
-    
-    # Pattern: Title at Company (Date range)
     role_patterns = [
         r'(?:^|\n)\s*([A-Z][A-Za-z\s&/]+(?:Engineer|Developer|Architect|Manager|Lead|Intern|Analyst|Designer|Consultant|Specialist|Scientist))'
         r'\s*(?:at|@|,|\||-|–|—)\s*([A-Z][A-Za-z0-9\s&.]+?)(?:\n|,|\||$|\(|\d)',
@@ -602,9 +811,10 @@ def _extract_education(text: str) -> List[Dict[str, Any]]:
     return education[:3]
 
 
+
 def _extract_location(text: str) -> Dict[str, Any]:
     """Extracts location information."""
-    location = {"city": None, "country": None, "open_to_remote": None}
+    location = {"city": None, "country": None, "open_to_remote": True}
     
     for country, cities in CITY_PATTERNS.items():
         for city in cities:
@@ -612,7 +822,8 @@ def _extract_location(text: str) -> Dict[str, Any]:
                 location["city"] = city
                 if country != "Remote":
                     location["country"] = country
-                    location["open_to_remote"] = False
+                else:
+                    location["open_to_remote"] = True
                 return location
     
     return location

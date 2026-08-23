@@ -461,9 +461,42 @@ export default function App() {
   const handleUploadResume = async (file, consentGiven = true) => {
     setLoading(true);
     try {
-      const parsedProfile = await parseResumeFileClient(file);
-      await saveProfileToSupabase(parsedProfile);
-      setProfile(parsedProfile);
+      let serverSuccess = false;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('consent_given', 'true');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      try {
+        const response = await fetch('/api/profile/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const parsedData = await response.json();
+          if (parsedData && (parsedData.name || (parsedData.skills && parsedData.skills.length > 0))) {
+            setProfile(parsedData);
+            await saveProfileToSupabase(parsedData);
+            serverSuccess = true;
+          }
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn("Server upload notice, proceeding with instant fallback:", err);
+      }
+
+      if (!serverSuccess) {
+        const parsedProfile = await parseResumeFileClient(file);
+        await saveProfileToSupabase(parsedProfile);
+        setProfile(parsedProfile);
+      }
+
       setActiveTab('profile');
       try { SoundSystem.playSuccess(); } catch {}
     } catch (e) {

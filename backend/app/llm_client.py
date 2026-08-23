@@ -14,6 +14,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
 
+_GEMINI_BLOCKED = False
+
 def call_gemini(
     prompt: str,
     system_instruction: Optional[str] = None,
@@ -26,6 +28,10 @@ def call_gemini(
     Executes a direct REST call to Google Gemini 1.5 Flash API.
     Returns response text if successful, or None on failure.
     """
+    global _GEMINI_BLOCKED
+    if _GEMINI_BLOCKED:
+        return None
+
     api_key = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY).strip()
     if not api_key:
         return None
@@ -62,8 +68,12 @@ def call_gemini(
     }
 
     try:
-        resp = requests.post(endpoint, json=payload, headers=headers, timeout=20)
-        if resp.status_code != 200:
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=4)
+        if resp.status_code in (401, 403):
+            logger.warning(f"Gemini API key blocked/disabled ({resp.status_code}), switching to fast offline rule engine.")
+            _GEMINI_BLOCKED = True
+            return None
+        elif resp.status_code != 200:
             logger.warning(f"Gemini API error ({resp.status_code}): {resp.text[:200]}")
             return None
 
