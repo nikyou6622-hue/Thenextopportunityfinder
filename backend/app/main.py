@@ -513,15 +513,135 @@ def _generate_otp() -> str:
     """Generates a secure 6-digit numeric OTP token."""
     return "".join(secrets.choice("0123456789") for _ in range(6))
 
-def _store_otp(email: str, otp: str, purpose: str = "login"):
+def _store_otp_supabase(email: str, otp: str, purpose: str = "login", payload: dict = None):
+    email_clean = email.strip().lower()
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
-    _OTP_REGISTRY[email.strip().lower()] = {
-        "otp": otp,
+    exp = now + 600
+
+    # In-memory local cache
+    entry = {
+        "otp": str(otp),
         "purpose": purpose,
+        "payload": payload,
         "created_at": now,
-        "expires_at": now + 600,  # 10 minutes TTL
+        "expires_at": exp,
         "attempts": 0
     }
+    _OTP_REGISTRY[email_clean] = entry
+    if payload:
+        _PENDING_REGISTRATIONS[email_clean] = entry
+
+    # Cloud persistence in Supabase Postgres so all Vercel serverless functions share state
+    try:
+        import pg8000.native
+        conn = pg8000.native.Connection(
+            user="postgres.hoobggdrjghfqxgjfoqf",
+            password="a#NIK789532",
+            host="aws-0-ap-northeast-1.pooler.supabase.com",
+            port=6543,
+            database="postgres",
+            timeout=10
+        )
+        conn.run(
+            """
+            CREATE TABLE IF NOT EXISTS otp_verifications (
+                email VARCHAR(255) PRIMARY KEY,
+                otp VARCHAR(10) NOT NULL,
+                purpose VARCHAR(50) DEFAULT 'login',
+                payload TEXT DEFAULT NULL,
+                expires_at DOUBLE PRECISION NOT NULL,
+                attempts INT DEFAULT 0
+            );
+            """
+        )
+        payload_str = json.dumps(payload) if payload else None
+        conn.run(
+            """
+            INSERT INTO otp_verifications (email, otp, purpose, payload, expires_at, attempts)
+            VALUES (:email, :otp, :purpose, :payload, :expires_at, 0)
+            ON CONFLICT (email) DO UPDATE SET
+                otp = EXCLUDED.otp,
+                purpose = EXCLUDED.purpose,
+                payload = EXCLUDED.payload,
+                expires_at = EXCLUDED.expires_at,
+                attempts = 0;
+            """,
+            email=email_clean,
+            otp=str(otp),
+            purpose=purpose,
+            payload=payload_str,
+            expires_at=exp
+        )
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Notice: Supabase OTP store notice for {email_clean}: {e}")
+
+def _get_otp_supabase(email: str) -> dict:
+    email_clean = email.strip().lower()
+    
+    # Fast path: check in-memory cache first
+    if email_clean in _PENDING_REGISTRATIONS and _PENDING_REGISTRATIONS[email_clean].get("payload"):
+        return _PENDING_REGISTRATIONS[email_clean]
+    if email_clean in _OTP_REGISTRY:
+        return _OTP_REGISTRY[email_clean]
+
+    # Cloud path: fetch from Supabase Postgres
+    try:
+        import pg8000.native
+        conn = pg8000.native.Connection(
+            user="postgres.hoobggdrjghfqxgjfoqf",
+            password="a#NIK789532",
+            host="aws-0-ap-northeast-1.pooler.supabase.com",
+            port=6543,
+            database="postgres",
+            timeout=10
+        )
+        rows = conn.run(
+            "SELECT otp, purpose, payload, expires_at, attempts FROM otp_verifications WHERE email = :email",
+            email=email_clean
+        )
+        conn.close()
+
+        if rows:
+            r = rows[0]
+            otp_val, purpose_val, payload_str, exp_val, att_val = r[0], r[1], r[2], r[3], r[4]
+            payload_obj = json.loads(payload_str) if payload_str else None
+            entry = {
+                "otp": str(otp_val),
+                "purpose": str(purpose_val),
+                "payload": payload_obj,
+                "expires_at": float(exp_val),
+                "attempts": int(att_val)
+            }
+            _OTP_REGISTRY[email_clean] = entry
+            if payload_obj:
+                _PENDING_REGISTRATIONS[email_clean] = entry
+            return entry
+    except Exception as e:
+        logger.warning(f"Notice: Supabase OTP fetch notice for {email_clean}: {e}")
+    return None
+
+def _delete_otp_supabase(email: str):
+    email_clean = email.strip().lower()
+    _OTP_REGISTRY.pop(email_clean, None)
+    _PENDING_REGISTRATIONS.pop(email_clean, None)
+    try:
+        import pg8000.native
+        conn = pg8000.native.Connection(
+            user="postgres.hoobggdrjghfqxgjfoqf",
+            password="a#NIK789532",
+            host="aws-0-ap-northeast-1.pooler.supabase.com",
+            port=6543,
+            database="postgres",
+            timeout=10
+        )
+        conn.run("DELETE FROM otp_verifications WHERE email = :email", email=email_clean)
+        conn.close()
+    except Exception:
+        pass
+
+def _store_otp(email: str, otp: str, purpose: str = "login"):
+    _store_otp_supabase(email, otp, purpose=purpose)
 
 def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None):
     """Persists verified candidate user and profile records directly to Supabase PostgreSQL Cloud."""
@@ -610,25 +730,25 @@ def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None
 def _validate_otp(email: str, token: str) -> bool:
     email_clean = email.strip().lower()
     token_clean = token.strip()
-    entry = _OTP_REGISTRY.get(email_clean)
+    entry = _get_otp_supabase(email_clean)
     if not entry:
         return False
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     if now > entry["expires_at"]:
-        _OTP_REGISTRY.pop(email_clean, None)
+        _delete_otp_supabase(email_clean)
         return False
     entry["attempts"] += 1
     if entry["attempts"] > 5:
-        _OTP_REGISTRY.pop(email_clean, None)
+        _delete_otp_supabase(email_clean)
         return False
     if entry["otp"] == token_clean:
-        _OTP_REGISTRY.pop(email_clean, None)
+        _delete_otp_supabase(email_clean)
         return True
     return False
 
 def _send_live_otp_email(recipient_email: str, otp_code: str) -> bool:
     """Dispatches a live 6-digit HTML verification OTP email via Gmail SMTP."""
-    smtp_pass = os.getenv("SMTP_PASSWORD", "").strip()
+    smtp_pass = os.getenv("SMTP_PASSWORD", "wmiwyfujzcwjdtbs").strip()
     smtp_user = os.getenv("SMTP_USER", os.getenv("DEFAULT_EMAIL", "nextopportunityfinder@gmail.com")).strip()
     host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
     port = int(os.getenv("SMTP_PORT", 587))
@@ -732,7 +852,7 @@ def auth_send_otp(req: SendOtpRequest, background_tasks: BackgroundTasks = None)
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
     
     otp_code = _generate_otp()
-    _store_otp(email_clean, otp_code, purpose=req.type or "login")
+    _store_otp_supabase(email_clean, otp_code, purpose=req.type or "login")
     
     # Always attempt live SMTP delivery directly or in background
     if background_tasks:
@@ -762,17 +882,17 @@ def auth_verify_otp(req: VerifyOtpRequest, response: Response, db: Session = Dep
     
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
     
-    # 1. Check if this email has a pending registration
-    pending = _PENDING_REGISTRATIONS.get(email_clean)
-    if pending and not user:
+    # 1. Check if this email has a pending registration in Supabase Cloud state
+    pending = _get_otp_supabase(email_clean)
+    if pending and pending.get("payload") and not user:
         now = datetime.datetime.now(datetime.timezone.utc).timestamp()
         if now > pending["expires_at"]:
-            _PENDING_REGISTRATIONS.pop(email_clean, None)
+            _delete_otp_supabase(email_clean)
             raise HTTPException(status_code=400, detail="Verification code has expired. Please sign up again.")
         
         pending["attempts"] += 1
         if pending["attempts"] > 5:
-            _PENDING_REGISTRATIONS.pop(email_clean, None)
+            _delete_otp_supabase(email_clean)
             raise HTTPException(status_code=400, detail="Too many invalid attempts. Please request a new verification code.")
 
         if pending["otp"] != token_clean:
@@ -814,8 +934,8 @@ def auth_verify_otp(req: VerifyOtpRequest, response: Response, db: Session = Dep
             db.add(profile)
             db.commit()
 
-        # Clear pending registration
-        _PENDING_REGISTRATIONS.pop(email_clean, None)
+        # Clear pending registration state from Supabase Cloud
+        _delete_otp_supabase(email_clean)
 
         # Store verified user and profile directly in Supabase PostgreSQL Cloud
         sync_verified_user_to_supabase(user, profile)
@@ -936,28 +1056,26 @@ def auth_signup(req: SignUpRequest, response: Response, background_tasks: Backgr
             )
         raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
     
-    # Cache pending signup payload — DO NOT INSERT INTO DATABASE YET!
+    # Cache pending signup payload in Supabase Cloud — DO NOT INSERT INTO LOCAL USERS TABLE YET!
     otp_code = _generate_otp()
-    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     
     consent_val = req.consent_given if req.consent_given is not None else True
     consent_time = req.consent_timestamp or datetime.datetime.now(datetime.timezone.utc)
     
-    _PENDING_REGISTRATIONS[email_clean] = {
-        "otp": otp_code,
-        "payload": {
+    _store_otp_supabase(
+        email_clean,
+        otp_code,
+        purpose="email_verification",
+        payload={
             "full_name": req.full_name.strip(),
             "email": email_clean,
             "password_hash": _hash_password(req.password),
             "target_role": req.target_role or "Software Engineer",
             "experience_level": req.experience_level or "Entry Level / Student",
             "consent_given": consent_val,
-            "consent_timestamp": consent_time
-        },
-        "created_at": now,
-        "expires_at": now + 600,
-        "attempts": 0
-    }
+            "consent_timestamp": str(consent_time)
+        }
+    )
 
     # Dispatch live OTP email
     if background_tasks:
