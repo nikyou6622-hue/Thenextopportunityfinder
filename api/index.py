@@ -186,75 +186,75 @@ def healthz():
     return {"status": "ok", "provider": "Vercel Serverless (Supabase Postgres)", "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()}
 
 @app.post("/api/profile/upload")
-async def upload_profile_resume(file: Optional[UploadFile] = File(None), payload: Optional[Dict[str, Any]] = Body(None)):
+async def upload_profile_resume(
+    file: Optional[UploadFile] = File(None), 
+    payload: Optional[Dict[str, Any]] = Body(None)
+):
     global ACTIVE_CANDIDATE_PROFILE
     
     extracted_skills = []
-    name = "Candidate"
+    name = "Candidate Name"
     email = "candidate@dev.io"
-    
-    if file:
+    phone = ""
+    city = "Bengaluru"
+    country = "India"
+    summary = ""
+    exp_list = []
+    edu_list = []
+    proj_list = []
+
+    if payload:
+        name = payload.get("name") or name
+        email = payload.get("email") or email
+        phone = payload.get("phone") or phone
+        city = payload.get("city") or city
+        country = payload.get("country") or country
+        extracted_skills = payload.get("skills") or []
+        summary = payload.get("summary") or ""
+        exp_list = payload.get("experience_list") or payload.get("past_roles") or []
+        edu_list = payload.get("education_list") or payload.get("education") or []
+        proj_list = payload.get("projects") or []
+    elif file:
         filename = file.filename or ""
         content_bytes = await file.read()
         raw_text = content_bytes.decode('utf-8', errors='ignore')
         
         # Skill keyword extraction
-        keywords = ["Python", "FastAPI", "React", "Next.js", "Node.js", "Java", "Spring Boot", "Go", "C++", "Docker", "Kubernetes", "PostgreSQL", "AWS", "Machine Learning", "System Design", "TypeScript", "TailwindCSS"]
+        keywords = ["Python", "FastAPI", "React", "Next.js", "Node.js", "Java", "Spring Boot", "Go", "C++", "Docker", "Kubernetes", "PostgreSQL", "AWS", "Machine Learning", "System Design", "TypeScript", "TailwindCSS", "SQL", "Git"]
         for kw in keywords:
             if re.search(r'\b' + re.escape(kw) + r'\b', raw_text, re.I):
                 extracted_skills.append(kw)
         
-        # Name extraction
         name_match = re.search(r'([A-Z][a-z]+\s+[A-Z][a-z]+)', raw_text)
-        if name_match:
-            name = name_match.group(1)
+        if name_match: name = name_match.group(1)
             
-        # Email extraction
         email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', raw_text)
-        if email_match:
-            email = email_match.group(0)
-
-    elif payload:
-        extracted_skills = payload.get("skills", [])
-        name = payload.get("name", "Candidate")
-        email = payload.get("email", "candidate@dev.io")
+        if email_match: email = email_match.group(0)
 
     if not extracted_skills:
         extracted_skills = ["Python", "React", "FastAPI", "PostgreSQL", "Docker"]
 
+    if not summary:
+        summary = f"Software Engineering professional specializing in {', '.join(extracted_skills[:4])}. Experienced in full-stack web applications, API design, and distributed systems."
+
     ACTIVE_CANDIDATE_PROFILE["name"] = name
     ACTIVE_CANDIDATE_PROFILE["email"] = email
+    ACTIVE_CANDIDATE_PROFILE["phone"] = phone
+    ACTIVE_CANDIDATE_PROFILE["location"] = {"city": city, "country": country, "open_to_remote": True}
     ACTIVE_CANDIDATE_PROFILE["skills"] = extracted_skills
     ACTIVE_CANDIDATE_PROFILE["key_strengths"] = extracted_skills[:5]
-    ACTIVE_CANDIDATE_PROFILE["summary"] = f"Software Engineer specializing in {', '.join(extracted_skills[:4])}. Experienced in full-stack web applications and scalable system design."
+    ACTIVE_CANDIDATE_PROFILE["summary"] = summary
+    if exp_list: ACTIVE_CANDIDATE_PROFILE["experience_list"] = exp_list
+    if edu_list: ACTIVE_CANDIDATE_PROFILE["education_list"] = edu_list
+    if proj_list: ACTIVE_CANDIDATE_PROFILE["projects"] = proj_list
 
     # Scrape fresh jobs matching the newly uploaded candidate skills
     new_jobs_found = scrape_fresh_jobs_for_skills(extracted_skills)
 
-    return {
-        "id": 1,
-        "name": ACTIVE_CANDIDATE_PROFILE["name"],
-        "email": ACTIVE_CANDIDATE_PROFILE["email"],
-        "phone": ACTIVE_CANDIDATE_PROFILE["phone"],
-        "location": ACTIVE_CANDIDATE_PROFILE["location"],
-        "skills": ACTIVE_CANDIDATE_PROFILE["skills"],
-        "experience_years": 2.0,
-        "past_roles": ACTIVE_CANDIDATE_PROFILE["past_roles"],
-        "experience_list": ACTIVE_CANDIDATE_PROFILE["experience_list"],
-        "domains": ["fullstack", "engineering"],
-        "education": ACTIVE_CANDIDATE_PROFILE["education"],
-        "education_list": ACTIVE_CANDIDATE_PROFILE["education_list"],
-        "projects": ACTIVE_CANDIDATE_PROFILE["projects"],
-        "summary": ACTIVE_CANDIDATE_PROFILE["summary"],
-        "key_strengths": ACTIVE_CANDIDATE_PROFILE["key_strengths"],
-        "section_order": ACTIVE_CANDIDATE_PROFILE["section_order"],
-        "consent_given": True,
-        "consent_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "quality_score": 95.0,
-        "ats_score": 93.0,
-        "new_jobs_scraped": new_jobs_found,
-        "message": f"Resume analyzed successfully! Extracted {len(extracted_skills)} core skills and scraped {new_jobs_found} fresh matching job listings."
-    }
+    res_profile = dict(ACTIVE_CANDIDATE_PROFILE)
+    res_profile["new_jobs_scraped"] = new_jobs_found
+    res_profile["message"] = f"Resume parsed successfully! Extracted {len(extracted_skills)} core technical skills and scraped {new_jobs_found} fresh matching job listings."
+    return res_profile
 
 @app.post("/api/jobs/discover")
 def trigger_job_discovery(payload: Optional[Dict[str, Any]] = Body(None)):

@@ -543,39 +543,29 @@ export default function App() {
   const handleUploadResume = async (file, consentGiven = true) => {
     setLoading(true);
     try {
-      let serverSuccess = false;
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('consent_given', 'true');
+      // 1. Client-Side Parsing via Mozilla PDF.js engine
+      const parsedProfile = await parseResumeFileClient(file);
+      
+      // 2. Sync Extracted Resume Profile to Supabase & Backend API
+      if (parsedProfile) {
+        setProfile(parsedProfile);
+        await saveProfileToSupabase(parsedProfile);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-      try {
-        const response = await apiFetch('/api/profile/upload', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const parsedData = await response.json();
-          if (parsedData && (parsedData.name || (parsedData.skills && parsedData.skills.length > 0))) {
-            setProfile(parsedData);
-            await saveProfileToSupabase(parsedData);
-            serverSuccess = true;
-          }
+        try {
+          await apiFetch('/api/profile/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsedProfile),
+            credentials: 'include'
+          });
+        } catch (err) {
+          console.warn("API profile sync notice:", err);
         }
-      } catch (err) {
-        clearTimeout(timeoutId);
-        console.warn("Server upload notice, proceeding with instant fallback:", err);
       }
 
-      // Scrape fresh matching jobs for newly uploaded candidate skills & refresh matches
+      // 3. Scrape fresh matching jobs for newly extracted candidate skills & refresh matches
       try {
-        const activeSkills = profile?.skills || [];
+        const activeSkills = parsedProfile?.skills || profile?.skills || [];
         await apiFetch('/api/jobs/discover', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
