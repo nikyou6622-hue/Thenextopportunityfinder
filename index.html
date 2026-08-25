@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#080b14" />
+    <!-- Automatic ServiceWorker & CacheStorage purge for fresh build deployment -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) { registration.unregister(); }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) caches.delete(name);
+        });
+      }
+    </script>
+
+    <!-- Prevent Stale Browser Cache of Old Chunks -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Next Opportunity Finder — The AI Career Acceleration Operating System</title>
+    <meta name="title" content="Next Opportunity Finder — The AI Career Acceleration Operating System" />
+    <meta name="description" content="End-to-end AI career accelerator. 5-pillar ATS resume studio, verified multi-channel tech jobs and Indian internships in ₹, 1-click tailored CVs, voice AI mock interviews, in-browser coding assessments, and salary intelligence." />
+    <meta name="keywords" content="Next Opportunity Finder, AI Resume Builder, ATS Score Checker, Tech Jobs India, SDE Internships, Remote Developer Jobs, Salary Benchmarks LPA, Mock Interview AI, System Design Interview" />
+    <meta name="author" content="Next Opportunity Finder Platform Studio" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://thenextopportunityfind.io/" />
+    <meta property="og:title" content="Next Opportunity Finder — The AI Career Acceleration Operating System" />
+    <meta property="og:description" content="From ATS resume optimization to verified jobs in ₹, 1-click CV tailoring, AI mock interviews, and salary intelligence — everything you need in one unified platform." />
+    <meta property="og:image" content="/thumbnails/fullstack_track_thumb.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Next Opportunity Finder — The AI Career Acceleration Operating System" />
+    <meta property="twitter:description" content="End-to-end AI career operating system for tech professionals and students." />
+    <meta property="twitter:image" content="/thumbnails/fullstack_track_thumb.png" />
+
+    <!-- Fonts Preconnect & Optimization -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+      /* Zero-Flash Dark Mode Initialization */
+      html, body {
+        background-color: #080b14;
+        color: #f8fafc;
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      
+      /* Subtle Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(8, 11, 20, 0.95);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.35);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6);
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-6cd343b5.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-e72fc605.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-ui-92a68975.js">
+    <link rel="stylesheet" href="/assets/index-8733a272.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    
+  </body>
+</html>
