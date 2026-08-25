@@ -36,31 +36,12 @@ export async function apiFetch(url, options = {}) {
     credentials: options.credentials || 'include',
   };
 
-  const isStaticHostWithoutBackend = typeof window !== 'undefined' && 
-    !API_BASE_URL && 
-    (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev'));
-
-  if (url.startsWith('/api') && isStaticHostWithoutBackend) {
-    return new Response(JSON.stringify({ offline: true, fallback: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
   const resolvedUrl = (url.startsWith('/api') && API_BASE_URL)
     ? `${API_BASE_URL}${url}`
     : url;
 
   try {
     const response = await fetch(resolvedUrl, fetchOptions);
-
-    // 405 Method Not Allowed / 404 Not Found interceptor for static Vercel host
-    if (response.status === 405 || response.status === 404) {
-      return new Response(JSON.stringify({ offline: true, fallback: true }), { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json' } 
-      });
-    }
 
     // 401/403 Interceptor for mid-session expiration
     if ((response.status === 401 || response.status === 403) && !url.includes('/api/auth/')) {
@@ -78,8 +59,8 @@ export async function apiFetch(url, options = {}) {
 
     return response;
   } catch (error) {
-    console.warn(`[apiFetch Notice] Request to ${url} handled with client fallback:`, error);
-    return new Response(JSON.stringify({ offline: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    console.warn(`[apiFetch Notice] Request to ${url} encountered network notice:`, error);
+    return new Response(JSON.stringify({ error: true, message: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
 
