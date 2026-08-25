@@ -854,14 +854,11 @@ def auth_send_otp(req: SendOtpRequest, background_tasks: BackgroundTasks = None)
     otp_code = _generate_otp()
     _store_otp_supabase(email_clean, otp_code, purpose=req.type or "login")
     
-    # Always attempt live SMTP delivery directly or in background
-    if background_tasks:
-        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
-    else:
-        try:
-            _send_live_otp_email(email_clean, otp_code)
-        except Exception as e:
-            logger.error(f"Error sending live email: {e}")
+    # Dispatch live SMTP email synchronously so Vercel Serverless Function does not freeze before delivery
+    try:
+        _send_live_otp_email(email_clean, otp_code)
+    except Exception as e:
+        logger.error(f"Error sending live email: {e}")
 
     # Never leak verification code in API response
     return SendOtpResponse(
@@ -1077,14 +1074,11 @@ def auth_signup(req: SignUpRequest, response: Response, background_tasks: Backgr
         }
     )
 
-    # Dispatch live OTP email
-    if background_tasks:
-        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
-    else:
-        try:
-            _send_live_otp_email(email_clean, otp_code)
-        except Exception as e:
-            logger.error(f"Failed to dispatch sign up verification email to {email_clean}: {e}")
+    # Dispatch live OTP email synchronously so Vercel Serverless Function does not freeze before delivery
+    try:
+        _send_live_otp_email(email_clean, otp_code)
+    except Exception as e:
+        logger.error(f"Failed to dispatch sign up verification email to {email_clean}: {e}")
 
     return AuthResponse(
         success=True,
@@ -1142,13 +1136,11 @@ def auth_forgot_password_request(req: ForgotPasswordRequest, background_tasks: B
     otp_code = _generate_otp()
     _store_otp(email_clean, otp_code, purpose="forgot_password")
     
-    if background_tasks:
-        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
-    else:
-        try:
-            _send_live_otp_email(email_clean, otp_code)
-        except Exception as e:
-            logger.error(f"Failed to dispatch password reset OTP email to {email_clean}: {e}")
+    # Dispatch live password reset OTP email synchronously so Vercel Serverless Function does not freeze before delivery
+    try:
+        _send_live_otp_email(email_clean, otp_code)
+    except Exception as e:
+        logger.error(f"Failed to dispatch password reset OTP email to {email_clean}: {e}")
             
     return SendOtpResponse(
         success=True,
