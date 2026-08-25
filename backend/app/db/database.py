@@ -56,13 +56,28 @@ def run_auto_migrations():
                     if "is_email_verified" not in columns:
                         conn.execute(text("ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN DEFAULT 0"))
                         conn.commit()
+                if "matches" in tables:
+                    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(matches)")).fetchall()]
+                    if "matched_skills" not in columns:
+                        conn.execute(text("ALTER TABLE matches ADD COLUMN matched_skills JSON DEFAULT '[]'"))
+                    if "matched_count" not in columns:
+                        conn.execute(text("ALTER TABLE matches ADD COLUMN matched_count INTEGER DEFAULT 0"))
+                    if "required_count" not in columns:
+                        conn.execute(text("ALTER TABLE matches ADD COLUMN required_count INTEGER DEFAULT 0"))
+                    if "skill_match_percentage" not in columns:
+                        conn.execute(text("ALTER TABLE matches ADD COLUMN skill_match_percentage FLOAT DEFAULT 0.0"))
+                    conn.commit()
             else:
                 # PostgreSQL auto-migrations for Supabase Cloud
                 try:
                     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_skills JSON DEFAULT '[]'::json;"))
+                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_count INTEGER DEFAULT 0;"))
+                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS required_count INTEGER DEFAULT 0;"))
+                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS skill_match_percentage DOUBLE PRECISION DEFAULT 0.0;"))
                     conn.commit()
-                except Exception:
-                    pass
+                except Exception as ex:
+                    print(f"PostgreSQL migration warning: {ex}")
     except Exception as e:
         print(f"Auto-migration notice: {e}")
 
