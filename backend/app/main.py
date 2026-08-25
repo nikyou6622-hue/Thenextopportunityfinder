@@ -1562,6 +1562,15 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
         diagnoses = db.query(OutcomeDiagnosisModel).filter(OutcomeDiagnosisModel.profile_id == profile.id).all()
         outcome_signals = [{"pattern_type": d.pattern_type, "recommendation": d.recommendation} for d in diagnoses]
 
+    # Pre-fetch all existing matches & applications for this profile into dictionaries (eliminates N+1 DB queries)
+    existing_matches = {}
+    existing_apps = {}
+    if profile.id:
+        match_rows = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).all()
+        existing_matches = {m.job_id: m for m in match_rows}
+        app_rows = db.query(ApplicationModel).filter(ApplicationModel.profile_id == profile.id).all()
+        existing_apps = {a.job_id: a for a in app_rows}
+
     for job in jobs:
         job_dict = {
             "company": job.company,
@@ -1574,11 +1583,7 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
         }
         match_result = compute_match(profile_dict, job_dict, outcome_feedback_signals=outcome_signals)
         
-        existing_match = db.query(MatchModel).filter(
-            MatchModel.job_id == job.id, 
-            MatchModel.profile_id == profile.id
-        ).first()
-
+        existing_match = existing_matches.get(job.id)
         if existing_match:
             existing_match.match_score = match_result["match_score"]
             existing_match.skill_overlap_score = match_result["skill_overlap_score"]
@@ -1609,30 +1614,30 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
             )
             db.add(new_match)
             db.flush()
+            existing_match = new_match
 
-            if match_result["is_qualified"]:
-                existing_app = db.query(ApplicationModel).filter(ApplicationModel.match_id == new_match.id).first()
-                if not existing_app:
-                    tailored_data = tailor_resume_for_job(profile_dict, job_dict, match_result)
-                    app_entry = ApplicationModel(
-                        match_id=new_match.id,
-                        job_id=job.id,
-                        profile_id=profile.id,
-                        status=tailored_data["status"],
-                        apply_mode=tailored_data["apply_mode"],
-                        tailored_summary=tailored_data["tailored_summary"],
-                        tailored_skills=tailored_data["tailored_skills"],
-                        form_autofill_data=tailored_data["form_autofill_data"]
-                    )
-                    db.add(app_entry)
-                    db.flush()
-                    
-                    event = ApplicationEventModel(
-                        application_id=app_entry.id,
-                        event_type="matched_and_tailored",
-                        details=f"Auto-tailored for {job.company} with score {match_result['match_score']}%"
-                    )
-                    db.add(event)
+        if match_result["is_qualified"] and job.id not in existing_apps:
+            tailored_data = tailor_resume_for_job(profile_dict, job_dict, match_result)
+            app_entry = ApplicationModel(
+                match_id=existing_match.id,
+                job_id=job.id,
+                profile_id=profile.id,
+                status=tailored_data["status"],
+                apply_mode=tailored_data["apply_mode"],
+                tailored_summary=tailored_data["tailored_summary"],
+                tailored_skills=tailored_data["tailored_skills"],
+                form_autofill_data=tailored_data["form_autofill_data"]
+            )
+            db.add(app_entry)
+            db.flush()
+            existing_apps[job.id] = app_entry
+            
+            event = ApplicationEventModel(
+                application_id=app_entry.id,
+                event_type="matched_and_tailored",
+                details=f"Auto-tailored for {job.company} with score {match_result['match_score']}%"
+            )
+            db.add(event)
 
     db.commit()
 
@@ -1876,8 +1881,8 @@ async def upload_resume(
     if not is_valid:
         raise HTTPException(status_code=400, detail=err_msg)
 
-    # 3. Parse Document Content
-    parsed_data = parse_resume_content(content, file.filename)
+    # 3. Parse Document Content with cache support
+    parsed_data = parse_resume_content(content, file.filename, use_cache=True)
     
     # 4. Encrypt sensitive PII at rest
     raw_text = parsed_data["raw_resume_text"]

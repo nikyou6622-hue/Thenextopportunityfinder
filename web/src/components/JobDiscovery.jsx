@@ -805,11 +805,31 @@ export default function JobDiscovery({
 
                     {/* Skill Match Breakdown Bar */}
                     {(() => {
+                      const userSkillsList = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
                       const reqSkills = job.required_skills || job.tech_stack || [];
-                      const matchedSkills = m.matched_skills || m.matching_skills || [];
-                      const matchCount = m.matched_count !== undefined && m.matched_count !== null ? m.matched_count : matchedSkills.length;
-                      const totalCount = m.required_count !== undefined && m.required_count !== null && m.required_count > 0 ? m.required_count : (reqSkills.length || 1);
-                      const pct = m.skill_match_percentage !== undefined && m.skill_match_percentage !== null ? m.skill_match_percentage : Math.round((matchCount / totalCount) * 100);
+                      
+                      let matchedSkills = (Array.isArray(m.matched_skills) && m.matched_skills.length > 0)
+                        ? m.matched_skills
+                        : (Array.isArray(m.matching_skills) && m.matching_skills.length > 0)
+                        ? m.matching_skills
+                        : reqSkills.filter(req => {
+                            const rLower = String(req).toLowerCase().trim();
+                            return userSkillsList.some(usr => 
+                              usr === rLower || usr.includes(rLower) || rLower.includes(usr) ||
+                              (rLower.includes('react') && usr.includes('react')) ||
+                              (rLower.includes('node') && usr.includes('node')) ||
+                              (rLower.includes('postgres') && usr.includes('postgres')) ||
+                              (rLower.includes('python') && usr.includes('python')) ||
+                              (rLower.includes('java') && usr.includes('java')) ||
+                              (rLower.includes('aws') && usr.includes('aws')) ||
+                              (rLower.includes('docker') && usr.includes('docker'))
+                            );
+                          });
+
+                      const matchCount = matchedSkills.length;
+                      const totalCount = reqSkills.length || 5;
+                      const pct = Math.round((matchCount / Math.max(1, totalCount)) * 100);
+                      const missingCount = Math.max(0, totalCount - matchCount);
                       
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
@@ -827,21 +847,21 @@ export default function JobDiscovery({
                               <CheckCircle2 size={12} />
                               {matchCount} / {totalCount} Skills Matched ({pct}%)
                             </span>
-                            <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
-                              {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
+                            <span style={{ opacity: 0.85, fontSize: '0.68rem', color: missingCount > 0 ? (isAmber ? '#b91c1c' : '#fca5a5') : (isAmber ? '#047857' : '#4ade80') }}>
+                              {missingCount === 0 ? '100% Fit' : `${missingCount} Gap`}
                             </span>
                           </div>
 
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {reqSkills.slice(0, 5).map((skill, sIdx) => {
-                              const isMatch = matchedSkills.includes(skill);
+                              const isMatch = matchedSkills.some(ms => String(ms).toLowerCase().trim() === String(skill).toLowerCase().trim() || String(ms).toLowerCase().includes(String(skill).toLowerCase()) || String(skill).toLowerCase().includes(String(ms).toLowerCase()));
                               return (
                                 <span 
                                   key={sIdx}
                                   style={{
-                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'),
-                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#0F172A' : '#cbd5e1'),
-                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent',
+                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(220, 38, 38, 0.1)' : 'rgba(239, 68, 68, 0.2)'),
+                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#991b1b' : '#fca5a5'),
+                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)',
                                     borderRadius: '6px',
                                     padding: '2px 7px',
                                     fontSize: '0.68rem',
@@ -851,7 +871,7 @@ export default function JobDiscovery({
                                     gap: '3px'
                                   }}
                                 >
-                                  {isMatch ? <CheckCircle2 size={10} color={isAmber ? '#047857' : '#4ade80'} /> : '•'}
+                                  {isMatch ? <CheckCircle2 size={10} color={isAmber ? '#059669' : '#34d399'} /> : '•'}
                                   {skill}
                                 </span>
                               );

@@ -230,24 +230,30 @@ def _validate_archive_safety(file_bytes: bytes, extension: str) -> Tuple[bool, s
 # ============================================================================
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extract text from PDF using pdfminer (more reliable than pdfplumber)."""
+    """Extract text from PDF using fast PyPDF2 stream extraction first, with pdfminer fallback."""
     text = ""
+    # Try PyPDF2 / pypdf fast stream extraction (takes ~5ms vs 10,000ms for pdfminer)
     try:
-        text = pdfminer_extract_text(io.BytesIO(pdf_bytes), maxpages=MAX_PDF_PAGES)
+        from PyPDF2 import PdfReader
+        pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
+        pages_text = []
+        for index, page in enumerate(pdf_reader.pages):
+            if index >= MAX_PDF_PAGES:
+                break
+            extracted = page.extract_text() or ""
+            if extracted.strip():
+                pages_text.append(extracted.strip())
+        text = "\n\n".join(pages_text)
     except Exception as e:
-        logger.warning(f"pdfminer extraction failed: {e}. Trying PyPDF2 fallback.")
+        logger.warning(f"PyPDF2 fast extraction notice: {e}")
+
+    # Fallback to pdfminer if PyPDF2 failed or produced empty text
+    if not text or len(text.strip()) < 20:
         try:
-            from PyPDF2 import PdfReader
-            pdf_reader = PdfReader(io.BytesIO(pdf_bytes))
-            for index, page in enumerate(pdf_reader.pages):
-                if index >= MAX_PDF_PAGES:
-                    break
-                text += page.extract_text() or ""
+            text = pdfminer_extract_text(io.BytesIO(pdf_bytes), maxpages=MAX_PDF_PAGES)
         except Exception as e2:
             logger.error(f"All PDF extraction methods failed: {e2}")
-            text = ""
-    
-    # Truncate to prevent memory issues
+
     return text[:MAX_TEXT_LENGTH].strip()
 
 
