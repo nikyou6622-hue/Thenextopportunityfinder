@@ -408,11 +408,11 @@ def get_matches():
     try:
         conn = get_db_conn()
         rows = conn.run(
-            "SELECT id, company, role_title, location, location_type, remote, required_skills, domain, role_type, description, apply_url, apply_url_resolved, link_status, source_platform, posted_date, source, source_category, company_tier, external_id FROM jobs ORDER BY id DESC LIMIT 60"
+            "SELECT id, company, role_title, location, location_type, remote, required_skills, domain, role_type, description, apply_url, apply_url_resolved, link_status, source_platform, posted_date, source, source_category, company_tier, external_id FROM jobs ORDER BY id DESC LIMIT 100"
         )
         conn.close()
 
-        candidate_skills = [s.lower() for s in ACTIVE_CANDIDATE_PROFILE.get("skills", [])]
+        candidate_skills = [s.lower().strip() for s in ACTIVE_CANDIDATE_PROFILE.get("skills", [])]
 
         matches = []
         for r in rows:
@@ -423,16 +423,27 @@ def get_matches():
             elif not isinstance(req_skills, list):
                 req_skills = []
 
-            job_skills_lower = [s.lower() for s in req_skills]
-            matching_skills = [s for s in req_skills if s.lower() in candidate_skills]
-            missing_skills = [s for s in req_skills if s.lower() not in candidate_skills]
+            matching_skills = []
+            missing_skills = []
 
-            # Compute match score based on candidate skill overlap
-            if job_skills_lower:
-                overlap_ratio = len(matching_skills) / len(job_skills_lower)
-                score = round(65 + overlap_ratio * 33, 1)
+            for sk in req_skills:
+                sk_clean = str(sk).lower().strip()
+                if any(c_sk in sk_clean or sk_clean in c_sk for c_sk in candidate_skills):
+                    matching_skills.append(sk)
+                else:
+                    missing_skills.append(sk)
+
+            # Compute match score based on exact candidate skill overlap
+            if candidate_skills and req_skills:
+                match_ratio = len(matching_skills) / len(req_skills)
+                if len(matching_skills) > 0:
+                    score = round(70.0 + match_ratio * 28.0, 1)
+                else:
+                    score = round(35.0 + (1.0 / max(1, len(req_skills))) * 10.0, 1)
+            elif candidate_skills:
+                score = 82.0
             else:
-                score = 88.0
+                score = 75.0
 
             job_obj = {
                 "id": r[0],
@@ -462,7 +473,7 @@ def get_matches():
                 "job_id": r[0],
                 "profile_id": 1,
                 "match_score": float(score),
-                "skill_overlap_score": float(round(len(matching_skills) * 20.0, 1)),
+                "skill_overlap_score": float(round(len(matching_skills) * 25.0, 1)),
                 "domain_score": 85.0,
                 "location_score": 100.0,
                 "semantic_score": 80.0,

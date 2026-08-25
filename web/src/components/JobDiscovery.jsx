@@ -186,21 +186,26 @@ export default function JobDiscovery({
 
   const getJobMatchScore = useCallback((m) => {
     const job = m.job || m;
+    if (m.match_score) return m.match_score;
+    
     if (!profile || !profile.skills || profile.skills.length === 0) {
-      return m.match_score || job.match_score || 88;
+      return job.match_score || 75;
     }
 
     const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (job.required_skills || job.tech_stack || []).map(s => String(s).toLowerCase().trim());
 
-    if (requiredSkills.length === 0) return 88;
+    if (requiredSkills.length === 0) return 75;
 
     const matchCount = requiredSkills.filter(req =>
       userSkills.some(usr => usr.includes(req) || req.includes(usr))
     ).length;
 
     const ratio = matchCount / requiredSkills.length;
-    return Math.min(99, Math.max(68, Math.round(62 + ratio * 37)));
+    if (matchCount > 0) {
+      return Math.min(99, Math.round(70 + ratio * 28));
+    }
+    return Math.round(35 + (1 / requiredSkills.length) * 10);
   }, [profile]);
 
   const filteredMatches = safeMatches.filter(m => {
