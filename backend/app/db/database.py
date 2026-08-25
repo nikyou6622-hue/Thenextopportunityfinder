@@ -3,10 +3,20 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 DEFAULT_SUPABASE_URL = "postgresql+pg8000://postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+
+def is_cloud_environment():
+    return bool(
+        os.getenv("VERCEL") or
+        os.getenv("VERCEL_ENV") or
+        os.getenv("VERCEL_REGION") or
+        os.getenv("AWS_LAMBDA_FUNCTION_NAME") or
+        os.getenv("RENDER") or
+        not os.access(".", os.W_OK)
+    )
+
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    # Enforce Supabase Postgres Cloud on cloud deployments
-    if os.getenv("VERCEL") or os.getenv("RENDER"):
+    if is_cloud_environment():
         SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
     else:
         SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL or "sqlite:///./nextoppr.db"
@@ -46,6 +56,13 @@ def run_auto_migrations():
                     if "is_email_verified" not in columns:
                         conn.execute(text("ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN DEFAULT 0"))
                         conn.commit()
+            else:
+                # PostgreSQL auto-migrations for Supabase Cloud
+                try:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;"))
+                    conn.commit()
+                except Exception:
+                    pass
     except Exception as e:
         print(f"Auto-migration notice: {e}")
 

@@ -815,6 +815,7 @@ export default function AuthView({
                 <input
                   id="loginEmail"
                   type="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
@@ -857,6 +858,7 @@ export default function AuthView({
                 <input
                   id="loginPassword"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -946,6 +948,7 @@ export default function AuthView({
                 <input
                   id="signUpName"
                   type="text"
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Aditya Nikam"
@@ -974,6 +977,7 @@ export default function AuthView({
                 <input
                   id="signUpEmail"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="aditya@example.com"
@@ -1002,6 +1006,7 @@ export default function AuthView({
                 <input
                   id="signUpPassword"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -1048,6 +1053,7 @@ export default function AuthView({
                 <input
                   id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
@@ -1306,6 +1312,7 @@ export default function AuthView({
                     <input
                       id="otpLoginEmail"
                       type="email"
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="aditya@example.com"
@@ -1471,6 +1478,7 @@ export default function AuthView({
                     <input
                       id="forgotEmail"
                       type="email"
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="aditya@example.com"
@@ -1580,6 +1588,7 @@ export default function AuthView({
                     <input
                       id="newPassword"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="••••••••"
@@ -1615,6 +1624,7 @@ export default function AuthView({
                     <input
                       id="confirmNewPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={confirmNewPassword}
                       onChange={(e) => setConfirmNewPassword(e.target.value)}
                       placeholder="••••••••"

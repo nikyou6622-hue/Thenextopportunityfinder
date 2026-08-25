@@ -213,6 +213,14 @@ export const SoundSystem = {
         osc.stop(startTime + 0.14);
       });
     } catch {}
+  },
+
+  // 7. Error sound handler
+  playError: () => {
+    if (!soundEnabled) return;
+    try {
+      SoundSystem.playOops();
+    } catch {}
   }
 };
 
