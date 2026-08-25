@@ -1660,16 +1660,27 @@ def get_subscription_status(
     sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
     
     if not sub:
-        sub = SubscriptionModel(
-            profile_id=target_profile_id,
-            tier=DEFAULT_SUBSCRIPTION_TIER,
-            status="active",
-            credits_remaining=FREE_SCRAPE_LIMIT,
-            scrapes_used=0
-        )
-        db.add(sub)
-        db.commit()
-        db.refresh(sub)
+        try:
+            sub = SubscriptionModel(
+                profile_id=target_profile_id,
+                tier=DEFAULT_SUBSCRIPTION_TIER,
+                status="active",
+                credits_remaining=FREE_SCRAPE_LIMIT,
+                scrapes_used=0
+            )
+            db.add(sub)
+            db.commit()
+            db.refresh(sub)
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Subscription auto-creation notice for profile {target_profile_id}: {e}")
+            sub = SubscriptionModel(
+                profile_id=target_profile_id,
+                tier=DEFAULT_SUBSCRIPTION_TIER,
+                status="active",
+                credits_remaining=FREE_SCRAPE_LIMIT,
+                scrapes_used=0
+            )
         
     is_pro = (sub.tier.lower() == "pro")
     scrapes_used = getattr(sub, 'scrapes_used', 0) or 0
