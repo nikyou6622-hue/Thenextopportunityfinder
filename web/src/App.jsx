@@ -573,13 +573,18 @@ export default function App() {
         console.warn("Server upload notice, proceeding with instant fallback:", err);
       }
 
-      if (!serverSuccess) {
-        const parsedProfile = await parseResumeFileClient(file);
-        await saveProfileToSupabase(parsedProfile);
-        setProfile(parsedProfile);
-      }
+      // Scrape fresh matching jobs for newly uploaded candidate skills & refresh matches
+      try {
+        const activeSkills = profile?.skills || [];
+        await apiFetch('/api/jobs/discover', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skills: activeSkills }) 
+        });
+      } catch {}
 
-      setActiveTab('profile');
+      await loadData();
+      setActiveTab('jobs');
       try { SoundSystem.playSuccess(); } catch {}
     } catch (e) {
       console.warn("Upload notice:", e);
