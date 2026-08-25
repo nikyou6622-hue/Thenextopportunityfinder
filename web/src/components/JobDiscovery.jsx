@@ -805,11 +805,11 @@ export default function JobDiscovery({
 
                     {/* Skill Match Breakdown Bar */}
                     {(() => {
-                      const userSkills = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
                       const reqSkills = job.required_skills || job.tech_stack || [];
-                      const matchedSkills = m.matching_skills || reqSkills.filter(sk => userSkills.some(u => u.includes(String(sk).toLowerCase().trim()) || String(sk).toLowerCase().trim().includes(u)));
-                      const matchCount = matchedSkills.length;
-                      const totalCount = reqSkills.length || 1;
+                      const matchedSkills = m.matched_skills || m.matching_skills || [];
+                      const matchCount = m.matched_count !== undefined && m.matched_count !== null ? m.matched_count : matchedSkills.length;
+                      const totalCount = m.required_count !== undefined && m.required_count !== null && m.required_count > 0 ? m.required_count : (reqSkills.length || 1);
+                      const pct = m.skill_match_percentage !== undefined && m.skill_match_percentage !== null ? m.skill_match_percentage : Math.round((matchCount / totalCount) * 100);
                       
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
@@ -825,7 +825,7 @@ export default function JobDiscovery({
                           }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isAmber ? '#047857' : '#4ade80' }}>
                               <CheckCircle2 size={12} />
-                              {matchCount} / {totalCount} Skills Matched
+                              {matchCount} / {totalCount} Skills Matched ({pct}%)
                             </span>
                             <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
                               {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
@@ -884,7 +884,12 @@ export default function JobDiscovery({
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span className="salary-tag" style={{ color: '#0F172A', fontSize: '1.05rem', fontWeight: 900 }}>
-                          {job.salary_range || 'Est. ₹14L - 32L'}
+                          {(() => {
+                            const salStr = job.salary_range || job.stipend || '';
+                            if (!salStr || salStr.toLowerCase() === 'null' || salStr.toLowerCase() === 'none') return 'Not specified';
+                            if (salStr.toLowerCase().includes('unpaid')) return 'Unpaid';
+                            return salStr;
+                          })()}
                         </span>
 
                         <a
@@ -1033,7 +1038,12 @@ export default function JobDiscovery({
                   : 'linear-gradient(135deg, #0369a1 0%, #0284c7 45%, #0ea5e9 100%)';
 
                 const sal = job.salary_benchmark || {};
-                const displaySal = sal.annual_ctc_inr_range || sal.annual_usd_range || '$40K - $70K/yr';
+                const rawSal = job.salary_range || sal.annual_ctc_inr_range || sal.annual_usd_range || '';
+                const displaySal = (() => {
+                  if (!rawSal || rawSal.toLowerCase() === 'null' || rawSal.toLowerCase() === 'none') return 'Not specified';
+                  if (rawSal.toLowerCase().includes('unpaid')) return 'Unpaid';
+                  return rawSal;
+                })();
 
                 return (
                   <div 

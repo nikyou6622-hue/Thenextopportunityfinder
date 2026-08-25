@@ -35,7 +35,12 @@ export default function JobDetailsModal({
   const domain = currentJob.domain || "Design & Product";
   const jobType = currentJob.job_type || "Full-time";
   const experienceLevel = currentJob.experience_level || "Mid level";
-  const salaryStr = currentJob.salary_range || (currentJob.estimated_salary ? `$${(currentJob.estimated_salary/1000).toFixed(0)}K/mo` : "$50K/mo");
+  const rawSal = currentJob.salary_range || currentJob.stipend || (currentJob.estimated_salary ? `$${(currentJob.estimated_salary/1000).toFixed(0)}K/mo` : "");
+  const salaryStr = (() => {
+    if (!rawSal || rawSal.toLowerCase() === 'null' || rawSal.toLowerCase() === 'none') return "Not specified";
+    if (rawSal.toLowerCase().includes('unpaid')) return "Unpaid";
+    return rawSal;
+  })();
   const score = match?.match_score || 94;
 
   // Determine vibrant card background theme

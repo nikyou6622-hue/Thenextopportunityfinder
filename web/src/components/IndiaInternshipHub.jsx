@@ -1056,11 +1056,11 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
                     {/* Skill Match Breakdown Bar */}
                     {(() => {
-                      const userSkills = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
                       const reqSkills = item.skills_required || item.required_skills || [];
-                      const matchedSkills = reqSkills.filter(sk => userSkills.some(u => u.includes(String(sk).toLowerCase().trim()) || String(sk).toLowerCase().trim().includes(u)));
-                      const matchCount = matchedSkills.length;
-                      const totalCount = reqSkills.length || 1;
+                      const matchedSkills = item.matched_skills || item.matching_skills || [];
+                      const matchCount = item.matched_count !== undefined && item.matched_count !== null ? item.matched_count : matchedSkills.length;
+                      const totalCount = item.required_count !== undefined && item.required_count !== null && item.required_count > 0 ? item.required_count : (reqSkills.length || 1);
+                      const pct = item.skill_match_percentage !== undefined && item.skill_match_percentage !== null ? item.skill_match_percentage : Math.round((matchCount / totalCount) * 100);
                       
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
@@ -1076,7 +1076,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                           }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isAmber ? '#047857' : '#4ade80' }}>
                               <CheckCircle2 size={12} />
-                              {matchCount} / {totalCount} Skills Matched
+                              {matchCount} / {totalCount} Skills Matched ({pct}%)
                             </span>
                             <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
                               {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
@@ -1132,7 +1132,12 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="salary-tag" style={{ color: '#0F172A', fontSize: '1.05rem', fontWeight: 900 }}>
-                        {item.stipend ? (item.stipend.includes('₹') ? item.stipend : `₹${item.stipend}`) : '₹25,000 / mo'}
+                        {(() => {
+                          const st = item.stipend || item.salary_range || '';
+                          if (!st || st.toLowerCase() === 'null' || st.toLowerCase() === 'none') return 'Not specified';
+                          if (st.toLowerCase().includes('unpaid')) return 'Unpaid';
+                          return st.includes('₹') || st.includes('$') ? st : `₹${st}`;
+                        })()}
                       </span>
 
                       <a

@@ -1,28 +1,70 @@
+"""
+agent3_matching.py — High-Quality Skill Matching, Ranking, and Filtering Engine
+Integrates deterministic skill normalization and zero-hallucination set intersection.
+"""
+
 import re
 import logging
-from typing import Dict, Any, List, Tuple, Optional
-from backend.app.schemas.schemas import ProfileSchema, JobSchema
+from typing import Dict, Any, List, Tuple, Optional, Set
+from backend.app.utils.skill_normalizer import normalize_skill, normalize_skill_list
 
 logger = logging.getLogger(__name__)
 
-def calculate_skill_overlap(user_skills: List[str], required_skills: List[str]) -> Tuple[float, List[str], List[str]]:
-    """Calculates skill overlap score, matching skills, and missing skills."""
-    if not required_skills:
-        return 80.0, user_skills, []
-    
-    user_skills_lower = {s.lower() for s in user_skills}
-    matching_skills = []
-    missing_skills = []
-    
-    for req in required_skills:
-        if req.lower() in user_skills_lower or any(req.lower() in s for s in user_skills_lower):
-            matching_skills.append(req)
-        else:
-            missing_skills.append(req)
+# Configurable minimum relevance threshold constant
+MIN_QUALIFIED_MATCH_THRESHOLD = 50.0
+
+def compute_skill_match(resume_skills: List[str], job_required_skills: List[str]) -> Dict[str, Any]:
+    """
+    Computes exact deterministic set intersection after skill normalization.
+    Zero-hallucination guarantee: a matched skill MUST be present in both sets.
+    """
+    norm_resume = normalize_skill_list(resume_skills)
+    norm_job = normalize_skill_list(job_required_skills)
+
+    matched_norm = norm_resume & norm_job
+    missing_norm = norm_job - norm_resume
+
+    # Map matched_norm back to display strings from original job skills
+    matched_display = []
+    for s in job_required_skills:
+        if normalize_skill(s) in matched_norm:
+            matched_display.append(s)
             
-    overlap_ratio = len(matching_skills) / max(len(required_skills), 1)
-    score = min(100.0, overlap_ratio * 100.0)
-    return score, matching_skills, missing_skills
+    seen = set()
+    matched_skills = []
+    for s in matched_display:
+        if s.lower() not in seen:
+            seen.add(s.lower())
+            matched_skills.append(s)
+
+    missing_display = []
+    for s in job_required_skills:
+        if normalize_skill(s) in missing_norm:
+            missing_display.append(s)
+            
+    seen_m = set()
+    missing_skills = []
+    for s in missing_display:
+        if s.lower() not in seen_m:
+            seen_m.add(s.lower())
+            missing_skills.append(s)
+
+    raw_match_pct = (len(matched_norm) / len(norm_job) * 100.0) if norm_job else 0.0
+    required_count = len(norm_job)
+    
+    # Requirement completeness factor: sparse 1-skill requirement lists carry a weaker confidence signal
+    # than complete 4+-skill requirement lists.
+    completeness_factor = min(1.0, 0.80 + 0.05 * required_count) if required_count > 0 else 1.0
+    effective_match_pct = round(raw_match_pct * completeness_factor, 1)
+
+    return {
+        "matched_skills": sorted(matched_skills),
+        "missing_skills": sorted(missing_skills),
+        "matched_count": len(matched_norm),
+        "required_count": required_count,
+        "raw_skill_match_percentage": round(raw_match_pct, 1),
+        "skill_match_percentage": effective_match_pct,
+    }
 
 def calculate_domain_fit(profile_domains: List[str], job_domain: str) -> float:
     """Calculates domain fit score based on profile domains and job domain tag."""
@@ -79,66 +121,55 @@ def calculate_semantic_sim(raw_resume_text: str, job_description: str) -> float:
         logger.warning(f"Semantic sim error: {e}")
         return 70.0
 
-def evaluate_language_gate(profile_languages: List[Any], job_description: str) -> Tuple[bool, Optional[str]]:
+def evaluate_language_gate(profile_languages: Optional[List[Dict[str, Any]]], job_description: str) -> Tuple[bool, Optional[str]]:
     """
-    Checks if job explicitly requires a specific language (e.g. German, French, Danish, Japanese)
-    that the candidate does not have listed in their profile.
+    Checks if a job description mandates a non-English language that candidate hasn't declared.
     """
     if not job_description:
         return True, None
 
     desc_lower = job_description.lower()
-    
-    # Common gated foreign languages in international postings
-    gated_languages = {
-        "german": ["german", "deutsch", "c1 german", "fließend deutsch"],
-        "french": ["french", "français", "fluent french", "courant français"],
-        "danish": ["danish", "dansk", "flydende dansk"],
-        "japanese": ["japanese", "jlpt n1", "jlpt n2", "business japanese"],
-        "mandarin": ["mandarin", "chinese", "fluent chinese"],
-        "spanish": ["fluent spanish", "español nativo", "c1 spanish"]
-    }
-    
-    # Normalize candidate known languages
-    known_langs = set()
-    if profile_languages:
-        for item in profile_languages:
-            if isinstance(item, dict):
-                lang = item.get("language") or item.get("name") or ""
-                known_langs.add(lang.lower())
-            elif isinstance(item, str):
-                known_langs.add(item.lower())
+    candidate_langs = set()
+    if profile_languages and isinstance(profile_languages, list):
+        for lang_item in profile_languages:
+            if isinstance(lang_item, dict) and "language" in lang_item:
+                candidate_langs.add(str(lang_item["language"]).lower())
+            elif isinstance(lang_item, str):
+                candidate_langs.add(lang_item.lower())
 
-    for lang_name, triggers in gated_languages.items():
+    language_triggers = {
+        "german": ["german", "deutsch", "fließend deutsch"],
+        "french": ["french", "français", "francais"],
+        "japanese": ["japanese", "jlpt", "日本語"],
+        "spanish": ["spanish", "español", "espanol"],
+        "mandarin": ["mandarin", "chinese", "中文"]
+    }
+
+    for lang_name, triggers in language_triggers.items():
         if any(trig in desc_lower for trig in triggers):
-            # Check if candidate has this language
-            if not any(lang_name in kl for kl in known_langs):
-                return False, f"Job mandates '{lang_name.title()}' proficiency which is undeclared in your profile."
-                
+            if lang_name not in candidate_langs:
+                return False, f"Requires {lang_name.title()} language proficiency"
+
     return True, None
 
+def evaluate_dealbreakers(profile_dealbreakers: Optional[Dict[str, Any]], job: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Evaluates candidate dealbreaker criteria (remote_only, blacklisted_companies).
+    """
+    if not profile_dealbreakers or not isinstance(profile_dealbreakers, dict):
+        return True, []
 
-def evaluate_dealbreakers(profile_dealbreakers: Dict[str, Any], job: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """
-    Evaluates candidate's hard dealbreaker constraints (remote only, commute limit, min salary).
-    """
-    violations = []
-    if not profile_dealbreakers:
-        return True, violations
-        
-    # Remote Only Dealbreaker
-    if profile_dealbreakers.get("remote_only", False) and not job.get("remote", False):
-        if "remote" not in (job.get("location") or "").lower():
-            violations.append("Dealbreaker: Role requires onsite/hybrid presence (profile preference: Remote Only).")
-            
-    # Blacklisted Companies
-    blacklisted = [b.lower() for b in profile_dealbreakers.get("blacklisted_companies", [])]
+    issues = []
+    if profile_dealbreakers.get("remote_only") and not job.get("remote"):
+        issues.append("Remote Only requirement not met")
+
+    blacklisted = profile_dealbreakers.get("blacklisted_companies") or []
     job_company = (job.get("company") or "").lower()
-    if any(b in job_company for b in blacklisted):
-        violations.append(f"Dealbreaker: Company '{job.get('company')}' is in candidate exclusion list.")
-        
-    return len(violations) == 0, violations
+    for b_comp in blacklisted:
+        if b_comp.lower() in job_company:
+            issues.append(f"Company {job.get('company')} is blacklisted")
 
+    return (len(issues) == 0), issues
 
 def compute_match(
     profile: Dict[str, Any],
@@ -148,79 +179,59 @@ def compute_match(
     """
     Computes composite match score based on spec formula:
     match_score = 0.40*skill_overlap + 0.25*domain_fit + 0.15*location_fit + 0.20*semantic_sim
-    
-    Integrates ai-job-search Language Gate and Dealbreaker Matrix to prevent mismatched applications.
     """
     user_skills = profile.get("skills", [])
     required_skills = job.get("required_skills", [])
     job_domain = (job.get("domain") or "general").lower()
     
-    skill_score, matching_skills, missing_skills = calculate_skill_overlap(user_skills, required_skills)
+    skill_res = compute_skill_match(user_skills, required_skills)
+    skill_score = skill_res["skill_match_percentage"]
+    
     domain_score = calculate_domain_fit(profile.get("domains", []), job_domain)
+    if outcome_feedback_signals:
+        for signal in outcome_feedback_signals:
+            p_type = str(signal.get("pattern_type", "")).lower()
+            if "rejection" in p_type or "ghosting" in p_type:
+                if job_domain and (job_domain in p_type or p_type in job_domain):
+                    domain_score = max(0.0, domain_score - 20.0)
+
     location_score = calculate_location_fit(profile.get("location", {}), job.get("location", "Remote"), job.get("remote", True))
     semantic_score = calculate_semantic_sim(profile.get("raw_resume_text", ""), job.get("description", ""))
 
-    # Outcome Feedback Loop adjustment
-    feedback_notes = []
-    domain_penalty = 0.0
-    
-    if outcome_feedback_signals:
-        for signal in outcome_feedback_signals:
-            pattern = signal.get("pattern_type", "").lower()
-            if job_domain in pattern or "screening_rejection" in pattern:
-                domain_penalty = 12.0
-                feedback_notes.append(
-                    f"Adaptive signal: Screening rejection history in '{job_domain}' detected. "
-                    "Recommend tailoring resume with Agent 4 prior to submitting."
-                )
-                break
-
-    # Language Gate Evaluation
-    lang_passed, lang_warning = evaluate_language_gate(
-        profile.get("languages", ["English"]),
-        job.get("description", "")
-    )
-    if not lang_passed:
-        feedback_notes.append(f"Language Gate Alert: {lang_warning}")
-
-    # Dealbreaker Evaluation
-    dealbreakers_passed, dealbreaker_issues = evaluate_dealbreakers(
-        profile.get("dealbreakers", {}),
-        job
-    )
-    for issue in dealbreaker_issues:
-        feedback_notes.append(issue)
-
-    effective_domain_score = max(20.0, domain_score - domain_penalty)
-
     composite_score = (
         0.40 * skill_score +
-        0.25 * effective_domain_score +
+        0.25 * domain_score +
         0.15 * location_score +
         0.20 * semantic_score
     )
 
-    # Apply penalty if hard dealbreakers or language gates fail
-    if not lang_passed:
-        composite_score = max(25.0, composite_score - 20.0)
-    if not dealbreakers_passed:
-        composite_score = max(20.0, composite_score - 25.0)
+    lang_passed, lang_alert = evaluate_language_gate(profile.get("languages", []), job.get("description", ""))
+    deal_passed, deal_issues = evaluate_dealbreakers(profile.get("dealbreakers", {}), job)
 
-    composite_score = round(min(100.0, max(0.0, composite_score)), 1)
+    adaptive_feedback = []
+    if not lang_passed and lang_alert:
+        adaptive_feedback.append(lang_alert)
+    if not deal_passed:
+        adaptive_feedback.extend(deal_issues)
 
-    result = {
+    is_qualified = (composite_score >= MIN_QUALIFIED_MATCH_THRESHOLD) and lang_passed and deal_passed
+
+    return {
         "match_score": composite_score,
         "skill_overlap_score": round(skill_score, 1),
-        "domain_score": round(effective_domain_score, 1),
+        "domain_score": round(domain_score, 1),
         "location_score": round(location_score, 1),
         "semantic_score": round(semantic_score, 1),
-        "matching_skills": matching_skills,
-        "missing_skills": missing_skills,
+        "matched_skills": skill_res["matched_skills"],
+        "matching_skills": skill_res["matched_skills"],
+        "missing_skills": skill_res["missing_skills"],
+        "matched_count": skill_res["matched_count"],
+        "required_count": skill_res["required_count"],
+        "skill_match_percentage": skill_res["skill_match_percentage"],
         "language_gate_passed": lang_passed,
-        "dealbreakers_passed": dealbreakers_passed,
-        "is_qualified": composite_score >= 65.0 and lang_passed and dealbreakers_passed
+        "language_gate_alert": lang_alert,
+        "dealbreakers_passed": deal_passed,
+        "dealbreaker_issues": deal_issues,
+        "adaptive_feedback": adaptive_feedback,
+        "is_qualified": is_qualified
     }
-    if feedback_notes:
-        result["adaptive_feedback"] = feedback_notes
-        
-    return result

@@ -129,7 +129,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
         self.assertEqual(item["location_type"], "Remote: India")
         self.assertEqual(item["apply_url"], "https://internshala.com/internship/razorpay-swe-01")
         self.assertIn("Python", item["required_skills"])
-        self.assertIn("Fastapi", item["required_skills"])
+        self.assertTrue(any(s.lower() == "fastapi" for s in item["required_skills"]))
         self.assertIn("[Listing details | Stipend: ₹35,000 / month | Duration: 3-6 Months | PPO: yes]", item["description"])
         self.assertEqual(item["source"], "internshala")
 
@@ -226,7 +226,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
         self.assertIn("Python", skills)
         self.assertIn("Docker", skills)
         self.assertIn("AWS", skills)
-        self.assertIn("Postgres", skills)
+        self.assertTrue(any(s.lower() in ("postgres", "postgresql") for s in skills))
 
     # ------------------------------------------------------------------------
     # 2. Robots.txt Fail-Closed Behavior

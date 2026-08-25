@@ -322,7 +322,12 @@ export default function SavedJobsView({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <div className="salary-tag" style={{ color: '#0F172A', fontSize: '1.05rem', fontWeight: 900 }}>
-                    {job.salary_range || '₹28L - ₹42L / yr'}
+                    {(() => {
+                      const salStr = job.salary_range || job.stipend || '';
+                      if (!salStr || salStr.toLowerCase() === 'null' || salStr.toLowerCase() === 'none') return 'Not specified';
+                      if (salStr.toLowerCase().includes('unpaid')) return 'Unpaid';
+                      return salStr;
+                    })()}
                   </div>
 
                   <a

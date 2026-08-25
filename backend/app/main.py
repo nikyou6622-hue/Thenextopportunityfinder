@@ -42,7 +42,7 @@ from backend.app.agents.agent2c_india_internships_scraper import (
     get_india_internships,
     get_internship_market_stats
 )
-from backend.app.agents.agent3_matching import compute_match
+from backend.app.agents.agent3_matching import compute_match, compute_skill_match, MIN_QUALIFIED_MATCH_THRESHOLD
 from backend.app.agents.agent4_tailor import tailor_resume_for_job
 from backend.app.agents.agent4_resume_professional import rewrite_resume_against_pattern
 from backend.app.agents.agent4_export_generator import (
@@ -172,6 +172,25 @@ def auto_migrate_sqlite():
                 log_cols = [row[1] for row in cursor.fetchall()]
                 if "extra_data" not in log_cols and len(log_cols) > 0:
                     cursor.execute("ALTER TABLE mnc_scan_log ADD COLUMN extra_data TEXT;")
+
+                # Matches table migration
+                cursor.execute("PRAGMA table_info(matches);")
+                m_cols = [row[1] for row in cursor.fetchall()]
+                new_m_cols = [
+                    ("matched_skills", "TEXT"),
+                    ("matched_count", "INTEGER DEFAULT 0"),
+                    ("required_count", "INTEGER DEFAULT 0"),
+                    ("skill_match_percentage", "FLOAT DEFAULT 0.0")
+                ]
+                for col_name, col_type in new_m_cols:
+                    if col_name not in m_cols and len(m_cols) > 0:
+                        cursor.execute(f"ALTER TABLE matches ADD COLUMN {col_name} {col_type};")
+
+                # Unique index on job_fingerprint to prevent duplicate listings
+                try:
+                    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_fingerprint ON jobs(job_fingerprint) WHERE job_fingerprint IS NOT NULL AND job_fingerprint != '';")
+                except Exception as e:
+                    print(f"Unique index migration notice: {e}")
 
                 conn.commit()
                 conn.close()
@@ -1175,8 +1194,12 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
             existing_match.domain_score = match_result["domain_score"]
             existing_match.location_score = match_result["location_score"]
             existing_match.semantic_score = match_result["semantic_score"]
-            existing_match.matching_skills = match_result["matching_skills"]
+            existing_match.matching_skills = match_result["matched_skills"]
+            existing_match.matched_skills = match_result["matched_skills"]
             existing_match.missing_skills = match_result["missing_skills"]
+            existing_match.matched_count = match_result["matched_count"]
+            existing_match.required_count = match_result["required_count"]
+            existing_match.skill_match_percentage = match_result["skill_match_percentage"]
         else:
             new_match = MatchModel(
                 job_id=job.id,
@@ -1186,8 +1209,12 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
                 domain_score=match_result["domain_score"],
                 location_score=match_result["location_score"],
                 semantic_score=match_result["semantic_score"],
-                matching_skills=match_result["matching_skills"],
-                missing_skills=match_result["missing_skills"]
+                matching_skills=match_result["matched_skills"],
+                matched_skills=match_result["matched_skills"],
+                missing_skills=match_result["missing_skills"],
+                matched_count=match_result["matched_count"],
+                required_count=match_result["required_count"],
+                skill_match_percentage=match_result["skill_match_percentage"]
             )
             db.add(new_match)
             db.flush()
@@ -2210,9 +2237,11 @@ async def import_jobs_file(file: UploadFile = File(...), db: Session = Depends(g
         logger.error(f"Error importing jobs file: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
+UNRELIABLE_COMPANIES = {"infosys", "wipro", "cognizant", "tcs", "hcl tech", "hcl technologies"}
+
 @app.get("/api/jobs", response_model=List[JobSchema])
 def get_jobs(include_dead: bool = False, db: Session = Depends(get_db)):
-    """Surfaces job opportunities, filtering out dead links and invalid URLs by default."""
+    """Surfaces job opportunities, filtering out dead links, invalid URLs, and unreliable sources by default."""
     query = db.query(JobModel)
     if not include_dead:
         query = query.filter(
@@ -2223,26 +2252,55 @@ def get_jobs(include_dead: bool = False, db: Session = Depends(get_db)):
             JobModel.apply_url != "#",
             ~JobModel.apply_url.contains("staletest")
         )
-    return query.order_by(JobModel.id.desc()).all()
+    all_jobs = query.order_by(JobModel.id.desc()).all()
+    return [j for j in all_jobs if not (j.company and j.company.strip().lower() in UNRELIABLE_COMPANIES)]
 
 @app.get("/api/matches", response_model=List[MatchSchema])
-def get_matches(include_dead: bool = False, db: Session = Depends(get_db)):
-    """Surfaces matched opportunities, filtering out dead links and invalid URLs by default."""
+def get_matches(
+    include_dead: bool = False,
+    min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
+    db: Session = Depends(get_db)
+):
+    """
+    Surfaces matched opportunities sorted descending by match score and matched skill count.
+    Filters out dead links, matches below minimum relevance threshold, and unreliable sources by default.
+    """
     profile = get_active_profile(db)
     if not profile:
         return []
         
-    matches = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).order_by(MatchModel.match_score.desc()).all()
+    matches = (
+        db.query(MatchModel)
+        .filter(
+            MatchModel.profile_id == profile.id,
+            MatchModel.match_score >= min_score
+        )
+        .order_by(
+            MatchModel.match_score.desc(),
+            MatchModel.matched_count.desc(),
+            MatchModel.skill_match_percentage.desc()
+        )
+        .all()
+    )
     
     result = []
     for m in matches:
         job = db.query(JobModel).filter(JobModel.id == m.job_id).first()
         if not job:
             continue
+        if job.company and job.company.strip().lower() in UNRELIABLE_COMPANIES:
+            continue
         url = (job.apply_url_resolved or job.apply_url or "").strip()
         if not include_dead:
             if job.status == "removed" or job.link_status == "dead" or not url or url in ["", "#"] or "staletest" in url.lower() or not url.startswith(("http://", "https://", "mailto:")):
                 continue
+
+        m_skills = m.matched_skills or m.matching_skills or []
+        m_count = max(len(m_skills), m.matched_count or 0)
+        req_skills = job.required_skills or []
+        req_count = max(len(req_skills), m.required_count or 0)
+        pct = round((m_count / req_count * 100.0), 1) if req_count > 0 else 0.0
+
         match_dict = {
             "id": m.id,
             "job_id": m.job_id,
@@ -2253,10 +2311,16 @@ def get_matches(include_dead: bool = False, db: Session = Depends(get_db)):
             "domain_score": m.domain_score,
             "location_score": m.location_score,
             "semantic_score": m.semantic_score,
-            "matching_skills": m.matching_skills or [],
-            "missing_skills": m.missing_skills or []
+            "matching_skills": m_skills,
+            "matched_skills": m_skills,
+            "missing_skills": m.missing_skills or [],
+            "matched_count": m_count,
+            "required_count": req_count,
+            "skill_match_percentage": pct
         }
         result.append(match_dict)
+
+    result.sort(key=lambda x: (x["match_score"], x["matched_count"], x["skill_match_percentage"]), reverse=True)
     return result
 
 @app.post("/api/jobs/revalidate-links", response_model=LinkRevalidationResponse)

@@ -30,6 +30,8 @@ from functools import lru_cache
 import docx
 from pdfminer.high_level import extract_text as pdfminer_extract_text
 
+from backend.app.utils.skill_normalizer import normalize_skill, normalize_skill_list
+
 logger = logging.getLogger(__name__)
 
 # ============================================================================
@@ -1089,14 +1091,8 @@ def _compute_job_benchmark(candidate_skills: List[str], target_job: Dict[str, An
 
 
 def _normalize_skill(skill: str) -> str:
-    """Normalizes common aliases for transparent job-keyword matching."""
-    normalized = re.sub(r'\s+', ' ', skill.casefold().strip())
-    aliases = {
-        "postgresql": "postgres", "node": "node.js", "nodejs": "node.js",
-        "reactjs": "react", "react.js": "react", "nextjs": "next.js",
-        "scikit learn": "scikit-learn", "machine-learning": "machine learning",
-    }
-    return aliases.get(normalized, normalized)
+    """Normalizes skill aliases using shared canonical skill taxonomy."""
+    return normalize_skill(skill)
 
 
 # Backward-compatible alias

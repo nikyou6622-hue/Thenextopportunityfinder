@@ -406,13 +406,13 @@ def get_india_internships():
 @app.get("/api/matches")
 def get_matches():
     try:
+        from backend.app.agents.agent3_matching import compute_match, MIN_QUALIFIED_MATCH_THRESHOLD
+        
         conn = get_db_conn()
         rows = conn.run(
-            "SELECT id, company, role_title, location, location_type, remote, required_skills, domain, role_type, description, apply_url, apply_url_resolved, link_status, source_platform, posted_date, source, source_category, company_tier, external_id FROM jobs ORDER BY id DESC LIMIT 100"
+            "SELECT id, company, role_title, location, location_type, remote, required_skills, domain, role_type, description, apply_url, apply_url_resolved, link_status, source_platform, posted_date, source, source_category, company_tier, external_id FROM jobs ORDER BY id DESC LIMIT 150"
         )
         conn.close()
-
-        candidate_skills = [s.lower().strip() for s in ACTIVE_CANDIDATE_PROFILE.get("skills", [])]
 
         matches = []
         for r in rows:
@@ -422,28 +422,6 @@ def get_matches():
                 except: req_skills = []
             elif not isinstance(req_skills, list):
                 req_skills = []
-
-            matching_skills = []
-            missing_skills = []
-
-            for sk in req_skills:
-                sk_clean = str(sk).lower().strip()
-                if any(c_sk in sk_clean or sk_clean in c_sk for c_sk in candidate_skills):
-                    matching_skills.append(sk)
-                else:
-                    missing_skills.append(sk)
-
-            # Compute match score based on exact candidate skill overlap
-            if candidate_skills and req_skills:
-                match_ratio = len(matching_skills) / len(req_skills)
-                if len(matching_skills) > 0:
-                    score = round(70.0 + match_ratio * 28.0, 1)
-                else:
-                    score = round(35.0 + (1.0 / max(1, len(req_skills))) * 10.0, 1)
-            elif candidate_skills:
-                score = 82.0
-            else:
-                score = 75.0
 
             job_obj = {
                 "id": r[0],
@@ -468,21 +446,29 @@ def get_matches():
                 "external_id": r[18]
             }
 
-            matches.append({
-                "id": 1000 + r[0],
-                "job_id": r[0],
-                "profile_id": 1,
-                "match_score": float(score),
-                "skill_overlap_score": float(round(len(matching_skills) * 25.0, 1)),
-                "domain_score": 85.0,
-                "location_score": 100.0,
-                "semantic_score": 80.0,
-                "matching_skills": matching_skills,
-                "missing_skills": missing_skills,
-                "job": job_obj
-            })
+            match_eval = compute_match(ACTIVE_CANDIDATE_PROFILE, job_obj)
             
-        matches.sort(key=lambda m: m["match_score"], reverse=True)
+            # Step 5: Filter out jobs below the minimum relevance threshold (50.0%)
+            if match_eval["match_score"] >= MIN_QUALIFIED_MATCH_THRESHOLD:
+                matches.append({
+                    "id": 1000 + r[0],
+                    "job_id": r[0],
+                    "profile_id": 1,
+                    "match_score": match_eval["match_score"],
+                    "skill_overlap_score": match_eval["skill_overlap_score"],
+                    "domain_score": match_eval["domain_score"],
+                    "location_score": match_eval["location_score"],
+                    "semantic_score": match_eval["semantic_score"],
+                    "matched_skills": match_eval["matched_skills"],
+                    "missing_skills": match_eval["missing_skills"],
+                    "matched_count": match_eval["matched_count"],
+                    "required_count": match_eval["required_count"],
+                    "skill_match_percentage": match_eval["skill_match_percentage"],
+                    "job": job_obj
+                })
+
+        # Step 4: Rank results descending by match_score, tiebreaker by matched_count
+        matches.sort(key=lambda m: (m["match_score"], m["matched_count"], m["skill_match_percentage"]), reverse=True)
         return matches
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": "Failed to fetch matches", "details": str(e)})

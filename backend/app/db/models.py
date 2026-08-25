@@ -70,7 +70,7 @@ class JobModel(Base):
     company_tier = Column(String, index=True, default="startup_ecosystem") # large_it_services, consulting, product_unicorn, etc.
     external_id = Column(String, unique=True, index=True, nullable=True)
     source_posted_at = Column(String, nullable=True)
-    job_fingerprint = Column(String, index=True, nullable=True)
+    job_fingerprint = Column(String, unique=True, index=True, nullable=True)
     authenticity_flags = Column(JSON, default=list, nullable=True)
     first_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     last_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -121,7 +121,11 @@ class MatchModel(Base):
     location_score = Column(Float, default=0.0)
     semantic_score = Column(Float, default=0.0)
     matching_skills = Column(JSON, default=list)
+    matched_skills = Column(JSON, default=list)
     missing_skills = Column(JSON, default=list)
+    matched_count = Column(Integer, default=0)
+    required_count = Column(Integer, default=0)
+    skill_match_percentage = Column(Float, default=0.0)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     job = relationship("JobModel", back_populates="matches")

@@ -25,7 +25,7 @@ from sqlalchemy import and_, or_
 
 from backend.app.db.models import JobModel, MatchModel, ProfileModel, MNCScanLogModel
 try:
-    from backend.app.agents.agent2_discovery import extract_skills_from_text
+    from backend.app.utils.skill_normalizer import extract_skills_from_text
     from backend.app.agents.agent3_matching import compute_match
     from backend.app.security.encryption import decrypt_field
     from backend.app.agents.source_router import (
@@ -34,8 +34,8 @@ try:
         resolve_and_validate_apply_url
     )
 except ImportError:
-    from backend.agent.agent2_discovery import extract_skills_from_text
-    from backend.agent.agent3_matching import compute_match
+    from backend.app.utils.skill_normalizer import extract_skills_from_text
+    from backend.app.agents.agent3_matching import compute_match
     from backend.app.security.encryption import decrypt_field
     from backend.agent.source_router import (
         normalize_job_url,

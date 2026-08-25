@@ -192,7 +192,12 @@ export default function OverviewDashboard({
           title: j.role_title || 'Full Stack Engineer',
           company: j.company || 'Tech Innovator',
           apply_url: applyUrl,
-          salary: j.salary_range || 'Competitive (Market Std)',
+          salary: (() => {
+            const s = j.salary_range || j.stipend || '';
+            if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'none') return 'Not specified';
+            if (s.toLowerCase().includes('unpaid')) return 'Unpaid';
+            return s;
+          })(),
           description: (j.description && j.description.length > 120) 
             ? `${j.description.substring(0, 115)}...` 
             : (j.description || 'Join a high-growth team building cutting-edge web and cloud platforms.'),
@@ -1592,7 +1597,12 @@ export default function OverviewDashboard({
                 const roleDesc = (jobObj.description && jobObj.description.trim().length > 0)
                   ? (jobObj.description.length > 100 ? `${jobObj.description.substring(0, 95)}...` : jobObj.description)
                   : "High-impact opportunity to build scalable software and innovative product features.";
-                const roleSalary = jobObj.salary_range || (jobObj.role_type === 'internship' ? '₹35,000 / mo' : '$50K/mo');
+                const rawSal = jobObj.salary_range || jobObj.stipend || '';
+                const roleSalary = (() => {
+                  if (!rawSal || rawSal.toLowerCase() === 'null' || rawSal.toLowerCase() === 'none') return 'Not specified';
+                  if (rawSal.toLowerCase().includes('unpaid')) return 'Unpaid';
+                  return rawSal;
+                })();
 
                 return (
                   <div

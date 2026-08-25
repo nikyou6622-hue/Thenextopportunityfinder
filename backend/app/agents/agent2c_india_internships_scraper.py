@@ -33,6 +33,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.db.models import JobModel, MatchModel, ProfileModel
+from backend.app.utils.skill_normalizer import extract_skills_from_text, normalize_skill_list
 from backend.app.agents.agent3_matching import compute_match
 from backend.app.agents.source_router import (
     normalize_job_url,
@@ -288,22 +289,8 @@ def build_description_with_details(
 # ============================================================================
 
 def extract_skills_from_listing(title: str, description: str) -> List[str]:
-    """Extracts skills from listing title and description."""
-    combined = f"{title} {description}".lower()
-    skills = []
-    
-    common_skills = [
-        "python", "java", "javascript", "typescript", "react", "node", "sql",
-        "docker", "kubernetes", "aws", "gcp", "azure", "go", "rust", "c++",
-        "machine learning", "nlp", "data science", "fastapi", "django", "flask",
-        "mongodb", "postgres", "redis", "graphql", "rest api", "microservices"
-    ]
-    
-    for skill in common_skills:
-        if skill in combined:
-            skills.append(skill.title() if skill not in ("c++", "nlp", "aws", "gcp", "sql", "api") else skill.upper())
-    
-    return list(dict.fromkeys(skills))
+    """Extracts skills from listing title and description using shared taxonomy."""
+    return extract_skills_from_text(f"{title} {description}")
 
 # ============================================================================
 # Source-Specific Parsers

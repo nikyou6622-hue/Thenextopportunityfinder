@@ -265,14 +265,11 @@ KNOWN_SKILLS = [
     "REST API", "TailwindCSS", "HTML", "CSS", "Git", "PyTorch", "TensorFlow", "Machine Learning", "Go", "Rust"
 ]
 
-def extract_skills_from_text(text: str) -> List[str]:
+from backend.app.utils.skill_normalizer import extract_skills_from_text, normalize_skill_list
+
+def extract_skills(text: str) -> List[str]:
     """Helper to detect key skills in job description text."""
-    skills = []
-    for skill in KNOWN_SKILLS:
-        pattern = r'\b' + re.escape(skill) + r'\b'
-        if re.search(pattern, text, re.IGNORECASE):
-            skills.append(skill)
-    return list(set(skills))
+    return extract_skills_from_text(text)
 
 
 def fetch_remoteok_live_jobs(max_results: int = 20) -> List[Dict[str, Any]]:

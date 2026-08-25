@@ -321,7 +321,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
             ) : (
               <RefreshCw size={16} />
             )}
-            <span>{scanning ? 'Scanning Portals...' : 'Trigger MNC Refresh'}</span>
+            <span>{scanning ? 'Checking Pipeline Status...' : 'Check Pipeline Status'}</span>
           </button>
         </div>
 
@@ -671,31 +671,60 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
                     {job.description ? (job.description.length > 110 ? `${job.description.substring(0, 105)}...` : job.description) : 'Enterprise engineering role working with global clients and enterprise architectures.'}
                   </p>
 
-                  {/* Skills tags */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                    {(job.required_skills || []).slice(0, 4).map((skill, sIdx) => {
-                      const isMatch = (m.matching_skills || []).includes(skill);
-                      return (
-                        <span 
-                          key={sIdx}
-                          style={{
-                            background: isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)',
-                            color: isAmber ? '#0F172A' : '#FFFFFF',
-                            borderRadius: '6px',
-                            padding: '2px 7px',
-                            fontSize: '0.68rem',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                        >
-                          {isMatch && <CheckCircle2 size={10} color={isAmber ? '#059669' : '#34d399'} />}
-                          {skill}
-                        </span>
-                      );
-                    })}
-                  </div>
+                  {/* Skill Match Breakdown Bar */}
+                  {(() => {
+                    const reqSkills = job.required_skills || [];
+                    const matchedSkills = m.matched_skills || m.matching_skills || [];
+                    const matchCount = m.matched_count !== undefined && m.matched_count !== null ? m.matched_count : matchedSkills.length;
+                    const totalCount = m.required_count !== undefined && m.required_count !== null && m.required_count > 0 ? m.required_count : (reqSkills.length || 1);
+                    const pct = m.skill_match_percentage !== undefined && m.skill_match_percentage !== null ? m.skill_match_percentage : Math.round((matchCount / totalCount) * 100);
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                        <div style={{
+                          background: isAmber ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.25)',
+                          borderRadius: '6px',
+                          padding: '3px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.70rem',
+                          fontWeight: 700
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isAmber ? '#047857' : '#4ade80' }}>
+                            <CheckCircle2 size={11} />
+                            {matchCount} / {totalCount} Skills Matched ({pct}%)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {(reqSkills || []).slice(0, 5).map((skill, sIdx) => {
+                            const isMatch = matchedSkills.includes(skill);
+                            return (
+                              <span 
+                                key={sIdx}
+                                style={{
+                                  background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'),
+                                  color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#0F172A' : '#cbd5e1'),
+                                  border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent',
+                                  borderRadius: '6px',
+                                  padding: '2px 7px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: isMatch ? 700 : 500,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}
+                              >
+                                {isMatch ? <CheckCircle2 size={10} color={isAmber ? '#047857' : '#4ade80'} /> : '•'}
+                                {skill}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Bottom Crisp White Footer */}

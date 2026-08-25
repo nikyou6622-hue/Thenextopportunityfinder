@@ -85,7 +85,11 @@ class MatchSchema(BaseModel):
     location_score: float
     semantic_score: float
     matching_skills: List[str] = []
+    matched_skills: List[str] = []
     missing_skills: List[str] = []
+    matched_count: int = 0
+    required_count: int = 0
+    skill_match_percentage: float = 0.0
 
 class TailoredResumeSchema(BaseModel):
     id: Optional[int] = None
