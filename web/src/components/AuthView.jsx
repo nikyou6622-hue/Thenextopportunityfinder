@@ -327,24 +327,22 @@ export default function AuthView({
         let data = {};
         try {
           const text = await res.text();
-          if (text && text.trim()) data = JSON.parse(text);
-        } catch {}
-
-        const authUser = data.user || {
-          id: `usr_${Date.now()}`,
-          email: email.trim().toLowerCase(),
-          full_name: fullName.trim(),
-          target_role: targetRole || 'Software Engineer'
-        };
-        const authToken = data.token || `jwt_token_${Date.now()}`;
-        localStorage.setItem('nof_auth_token', authToken);
-        localStorage.setItem('nof_user', JSON.stringify(authUser));
-
-        SoundSystem.playSuccess();
-        setSuccessMessage(data.message || 'Account created successfully!');
-        if (onAuthSuccess) {
-          setTimeout(() => onAuthSuccess(authUser, authToken), 400);
+        if (!res.ok) {
+          throw new Error(data.detail || data.message || 'Signup failed. Please try again.');
         }
+
+        const emailClean = email.trim().toLowerCase();
+        SoundSystem.playPop();
+        setAuthMode('otp');
+        setOtpStep('verify');
+        setEmail(emailClean);
+        setOtpCountdown(60);
+        setSuccessMessage(data.message || `Account created! A 6-digit verification code has been sent to ${emailClean}. Please enter your code to activate your account.`);
+
+        // Focus first input box
+        setTimeout(() => {
+          if (otpInputRefs.current[0]) otpInputRefs.current[0].focus();
+        }, 300);
       } catch (err) {
         setErrorMessage(err.message || 'An unexpected error occurred during signup.');
         SoundSystem.playError();

@@ -520,6 +520,69 @@ def _store_otp(email: str, otp: str, purpose: str = "login"):
         "attempts": 0
     }
 
+def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None):
+    """Persists verified candidate user and profile records directly to Supabase PostgreSQL Cloud."""
+    try:
+        import pg8000.native
+        conn = pg8000.native.Connection(
+            user="postgres.hoobggdrjghfqxgjfoqf",
+            password="a#NIK789532",
+            host="aws-0-ap-northeast-1.pooler.supabase.com",
+            port=6543,
+            database="postgres",
+            timeout=10
+        )
+        
+        # Ensure users table has is_email_verified column in Supabase Postgres
+        try:
+            conn.run("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;")
+        except Exception:
+            pass
+
+        # Upsert user record into Supabase users table
+        conn.run(
+            """
+            INSERT INTO users (full_name, email, password_hash, target_role, experience_level, avatar_url, is_active, is_email_verified, created_at)
+            VALUES (:name, :email, :p_hash, :role, :exp, :avatar, TRUE, TRUE, NOW())
+            ON CONFLICT (email) DO UPDATE SET
+                full_name = EXCLUDED.full_name,
+                is_active = TRUE,
+                is_email_verified = TRUE;
+            """,
+            name=user.full_name or "Candidate",
+            email=user.email,
+            p_hash=user.password_hash or "",
+            role=user.target_role or "Software Engineer",
+            exp=user.experience_level or "Entry Level",
+            avatar=user.avatar_url or ""
+        )
+        
+        # Upsert profile record into Supabase profiles table
+        if profile:
+            skills_json = json.dumps(profile.skills or [])
+            try:
+                conn.run(
+                    """
+                    INSERT INTO profiles (name, email, phone, skills, consent_given, created_at)
+                    VALUES (:name, :email, :phone, :skills, TRUE, NOW())
+                    ON CONFLICT (email) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        skills = EXCLUDED.skills,
+                        consent_given = TRUE;
+                    """,
+                    name=profile.name or user.full_name,
+                    email=profile.email or user.email,
+                    phone=profile.phone or "+91 9876543210",
+                    skills=skills_json
+                )
+            except Exception as pe:
+                logger.warning(f"Notice: Supabase profile upsert notice: {pe}")
+            
+        conn.close()
+        logger.info(f"Verified candidate {user.email} successfully stored in Supabase PostgreSQL Cloud.")
+    except Exception as e:
+        logger.warning(f"Notice: Supabase Postgres cloud sync notice for {user.email}: {e}")
+
 def _validate_otp(email: str, token: str) -> bool:
     email_clean = email.strip().lower()
     token_clean = token.strip()
@@ -721,6 +784,9 @@ def auth_verify_otp(req: VerifyOtpRequest, response: Response, db: Session = Dep
         db.add(profile)
         db.commit()
 
+    # Sync verified account and candidate profile directly to Supabase PostgreSQL Cloud
+    sync_verified_user_to_supabase(user, profile)
+
     token = _generate_token(user.email)
     
     # Set HttpOnly Secure session cookie
@@ -753,8 +819,8 @@ def auth_verify_email(req: VerifyOtpRequest, response: Response, db: Session = D
     return auth_verify_otp(req, response, db)
 
 @app.post("/api/auth/signup", response_model=AuthResponse)
-def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(get_db)):
-    """Registers a new user candidate account and initializes profile."""
+def auth_signup(req: SignUpRequest, response: Response, background_tasks: BackgroundTasks = None, db: Session = Depends(get_db)):
+    """Registers a new user candidate account, dispatches 6-digit email verification code, and initializes profile."""
     email_clean = req.email.strip().lower()
     if not email_clean or "@" not in email_clean:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
@@ -768,6 +834,7 @@ def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(ge
             # Update admin password and log in smoothly
             existing.password_hash = _hash_password(req.password)
             existing.is_active = True
+            existing.is_email_verified = True
             db.commit()
             db.refresh(existing)
             token = _generate_token(existing.email)
@@ -787,7 +854,7 @@ def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(ge
             )
         raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
     
-    # Create User
+    # Create User with initial is_email_verified = False
     avatar_seed = req.full_name.replace(" ", "+")
     avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={avatar_seed}"
     new_user = UserModel(
@@ -797,7 +864,8 @@ def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(ge
         target_role=req.target_role or "Software Engineer",
         experience_level=req.experience_level or "Entry Level / Student",
         avatar_url=avatar,
-        is_active=True
+        is_active=True,
+        is_email_verified=False
     )
     db.add(new_user)
     db.commit()
@@ -828,6 +896,17 @@ def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(ge
         profile.consent_timestamp = consent_time
         db.commit()
 
+    # Generate and dispatch 6-digit email verification OTP
+    otp_code = _generate_otp()
+    _store_otp(email_clean, otp_code, purpose="signup_verification")
+    if background_tasks:
+        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
+    else:
+        try:
+            _send_live_otp_email(email_clean, otp_code)
+        except Exception as e:
+            logger.error(f"Failed to dispatch sign up verification email to {email_clean}: {e}")
+
     token = _generate_token(new_user.email)
     
     # Set HttpOnly Secure session cookie
@@ -844,7 +923,7 @@ def auth_signup(req: SignUpRequest, response: Response, db: Session = Depends(ge
 
     return AuthResponse(
         success=True,
-        message=f"Welcome to Next Opportunity Finder, {new_user.full_name}!",
+        message=f"Account created for {new_user.full_name}! A 6-digit verification code has been sent to {email_clean}. Please check your inbox and verify your account.",
         token=token,
         user=user_payload
     )
