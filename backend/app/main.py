@@ -1482,8 +1482,66 @@ def get_active_profile(db: Session) -> Optional[ProfileModel]:
         profile.raw_resume_text = decrypt_field(profile.raw_resume_text)
     return profile
 
-# Helper to run matching pipeline with outcome feedback
 def run_matching_pipeline(db: Session, profile: ProfileModel):
+    """
+    1. Automatically executes discovery scrapers (MNC Scanner, Discovery Scraper, India Internships Scraper)
+       to discover and ingest fresh live opportunities matching candidate skills & target role.
+    2. Computes high-accuracy match scores across all job listings.
+    """
+    try:
+        from backend.app.agents.agent2b_mnc_scanner import run_mnc_scan
+        from backend.app.agents.agent2c_india_internships_scraper import run_india_internship_scan
+        from backend.app.agents.agent2_discovery import discover_all_jobs
+        
+        run_mnc_scan(db)
+        try:
+            run_india_internship_scan(db, force_scan=True, profile_id=profile.id)
+        except Exception:
+            pass
+
+        discovered = discover_all_jobs()
+        for d_job in discovered:
+            ext_id = d_job.get("external_id")
+            title = d_job.get("role_title")
+            company = d_job.get("company")
+            
+            existing = None
+            if ext_id:
+                existing = db.query(JobModel).filter(JobModel.external_id == ext_id).first()
+            if not existing and title and company:
+                existing = db.query(JobModel).filter(
+                    JobModel.company == company,
+                    JobModel.role_title == title
+                ).first()
+            
+            if not existing:
+                new_j = JobModel(
+                    company=company,
+                    role_title=title,
+                    location=d_job.get("location", "Remote"),
+                    location_type=d_job.get("location_type", "Remote"),
+                    remote=d_job.get("remote", True),
+                    required_skills=d_job.get("required_skills", []),
+                    domain=d_job.get("domain", "software engineering"),
+                    role_type=d_job.get("role_type", "full-time"),
+                    description=d_job.get("description", ""),
+                    apply_url=d_job.get("apply_url_resolved") or d_job.get("apply_url", ""),
+                    apply_url_raw=d_job.get("apply_url_raw"),
+                    apply_url_resolved=d_job.get("apply_url_resolved"),
+                    link_status=d_job.get("link_status", "live"),
+                    link_checked_at=datetime.datetime.now(datetime.timezone.utc),
+                    source_platform=d_job.get("source_platform", "company_direct"),
+                    apply_email=d_job.get("apply_email"),
+                    posted_date=d_job.get("posted_date", str(datetime.date.today())),
+                    source=d_job.get("source", "Discovery Engine"),
+                    external_id=ext_id,
+                    job_fingerprint=d_job.get("job_fingerprint")
+                )
+                db.add(new_j)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Auto-discovery notice during matching pipeline execution: {e}")
+
     jobs = db.query(JobModel).all()
     decrypted_resume_text = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
     
@@ -1865,14 +1923,11 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    # Run heavy job-matching and CV tailoring pipeline in background task so upload returns instantly
-    if background_tasks:
-        background_tasks.add_task(run_matching_pipeline, SessionLocal(), profile)
-    else:
-        try:
-            asyncio.create_task(asyncio.to_thread(run_matching_pipeline, SessionLocal(), profile))
-        except Exception:
-            pass
+    # Run job discovery scrapers and matching pipeline directly so opportunities are scraped and matched immediately
+    try:
+        run_matching_pipeline(db, profile)
+    except Exception as e:
+        logger.error(f"Error executing matching pipeline during resume upload: {e}")
     
     quality_eval = compute_resume_quality_score(parsed_data)
     res_dict = {
