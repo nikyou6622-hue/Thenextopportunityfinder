@@ -538,7 +538,7 @@ def _store_otp_supabase(email: str, otp: str, purpose: str = "login", payload: d
             user="postgres.hoobggdrjghfqxgjfoqf",
             password="a#NIK789532",
             host="aws-0-ap-northeast-1.pooler.supabase.com",
-            port=6543,
+            port=5432,
             database="postgres",
             timeout=10
         )
@@ -592,7 +592,7 @@ def _get_otp_supabase(email: str) -> dict:
             user="postgres.hoobggdrjghfqxgjfoqf",
             password="a#NIK789532",
             host="aws-0-ap-northeast-1.pooler.supabase.com",
-            port=6543,
+            port=5432,
             database="postgres",
             timeout=10
         )
@@ -631,7 +631,7 @@ def _delete_otp_supabase(email: str):
             user="postgres.hoobggdrjghfqxgjfoqf",
             password="a#NIK789532",
             host="aws-0-ap-northeast-1.pooler.supabase.com",
-            port=6543,
+            port=5432,
             database="postgres",
             timeout=10
         )
@@ -651,7 +651,7 @@ def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None
             user="postgres.hoobggdrjghfqxgjfoqf",
             password="a#NIK789532",
             host="aws-0-ap-northeast-1.pooler.supabase.com",
-            port=6543,
+            port=5432,
             database="postgres",
             timeout=10
         )
