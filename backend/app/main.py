@@ -536,29 +536,43 @@ def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None
             timeout=10
         )
         
-        # Ensure users table has is_email_verified column in Supabase Postgres
+        # Ensure users & profiles tables have UNIQUE constraints on email in Supabase Postgres
         try:
             conn.run("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;")
+            conn.run("ALTER TABLE users ADD CONSTRAINT users_email_key UNIQUE (email);")
+        except Exception:
+            pass
+
+        try:
+            conn.run("ALTER TABLE profiles ADD CONSTRAINT profiles_email_key UNIQUE (email);")
         except Exception:
             pass
 
         # Upsert user record into Supabase users table
-        conn.run(
-            """
-            INSERT INTO users (full_name, email, password_hash, target_role, experience_level, avatar_url, is_active, is_email_verified, created_at)
-            VALUES (:name, :email, :p_hash, :role, :exp, :avatar, TRUE, TRUE, NOW())
-            ON CONFLICT (email) DO UPDATE SET
-                full_name = EXCLUDED.full_name,
-                is_active = TRUE,
-                is_email_verified = TRUE;
-            """,
-            name=user.full_name or "Candidate",
-            email=user.email,
-            p_hash=user.password_hash or "",
-            role=user.target_role or "Software Engineer",
-            exp=user.experience_level or "Entry Level",
-            avatar=user.avatar_url or ""
-        )
+        try:
+            conn.run(
+                """
+                INSERT INTO users (full_name, email, password_hash, target_role, experience_level, avatar_url, is_active, is_email_verified, created_at)
+                VALUES (:name, :email, :p_hash, :role, :exp, :avatar, TRUE, TRUE, NOW())
+                ON CONFLICT (email) DO UPDATE SET
+                    full_name = EXCLUDED.full_name,
+                    is_active = TRUE,
+                    is_email_verified = TRUE;
+                """,
+                name=user.full_name or "Candidate",
+                email=user.email,
+                p_hash=user.password_hash or "",
+                role=user.target_role or "Software Engineer",
+                exp=user.experience_level or "Entry Level",
+                avatar=user.avatar_url or ""
+            )
+        except Exception:
+            # Fallback update if constraint matching differs
+            conn.run(
+                "UPDATE users SET full_name = :name, is_active = TRUE, is_email_verified = TRUE WHERE email = :email",
+                name=user.full_name or "Candidate",
+                email=user.email
+            )
         
         # Upsert profile record into Supabase profiles table
         if profile:
@@ -576,6 +590,13 @@ def sync_verified_user_to_supabase(user: UserModel, profile: ProfileModel = None
                     name=profile.name or user.full_name,
                     email=profile.email or user.email,
                     phone=profile.phone or "+91 9876543210",
+                    skills=skills_json
+                )
+            except Exception:
+                conn.run(
+                    "UPDATE profiles SET name = :name, skills = :skills, consent_given = TRUE WHERE email = :email",
+                    name=profile.name or user.full_name,
+                    email=profile.email or user.email,
                     skills=skills_json
                 )
             except Exception as pe:

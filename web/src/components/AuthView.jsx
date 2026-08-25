@@ -90,6 +90,16 @@ export default function AuthView({
     return () => clearInterval(timer);
   }, [otpCountdown]);
 
+  // Helper to extract clean error message string from backend responses
+  const getErrorMessage = (data, fallbackMsg) => {
+    if (!data) return fallbackMsg;
+    if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail) && data.detail[0]?.msg) return data.detail[0].msg;
+    if (typeof data.detail === 'object' && data.detail?.msg) return data.detail.msg;
+    if (typeof data.message === 'string') return data.message;
+    return fallbackMsg;
+  };
+
   // Password strength calculation
   const passwordStrength = useMemo(() => {
     if (!password) return { score: 0, label: 'None', color: '#64748b' };
@@ -186,7 +196,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Failed to send verification code email.');
+        throw new Error(getErrorMessage(data, 'Failed to send verification code email.'));
       }
 
       setOtpStep('verify');
@@ -279,7 +289,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Invalid or expired verification code.');
+        throw new Error(getErrorMessage(data, 'Invalid or expired verification code.'));
       }
 
       const verifiedUser = data.user || {
@@ -333,7 +343,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Failed to dispatch password reset email.');
+        throw new Error(getErrorMessage(data, 'Failed to dispatch password reset email.'));
       }
 
       setForgotStep('reset');
@@ -391,7 +401,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Failed to reset password.');
+        throw new Error(getErrorMessage(data, 'Failed to reset password.'));
       }
 
       SoundSystem.playSuccess();
@@ -464,7 +474,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Signup failed. Please try again.');
+        throw new Error(getErrorMessage(data, 'Signup failed. Please try again.'));
       }
 
       const emailClean = email.trim().toLowerCase();
@@ -518,7 +528,7 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(data.detail || data.message || 'Invalid email or password. Please verify your credentials.');
+        throw new Error(getErrorMessage(data, 'Invalid email or password. Please verify your credentials.'));
       }
 
       const loginUser = data.user || {
