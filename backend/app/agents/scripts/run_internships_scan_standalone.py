@@ -32,7 +32,9 @@ def main():
         logger.info("DATABASE_URL environment variable not explicitly set; using default database configuration.")
 
     try:
+        from backend.app.db.database import Base
         engine = create_engine(db_url, pool_pre_ping=True)
+        Base.metadata.create_all(bind=engine)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = SessionLocal()
         
