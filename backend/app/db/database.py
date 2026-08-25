@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DEFAULT_SUPABASE_URL = "postgresql://postgres:SupabaseSecurePass2026!@db.hoobggdrjghfqxgjfoqf.supabase.co:5432/postgres"
+DEFAULT_SUPABASE_URL = "postgresql://postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     # Enforce Supabase Postgres Cloud on cloud deployments

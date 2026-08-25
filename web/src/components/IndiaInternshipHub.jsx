@@ -512,7 +512,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               ) : (
                 <RefreshCw size={16} />
               )}
-              {scanning ? 'Scraping Portals in India...' : 'Scrape & Refresh Internships'}
+              {scanning ? 'Checking Pipeline Status...' : 'Check Pipeline Status'}
             </button>
           </div>
 
