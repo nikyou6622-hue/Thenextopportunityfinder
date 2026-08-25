@@ -14,6 +14,7 @@ class UserModel(Base):
     experience_level = Column(String, default="Entry Level / Student")
     avatar_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    is_email_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 class ProfileModel(Base):

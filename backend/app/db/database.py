@@ -34,6 +34,23 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+def run_auto_migrations():
+    """Applies schema migrations for new columns without losing existing data."""
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+                tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
+                if "users" in tables:
+                    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+                    if "is_email_verified" not in columns:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN DEFAULT 0"))
+                        conn.commit()
+    except Exception as e:
+        print(f"Auto-migration notice: {e}")
+
+run_auto_migrations()
+
 def get_db():
     db = SessionLocal()
     try:

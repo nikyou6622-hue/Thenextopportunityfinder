@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, FileText, CheckCircle2, User, Key, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Lock, FileText, CheckCircle2, User, Key, RefreshCw, Mail, AlertCircle, Sparkles } from 'lucide-react';
 import apiFetch from '../lib/apiClient';
 import DataErasureControl from './DataErasureControl';
 import NotificationPreferences from './NotificationPreferences';
@@ -7,6 +7,21 @@ import NotificationPreferences from './NotificationPreferences';
 export default function SettingsPrivacy({ profile, onProfileReset }) {
   const [consentData, setConsentData] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Email Verification state
+  const [userState, setUserState] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('nof_user')) || {};
+    } catch {
+      return {};
+    }
+  });
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpToken, setOtpToken] = useState('');
+  const [demoCodeHint, setDemoCodeHint] = useState('');
+  const [verificationStatusMsg, setVerificationStatusMsg] = useState('');
+  const [verificationError, setVerificationError] = useState('');
 
   useEffect(() => {
     fetchConsentRecord();
@@ -29,6 +44,80 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
     }
   };
 
+  const handleSendVerificationCode = async () => {
+    setVerifyingEmail(true);
+    setVerificationError('');
+    setVerificationStatusMsg('');
+    const emailToVerify = profile?.email || userState?.email || 'candidate@dev.io';
+
+    try {
+      const res = await apiFetch('/api/auth/send-email-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToVerify, type: 'email_verification' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to send verification email.');
+
+      setOtpSent(true);
+      if (data.demo_otp) {
+        setDemoCodeHint(data.demo_otp);
+      }
+      setVerificationStatusMsg(`6-digit verification code generated and sent to ${emailToVerify}`);
+    } catch (err) {
+      setVerificationError(err.message || 'Error requesting verification code.');
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleConfirmVerificationCode = async (e) => {
+    if (e) e.preventDefault();
+    if (!otpToken || otpToken.trim().length !== 6) {
+      setVerificationError('Please enter a valid 6-digit verification code.');
+      return;
+    }
+
+    setVerifyingEmail(true);
+    setVerificationError('');
+    setVerificationStatusMsg('');
+    const emailToVerify = profile?.email || userState?.email || 'candidate@dev.io';
+
+    try {
+      const res = await apiFetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailToVerify,
+          token: otpToken.trim(),
+          type: 'email_verification'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Invalid or expired verification code.');
+
+      const updatedUser = {
+        ...(userState || {}),
+        is_email_verified: true
+      };
+      setUserState(updatedUser);
+      try {
+        localStorage.setItem('nof_user', JSON.stringify(updatedUser));
+      } catch {}
+
+      setOtpSent(false);
+      setOtpToken('');
+      setDemoCodeHint('');
+      setVerificationStatusMsg('🎉 Email verified successfully! Your account now has full verified security status.');
+    } catch (err) {
+      setVerificationError(err.message || 'Verification failed. Please check your 6-digit code.');
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const isVerified = userState?.is_email_verified || profile?.is_email_verified;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '1000px', margin: '0 auto' }}>
       
@@ -38,8 +127,105 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
           Settings, Security & Privacy
         </h2>
         <p style={{ fontSize: '0.88rem', color: '#94a3b8' }}>
-          Manage your DPDP Act data protection consent, notification cadence, encryption keys, and right to erasure.
+          Manage your DPDP Act data protection consent, notification cadence, email verification, and right to erasure.
         </p>
+      </div>
+
+      {/* 0. Email Verification Status & Security Hub */}
+      <div className="glass-card" style={{ padding: '24px', border: isVerified ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Mail size={22} color={isVerified ? "#10b981" : "#f59e0b"} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc' }}>
+              Account Email Verification
+            </h3>
+          </div>
+          {isVerified ? (
+            <span className="badge badge-emerald" style={{ fontSize: '0.82rem', padding: '6px 12px' }}>
+              <CheckCircle2 size={14} style={{ marginRight: '6px' }} /> Email Verified
+            </span>
+          ) : (
+            <span className="badge badge-amber" style={{ fontSize: '0.82rem', padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+              <AlertCircle size={14} style={{ marginRight: '6px' }} /> Verification Required
+            </span>
+          )}
+        </div>
+
+        <p style={{ fontSize: '0.86rem', color: '#cbd5e1', marginBottom: '16px', lineHeight: 1.5 }}>
+          Registered Account Email: <strong style={{ color: '#6366f1' }}>{profile?.email || userState?.email || 'candidate@dev.io'}</strong>
+        </p>
+
+        {verificationError && (
+          <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.84rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{verificationError}</span>
+          </div>
+        )}
+
+        {verificationStatusMsg && (
+          <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontSize: '0.84rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={16} />
+            <span>{verificationStatusMsg}</span>
+          </div>
+        )}
+
+        {!isVerified && !otpSent && (
+          <button
+            onClick={handleSendVerificationCode}
+            disabled={verifyingEmail}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.88rem' }}
+          >
+            {verifyingEmail ? <RefreshCw size={16} className="animate-spin" /> : <Mail size={16} />}
+            Send 6-Digit Verification Code
+          </button>
+        )}
+
+        {otpSent && !isVerified && (
+          <form onSubmit={handleConfirmVerificationCode} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+            {demoCodeHint && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#a5b4fc', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Demo Code: <strong style={{ letterSpacing: '0.1em', fontFamily: 'monospace' }}>{demoCodeHint}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setOtpToken(demoCodeHint)}
+                  style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Auto-fill Code
+                </button>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input
+                type="text"
+                maxLength={6}
+                value={otpToken}
+                onChange={(e) => setOtpToken(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="Enter 6-digit code"
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  background: '#0f172a',
+                  border: '1px solid #6366f1',
+                  color: '#ffffff',
+                  fontSize: '1.1rem',
+                  letterSpacing: '0.25em',
+                  fontFamily: 'monospace',
+                  width: '200px',
+                  textAlign: 'center'
+                }}
+              />
+              <button
+                type="submit"
+                disabled={verifyingEmail || otpToken.length !== 6}
+                className="btn btn-primary"
+                style={{ padding: '10px 20px', fontSize: '0.88rem' }}
+              >
+                {verifyingEmail ? <RefreshCw size={16} className="animate-spin" /> : 'Confirm Code'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* 1. DPDP Act Active Consent Record */}
