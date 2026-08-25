@@ -833,7 +833,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               const matchScore = getDynamicMatchScore(item);
               const comp = item.company || 'TechCorp';
               const cLower = comp.toLowerCase();
-              const isJobLocked = false;
+              const isJobLocked = !isPro && idx >= 5;
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :
@@ -1054,31 +1054,63 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                       {item.description ? (item.description.length > 110 ? `${item.description.substring(0, 105)}...` : item.description) : 'Hands-on production internship working with modern engineering teams.'}
                     </p>
 
-                    {/* Required Skills */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                      {(item.required_skills || []).slice(0, 4).map((skill, sIdx) => {
-                        const isMatch = (item.matched_skills || []).includes(skill);
-                        return (
-                          <span 
-                            key={sIdx}
-                            style={{
-                              background: isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)',
-                              color: isAmber ? '#059669' : '#34d399',
-                              borderRadius: '6px',
-                              padding: '2px 7px',
-                              fontSize: '0.68rem',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px'
-                            }}
-                          >
-                            {isMatch && <CheckCircle2 size={10} />}
-                            {skill}
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {/* Skill Match Breakdown Bar */}
+                    {(() => {
+                      const userSkills = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
+                      const reqSkills = item.skills_required || item.required_skills || [];
+                      const matchedSkills = reqSkills.filter(sk => userSkills.some(u => u.includes(String(sk).toLowerCase().trim()) || String(sk).toLowerCase().trim().includes(u)));
+                      const matchCount = matchedSkills.length;
+                      const totalCount = reqSkills.length || 1;
+                      
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                          <div style={{
+                            background: isAmber ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.25)',
+                            borderRadius: '8px',
+                            padding: '5px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
+                          }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isAmber ? '#047857' : '#4ade80' }}>
+                              <CheckCircle2 size={12} />
+                              {matchCount} / {totalCount} Skills Matched
+                            </span>
+                            <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
+                              {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {reqSkills.slice(0, 5).map((skill, sIdx) => {
+                              const isMatch = matchedSkills.includes(skill);
+                              return (
+                                <span 
+                                  key={sIdx}
+                                  style={{
+                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'),
+                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#0F172A' : '#cbd5e1'),
+                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent',
+                                    borderRadius: '6px',
+                                    padding: '2px 7px',
+                                    fontSize: '0.68rem',
+                                    fontWeight: isMatch ? 700 : 500,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}
+                                >
+                                  {isMatch ? <CheckCircle2 size={10} color={isAmber ? '#047857' : '#4ade80'} /> : '•'}
+                                  {skill}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Bottom Crisp White Footer */}

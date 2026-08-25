@@ -803,27 +803,63 @@ export default function JobDiscovery({
                       {job.description ? (job.description.length > 120 ? `${job.description.substring(0, 115)}...` : job.description) : 'Join a high-growth engineering team building modern platforms.'}
                     </p>
 
-                    {/* Matching Skills */}
-                    {m.matching_skills && m.matching_skills.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                        {m.matching_skills.slice(0, 4).map((s, sIdx) => (
-                          <span key={sIdx} style={{
-                            background: isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.14)',
-                            color: isAmber ? '#0F172A' : '#FFFFFF',
-                            borderRadius: '6px',
-                            padding: '2px 7px',
-                            fontSize: '0.68rem',
-                            fontWeight: 600,
-                            display: 'inline-flex',
+                    {/* Skill Match Breakdown Bar */}
+                    {(() => {
+                      const userSkills = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
+                      const reqSkills = job.required_skills || job.tech_stack || [];
+                      const matchedSkills = m.matching_skills || reqSkills.filter(sk => userSkills.some(u => u.includes(String(sk).toLowerCase().trim()) || String(sk).toLowerCase().trim().includes(u)));
+                      const matchCount = matchedSkills.length;
+                      const totalCount = reqSkills.length || 1;
+                      
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                          <div style={{
+                            background: isAmber ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.25)',
+                            borderRadius: '8px',
+                            padding: '5px 10px',
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '3px'
+                            justifyContent: 'space-between',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
                           }}>
-                            <CheckCircle2 size={10} color={isAmber ? '#059669' : '#34d399'} />
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isAmber ? '#047857' : '#4ade80' }}>
+                              <CheckCircle2 size={12} />
+                              {matchCount} / {totalCount} Skills Matched
+                            </span>
+                            <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
+                              {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {reqSkills.slice(0, 5).map((skill, sIdx) => {
+                              const isMatch = matchedSkills.includes(skill);
+                              return (
+                                <span 
+                                  key={sIdx}
+                                  style={{
+                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'),
+                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#0F172A' : '#cbd5e1'),
+                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent',
+                                    borderRadius: '6px',
+                                    padding: '2px 7px',
+                                    fontSize: '0.68rem',
+                                    fontWeight: isMatch ? 700 : 500,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}
+                                >
+                                  {isMatch ? <CheckCircle2 size={10} color={isAmber ? '#047857' : '#4ade80'} /> : '•'}
+                                  {skill}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Bottom Crisp White Footer */}
