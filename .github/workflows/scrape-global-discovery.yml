@@ -25,5 +25,5 @@ jobs:
 
       - name: Run Global Job Discovery Scan
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
         run: python -m backend.app.agents.scripts.run_global_discovery_standalone

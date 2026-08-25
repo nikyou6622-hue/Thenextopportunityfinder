@@ -25,5 +25,5 @@ jobs:
 
       - name: Run India Internship Scan
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
         run: python -m backend.app.agents.scripts.run_internships_scan_standalone
