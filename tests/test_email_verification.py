@@ -37,9 +37,10 @@ def test_send_and_verify_otp_api_flow():
     assert response_send.status_code == 200
     data_send = response_send.json()
     assert data_send["success"] is True
-    assert "demo_otp" in data_send
+    assert data_send["demo_otp"] is None  # Code is hidden from API response
     
-    obtained_code = data_send.get("demo_otp") or "123456"
+    # Retrieve real OTP from in-memory registry (simulating user reading email inbox)
+    obtained_code = _OTP_REGISTRY[target_email]["otp"]
     
     # 2. Verify OTP
     response_verify = client.post("/api/auth/verify-otp", json={
@@ -61,8 +62,10 @@ def test_dedicated_email_verification_endpoints():
     assert res_req.status_code == 200
     data_req = res_req.json()
     assert data_req["success"] is True
+    assert data_req["demo_otp"] is None
     
-    otp = data_req.get("demo_otp") or "123456"
+    # Retrieve real OTP sent to email inbox
+    otp = _OTP_REGISTRY[verify_email]["otp"]
     
     # 2. Confirm email verification code
     res_confirm = client.post("/api/auth/verify-email", json={

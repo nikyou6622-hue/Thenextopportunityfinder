@@ -183,18 +183,6 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
 
         {otpSent && !isVerified && (
           <form onSubmit={handleConfirmVerificationCode} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-            {demoCodeHint && (
-              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#a5b4fc', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Demo Code: <strong style={{ letterSpacing: '0.1em', fontFamily: 'monospace' }}>{demoCodeHint}</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setOtpToken(demoCodeHint)}
-                  style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  Auto-fill Code
-                </button>
-              </div>
-            )}
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <input
                 type="text"

@@ -11,6 +11,14 @@ import subprocess
 import argparse
 import time
 
+try:
+    from dotenv import load_dotenv
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    load_dotenv(os.path.join(root_dir, ".env"), override=True)
+    load_dotenv(os.path.join(root_dir, "backend", ".env"), override=True)
+except ImportError:
+    pass
+
 def check_node_and_build_frontend():
     dist_dir = os.path.join(os.path.dirname(__file__), "web", "dist")
     if not os.path.exists(dist_dir) or not os.path.exists(os.path.join(dist_dir, "index.html")):

@@ -160,20 +160,12 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        // Fallback for offline/demo environment when backend API endpoint is unproxied
-        const demoOtp = '123456';
-        setOtpStep('verify');
-        setActiveDemoOtp(demoOtp);
-        setOtpCountdown(60);
-        setSuccessMessage(`Verification code sent to ${emailClean} (Demo Code: ${demoOtp})`);
-        SoundSystem.playPop();
-        return;
+        throw new Error(data.detail || data.message || 'Failed to send verification code email.');
       }
 
       setOtpStep('verify');
-      setActiveDemoOtp(data.demo_otp || '123456');
       setOtpCountdown(60);
-      setSuccessMessage(data.message || `Verification code sent to ${emailClean}`);
+      setSuccessMessage(data.message || `Verification code sent to ${emailClean}. Please check your email inbox.`);
       SoundSystem.playPop();
 
       // Focus first input box
@@ -232,17 +224,9 @@ export default function AuthView({
     }
   };
 
-  // Auto-fill active demo token helper
-  const handleFillDemoOtp = () => {
-    if (!activeDemoOtp || activeDemoOtp.length !== 6) return;
-    const digits = activeDemoOtp.split('');
-    setOtpDigits(digits);
-    triggerVerifyOtp(activeDemoOtp);
-  };
-
   const isVerifyingRef = useRef(false);
 
-  // Verify 6-digit OTP Token (Supabase Flow)
+  // Verify 6-digit OTP Token
   const triggerVerifyOtp = async (codeToVerify) => {
     if (isVerifyingRef.current) return;
     const token = codeToVerify || otpDigits.join('');
@@ -272,30 +256,16 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        if (token === '123456' || token === activeDemoOtp) {
-          const demoUser = {
-            id: 'usr_demo_1',
-            email: email.trim().toLowerCase(),
-            full_name: 'Demo Candidate',
-            target_role: 'Full Stack Engineer'
-          };
-          const demoToken = 'jwt_demo_token_123';
-          localStorage.setItem('nof_auth_token', demoToken);
-          localStorage.setItem('nof_user', JSON.stringify(demoUser));
-          SoundSystem.playSuccess();
-          setSuccessMessage('Authentication verified successfully!');
-          if (onAuthSuccess) onAuthSuccess(demoUser, demoToken);
-          return;
-        }
         throw new Error(data.detail || data.message || 'Invalid or expired verification code.');
       }
 
       const verifiedUser = data.user || {
-        id: 'usr_demo_1',
+        id: 'usr_verified_1',
         email: email.trim().toLowerCase(),
-        full_name: 'Verified Candidate'
+        full_name: 'Verified Candidate',
+        is_email_verified: true
       };
-      const tokenStr = data.token || 'jwt_demo_token_123';
+      const tokenStr = data.token || 'jwt_token_verified';
       localStorage.setItem('nof_auth_token', tokenStr);
       localStorage.setItem('nof_user', JSON.stringify(verifiedUser));
 
@@ -307,8 +277,8 @@ export default function AuthView({
     } catch (err) {
       setErrorMessage(err.message || 'Verification failed. Please check the 6-digit code and try again.');
       SoundSystem.playError();
-      isVerifyingRef.current = false;
     } finally {
+      isVerifyingRef.current = false;
       setLoading(false);
     }
   };

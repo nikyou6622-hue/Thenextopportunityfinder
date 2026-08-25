@@ -11,6 +11,15 @@ from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+try:
+    from dotenv import load_dotenv
+    _main_dir = os.path.dirname(os.path.abspath(__file__))
+    _root_dir = os.path.dirname(os.path.dirname(_main_dir))
+    load_dotenv(os.path.join(_root_dir, ".env"), override=True)
+    load_dotenv(os.path.join(_root_dir, "backend", ".env"), override=True)
+except ImportError:
+    pass
+
 from backend.app.config import MONETIZATION_ENABLED, DEFAULT_SUBSCRIPTION_TIER, DEFAULT_CREDITS_REMAINING, FREE_SCRAPE_LIMIT, PRO_PRICE_INR
 from backend.app.db.database import engine, Base, get_db, SessionLocal
 from backend.app.db.models import (
@@ -516,21 +525,16 @@ def _validate_otp(email: str, token: str) -> bool:
     token_clean = token.strip()
     entry = _OTP_REGISTRY.get(email_clean)
     if not entry:
-        # Fallback for universal demo verification code
-        if token_clean == "123456":
-            return True
         return False
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     if now > entry["expires_at"]:
         _OTP_REGISTRY.pop(email_clean, None)
-        if token_clean == "123456":
-            return True
         return False
     entry["attempts"] += 1
     if entry["attempts"] > 5:
         _OTP_REGISTRY.pop(email_clean, None)
         return False
-    if entry["otp"] == token_clean or token_clean == "123456":
+    if entry["otp"] == token_clean:
         _OTP_REGISTRY.pop(email_clean, None)
         return True
     return False
@@ -543,7 +547,7 @@ def _send_live_otp_email(recipient_email: str, otp_code: str) -> bool:
     port = int(os.getenv("SMTP_PORT", 587))
 
     if not smtp_pass:
-        logger.info(f"SMTP_PASSWORD not configured. OTP generated for {recipient_email}: {otp_code}")
+        logger.warning(f"SMTP_PASSWORD not configured in environment. Cannot dispatch email to {recipient_email}")
         return False
 
     try:
@@ -643,24 +647,22 @@ def auth_send_otp(req: SendOtpRequest, background_tasks: BackgroundTasks = None)
     otp_code = _generate_otp()
     _store_otp(email_clean, otp_code, purpose=req.type or "login")
     
-    smtp_pass = os.getenv("SMTP_PASSWORD", "").strip()
-    sent_via_smtp = False
-    if smtp_pass:
-        if background_tasks:
-            background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
-            sent_via_smtp = True
-        else:
-            sent_via_smtp = _send_live_otp_email(email_clean, otp_code)
+    # Always attempt live SMTP delivery directly or in background
+    if background_tasks:
+        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
+    else:
+        try:
+            _send_live_otp_email(email_clean, otp_code)
+        except Exception as e:
+            logger.error(f"Error sending live email: {e}")
 
-    # Provide demo_otp if SMTP is unconfigured or in non-production environments
-    provide_demo_otp = (not sent_via_smtp) or (ENVIRONMENT != "production") or (not smtp_pass)
-
+    # Never leak verification code in API response
     return SendOtpResponse(
         success=True,
-        message=f"6-digit authentication code generated and sent to {email_clean}.",
+        message=f"A 6-digit verification code has been sent to {email_clean}. Please check your inbox.",
         email=email_clean,
         expires_in=600,
-        demo_otp=otp_code if provide_demo_otp else None
+        demo_otp=None
     )
 
 @app.post("/api/auth/verify-otp", response_model=AuthResponse)
