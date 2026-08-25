@@ -389,5 +389,14 @@ class GoogleAuthRequest(BaseModel):
     full_name: Optional[str] = None
     google_id: Optional[str] = None
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ForgotPasswordResetRequest(BaseModel):
+    email: str
+    token: str
+    new_password: str
+
+
 
 

@@ -38,7 +38,8 @@ from backend.app.schemas.schemas import (
     CodingAttemptResponse, ResumeTemplateSchema, ReorderRequest,
     MNCScanLogSchema, MNCScanStatusResponse, LinkRevalidationResponse, LinkHealthSummary,
     StudyMaterialRequest, StudyMaterialResponse, SignUpRequest, LoginRequest, AuthResponse,
-    SendOtpRequest, VerifyOtpRequest, SendOtpResponse, GoogleAuthRequest
+    SendOtpRequest, VerifyOtpRequest, SendOtpResponse, GoogleAuthRequest,
+    ForgotPasswordRequest, ForgotPasswordResetRequest
 )
 from backend.app.agents.agent1_parser import (
     parse_resume_content, compute_ats_score, compute_resume_quality_score, 
@@ -986,6 +987,68 @@ def auth_login(req: LoginRequest, response: Response, db: Session = Depends(get_
         message=f"Welcome back, {user.full_name}!",
         token=token,
         user=user_payload
+    )
+
+@app.post("/api/auth/forgot-password/request", response_model=SendOtpResponse)
+def auth_forgot_password_request(req: ForgotPasswordRequest, background_tasks: BackgroundTasks = None, db: Session = Depends(get_db)):
+    """Dispatches a 6-digit password reset code to the user's registered email address."""
+    email_clean = req.email.strip().lower()
+    if not email_clean or "@" not in email_clean:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+    
+    user = db.query(UserModel).filter(UserModel.email == email_clean).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No registered candidate account found with this email address.")
+    
+    otp_code = _generate_otp()
+    _store_otp(email_clean, otp_code, purpose="forgot_password")
+    
+    if background_tasks:
+        background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
+    else:
+        try:
+            _send_live_otp_email(email_clean, otp_code)
+        except Exception as e:
+            logger.error(f"Failed to dispatch password reset OTP email to {email_clean}: {e}")
+            
+    return SendOtpResponse(
+        success=True,
+        message=f"A 6-digit password reset code has been sent to {email_clean}. Please check your inbox.",
+        email=email_clean,
+        expires_in=600,
+        demo_otp=None
+    )
+
+@app.post("/api/auth/forgot-password/reset", response_model=AuthResponse)
+def auth_forgot_password_reset(req: ForgotPasswordResetRequest, db: Session = Depends(get_db)):
+    """Verifies password reset OTP code and updates candidate password."""
+    email_clean = req.email.strip().lower()
+    token_clean = req.token.strip()
+    if not email_clean or "@" not in email_clean:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
+        
+    is_valid = _validate_otp(email_clean, token_clean)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired 6-digit password reset code. Please request a new code.")
+        
+    user = db.query(UserModel).filter(UserModel.email == email_clean).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Candidate user account not found.")
+        
+    user.password_hash = _hash_password(req.new_password)
+    db.commit()
+    db.refresh(user)
+    
+    profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
+    sync_verified_user_to_supabase(user, profile)
+    
+    return AuthResponse(
+        success=True,
+        message="Your password has been updated successfully! Please log in with your new password.",
+        token=None,
+        user=None
     )
 
 @app.get("/api/auth/me")

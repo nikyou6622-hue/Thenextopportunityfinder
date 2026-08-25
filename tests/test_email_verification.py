@@ -1,5 +1,6 @@
 import pytest
 import os
+import uuid
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -13,7 +14,7 @@ def setup_module(module):
     Base.metadata.create_all(bind=engine)
 
 def test_otp_store_and_validate_logic():
-    test_email = "pytest_email_test@example.com"
+    test_email = f"pytest_{uuid.uuid4().hex[:6]}@example.com"
     otp_code = "852963"
     
     _store_otp(test_email, otp_code, purpose="email_verification")
@@ -30,7 +31,7 @@ def test_otp_store_and_validate_logic():
     assert test_email not in _OTP_REGISTRY
 
 def test_send_and_verify_otp_api_flow():
-    target_email = "candidate_verify_test@dev.io"
+    target_email = f"candidate_{uuid.uuid4().hex[:6]}@dev.io"
     
     # 1. Send OTP
     response_send = client.post("/api/auth/send-otp", json={"email": target_email, "type": "login"})
@@ -55,7 +56,7 @@ def test_send_and_verify_otp_api_flow():
     assert data_verify["user"]["email"] == target_email
 
 def test_signup_deferred_account_creation_until_otp():
-    signup_email = "new_deferred_candidate@dev.io"
+    signup_email = f"deferred_{uuid.uuid4().hex[:6]}@dev.io"
     
     # 1. Submit signup request
     res_signup = client.post("/api/auth/signup", json={
@@ -97,8 +98,47 @@ def test_signup_deferred_account_creation_until_otp():
     assert user_after is not None
     assert user_after.is_email_verified is True
 
+def test_forgot_password_flow():
+    forgot_email = f"forgot_{uuid.uuid4().hex[:6]}@dev.io"
+    
+    # Create an initial account via signup & OTP verification
+    client.post("/api/auth/signup", json={
+        "full_name": "Forgot Pass Candidate",
+        "email": forgot_email,
+        "password": "OldPassword123!"
+    })
+    otp_signup = _PENDING_REGISTRATIONS[forgot_email]["otp"]
+    client.post("/api/auth/verify-otp", json={"email": forgot_email, "token": otp_signup})
+    
+    # 1. Request password reset OTP code
+    res_req = client.post("/api/auth/forgot-password/request", json={"email": forgot_email})
+    assert res_req.status_code == 200
+    data_req = res_req.json()
+    assert data_req["success"] is True
+    
+    assert forgot_email in _OTP_REGISTRY
+    otp_reset = _OTP_REGISTRY[forgot_email]["otp"]
+    
+    # 2. Reset password with valid OTP
+    res_reset = client.post("/api/auth/forgot-password/reset", json={
+        "email": forgot_email,
+        "token": otp_reset,
+        "new_password": "NewUpdatedPassword123!"
+    })
+    assert res_reset.status_code == 200
+    data_reset = res_reset.json()
+    assert data_reset["success"] is True
+    
+    # 3. Verify logging in with OLD password fails and NEW password succeeds
+    res_login_old = client.post("/api/auth/login", json={"email": forgot_email, "password": "OldPassword123!"})
+    assert res_login_old.status_code == 401
+    
+    res_login_new = client.post("/api/auth/login", json={"email": forgot_email, "password": "NewUpdatedPassword123!"})
+    assert res_login_new.status_code == 200
+    assert res_login_new.json()["success"] is True
+
 def test_dedicated_email_verification_endpoints():
-    verify_email = "security_test_user@dev.io"
+    verify_email = f"security_{uuid.uuid4().hex[:6]}@dev.io"
     
     # 1. Request email verification code
     res_req = client.post("/api/auth/send-email-verification", json={"email": verify_email})
