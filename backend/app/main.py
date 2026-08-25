@@ -497,6 +497,8 @@ def _ensure_default_admin_account():
 
 # In-memory OTP token registry: email -> { "otp": str, "purpose": str, "created_at": float, "expires_at": float, "attempts": int }
 _OTP_REGISTRY: Dict[str, Dict[str, Any]] = {}
+# Pending registration cache: email -> { "otp": str, "payload": dict, "created_at": float, "expires_at": float, "attempts": int }
+_PENDING_REGISTRATIONS: Dict[str, Dict[str, Any]] = {}
 
 def _hash_password(password: str) -> str:
     salt = "nof_auth_salt_2026_"
@@ -730,28 +732,41 @@ def auth_send_otp(req: SendOtpRequest, background_tasks: BackgroundTasks = None)
 
 @app.post("/api/auth/verify-otp", response_model=AuthResponse)
 def auth_verify_otp(req: VerifyOtpRequest, response: Response, db: Session = Depends(get_db)):
-    """Validates 6-digit OTP token and issues Supabase-style session bearer token & cookie."""
+    """Validates 6-digit OTP token, creates user account if pending registration, and issues session bearer token."""
     email_clean = req.email.strip().lower()
+    token_clean = req.token.strip()
     if not email_clean or "@" not in email_clean:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
     
-    is_valid = _validate_otp(email_clean, req.token)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid or expired 6-digit verification code. Please request a new code.")
-    
-    # Check existing user or auto-provision
     user = db.query(UserModel).filter(UserModel.email == email_clean).first()
-    if not user:
-        is_admin_candidate = (email_clean == ADMIN_EMAIL)
-        name = req.full_name.strip() if req.full_name else ("Aditya Nikam (Admin)" if is_admin_candidate else email_clean.split("@")[0].capitalize())
-        avatar_seed = name.replace(" ", "+")
+    
+    # 1. Check if this email has a pending registration
+    pending = _PENDING_REGISTRATIONS.get(email_clean)
+    if pending and not user:
+        now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        if now > pending["expires_at"]:
+            _PENDING_REGISTRATIONS.pop(email_clean, None)
+            raise HTTPException(status_code=400, detail="Verification code has expired. Please sign up again.")
+        
+        pending["attempts"] += 1
+        if pending["attempts"] > 5:
+            _PENDING_REGISTRATIONS.pop(email_clean, None)
+            raise HTTPException(status_code=400, detail="Too many invalid attempts. Please request a new verification code.")
+
+        if pending["otp"] != token_clean:
+            raise HTTPException(status_code=400, detail="Invalid 6-digit verification code. Please check your email inbox.")
+
+        # OTP VERIFIED! CREATE USER ACCOUNT AND PROFILE IN DATABASE NOW!
+        p = pending["payload"]
+        avatar_seed = p["full_name"].replace(" ", "+")
         avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={avatar_seed}"
+        
         user = UserModel(
-            full_name=name,
+            full_name=p["full_name"],
             email=email_clean,
-            password_hash=_hash_password(ADMIN_INITIAL_PASSWORD if is_admin_candidate else secrets.token_urlsafe(16)),
-            target_role="Lead Architect & System Administrator" if is_admin_candidate else (req.target_role or "Software Engineer"),
-            experience_level="Senior / Lead (5+ yrs)" if is_admin_candidate else (req.experience_level or "Entry Level / Student"),
+            password_hash=p["password_hash"],
+            target_role=p["target_role"],
+            experience_level=p["experience_level"],
             avatar_url=avatar,
             is_active=True,
             is_email_verified=True
@@ -759,33 +774,78 @@ def auth_verify_otp(req: VerifyOtpRequest, response: Response, db: Session = Dep
         db.add(user)
         db.commit()
         db.refresh(user)
+
+        profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
+        if not profile:
+            profile = ProfileModel(
+                name=user.full_name,
+                email=user.email,
+                phone="+91 9876543210",
+                location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
+                skills=["Python", "JavaScript", "React", "FastAPI", "PostgreSQL"],
+                experience_years=1.0,
+                domains=["sde", "full stack", "ai/ml"],
+                summary=f"Aspiring {user.target_role} skilled in scalable application development.",
+                consent_given=p.get("consent_given", True),
+                consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
+            )
+            db.add(profile)
+            db.commit()
+
+        # Clear pending registration
+        _PENDING_REGISTRATIONS.pop(email_clean, None)
+
+        # Store verified user and profile directly in Supabase PostgreSQL Cloud
+        sync_verified_user_to_supabase(user, profile)
     else:
-        # Mark user email verified on successful OTP authentication
-        if hasattr(user, "is_email_verified") and not user.is_email_verified:
-            user.is_email_verified = True
+        # Standard OTP validation for existing users or direct login OTP
+        is_valid = _validate_otp(email_clean, token_clean)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Invalid or expired 6-digit verification code. Please request a new code.")
+        
+        if not user:
+            is_admin_candidate = (email_clean == ADMIN_EMAIL)
+            name = req.full_name.strip() if req.full_name else ("Aditya Nikam (Admin)" if is_admin_candidate else email_clean.split("@")[0].capitalize())
+            avatar_seed = name.replace(" ", "+")
+            avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={avatar_seed}"
+            user = UserModel(
+                full_name=name,
+                email=email_clean,
+                password_hash=_hash_password(ADMIN_INITIAL_PASSWORD if is_admin_candidate else secrets.token_urlsafe(16)),
+                target_role="Lead Architect & System Administrator" if is_admin_candidate else (req.target_role or "Software Engineer"),
+                experience_level="Senior / Lead (5+ yrs)" if is_admin_candidate else (req.experience_level or "Entry Level / Student"),
+                avatar_url=avatar,
+                is_active=True,
+                is_email_verified=True
+            )
+            db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            if hasattr(user, "is_email_verified") and not user.is_email_verified:
+                user.is_email_verified = True
+                db.commit()
+                db.refresh(user)
 
-    # Sync candidate Profile
-    profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
-    if not profile:
-        profile = ProfileModel(
-            name=user.full_name,
-            email=user.email,
-            phone="+91 9876543210",
-            location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
-            skills=["Python", "JavaScript", "React", "FastAPI", "PostgreSQL"],
-            experience_years=1.0,
-            domains=["sde", "full stack", "ai/ml"],
-            summary=f"Aspiring {user.target_role} skilled in scalable application development and full-stack systems.",
-            consent_given=True,
-            consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
-        )
-        db.add(profile)
-        db.commit()
+        profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
+        if not profile:
+            profile = ProfileModel(
+                name=user.full_name,
+                email=user.email,
+                phone="+91 9876543210",
+                location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
+                skills=["Python", "JavaScript", "React", "FastAPI", "PostgreSQL"],
+                experience_years=1.0,
+                domains=["sde", "full stack", "ai/ml"],
+                summary=f"Aspiring {user.target_role} skilled in scalable application development and full-stack systems.",
+                consent_given=True,
+                consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
+            )
+            db.add(profile)
+            db.commit()
 
-    # Sync verified account and candidate profile directly to Supabase PostgreSQL Cloud
-    sync_verified_user_to_supabase(user, profile)
+        # Store verified account into Supabase PostgreSQL Cloud
+        sync_verified_user_to_supabase(user, profile)
 
     token = _generate_token(user.email)
     
@@ -820,7 +880,7 @@ def auth_verify_email(req: VerifyOtpRequest, response: Response, db: Session = D
 
 @app.post("/api/auth/signup", response_model=AuthResponse)
 def auth_signup(req: SignUpRequest, response: Response, background_tasks: BackgroundTasks = None, db: Session = Depends(get_db)):
-    """Registers a new user candidate account, dispatches 6-digit email verification code, and initializes profile."""
+    """Validates registration data, dispatches 6-digit email OTP, and caches pending signup. Account is only created upon OTP verification."""
     email_clean = req.email.strip().lower()
     if not email_clean or "@" not in email_clean:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
@@ -854,51 +914,30 @@ def auth_signup(req: SignUpRequest, response: Response, background_tasks: Backgr
             )
         raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
     
-    # Create User with initial is_email_verified = False
-    avatar_seed = req.full_name.replace(" ", "+")
-    avatar = f"https://api.dicebear.com/7.x/bottts/svg?seed={avatar_seed}"
-    new_user = UserModel(
-        full_name=req.full_name.strip(),
-        email=email_clean,
-        password_hash=_hash_password(req.password),
-        target_role=req.target_role or "Software Engineer",
-        experience_level=req.experience_level or "Entry Level / Student",
-        avatar_url=avatar,
-        is_active=True,
-        is_email_verified=False
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    # Sync with Candidate Profile
+    # Cache pending signup payload — DO NOT INSERT INTO DATABASE YET!
+    otp_code = _generate_otp()
+    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    
     consent_val = req.consent_given if req.consent_given is not None else True
     consent_time = req.consent_timestamp or datetime.datetime.now(datetime.timezone.utc)
+    
+    _PENDING_REGISTRATIONS[email_clean] = {
+        "otp": otp_code,
+        "payload": {
+            "full_name": req.full_name.strip(),
+            "email": email_clean,
+            "password_hash": _hash_password(req.password),
+            "target_role": req.target_role or "Software Engineer",
+            "experience_level": req.experience_level or "Entry Level / Student",
+            "consent_given": consent_val,
+            "consent_timestamp": consent_time
+        },
+        "created_at": now,
+        "expires_at": now + 600,
+        "attempts": 0
+    }
 
-    profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
-    if not profile:
-        profile = ProfileModel(
-            name=new_user.full_name,
-            email=new_user.email,
-            phone="+91 9876543210",
-            location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
-            skills=["Python", "JavaScript", "React", "FastAPI", "PostgreSQL"],
-            experience_years=1.0,
-            domains=["sde", "full stack", "ai/ml"],
-            summary=f"Aspiring {new_user.target_role} skilled in scalable application development and full-stack systems.",
-            consent_given=consent_val,
-            consent_timestamp=consent_time
-        )
-        db.add(profile)
-        db.commit()
-    else:
-        profile.consent_given = consent_val
-        profile.consent_timestamp = consent_time
-        db.commit()
-
-    # Generate and dispatch 6-digit email verification OTP
-    otp_code = _generate_otp()
-    _store_otp(email_clean, otp_code, purpose="signup_verification")
+    # Dispatch live OTP email
     if background_tasks:
         background_tasks.add_task(_send_live_otp_email, email_clean, otp_code)
     else:
@@ -907,25 +946,11 @@ def auth_signup(req: SignUpRequest, response: Response, background_tasks: Backgr
         except Exception as e:
             logger.error(f"Failed to dispatch sign up verification email to {email_clean}: {e}")
 
-    token = _generate_token(new_user.email)
-    
-    # Set HttpOnly Secure session cookie
-    response.set_cookie(
-        key="nof_auth_token",
-        value=token,
-        httponly=True,
-        secure=(ENVIRONMENT == "production"),
-        samesite="lax",
-        max_age=86400 * 7
-    )
-
-    user_payload = _build_user_payload(new_user)
-
     return AuthResponse(
         success=True,
-        message=f"Account created for {new_user.full_name}! A 6-digit verification code has been sent to {email_clean}. Please check your inbox and verify your account.",
-        token=token,
-        user=user_payload
+        message=f"Account request received! A 6-digit verification code has been sent to {email_clean}. Please check your inbox and enter the code to create your account.",
+        token=None,
+        user=None
     )
 
 @app.post("/api/auth/login", response_model=AuthResponse)

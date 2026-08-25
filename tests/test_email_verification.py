@@ -3,7 +3,7 @@ import os
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.app.main import app, get_db, _store_otp, _validate_otp, _OTP_REGISTRY
+from backend.app.main import app, get_db, _store_otp, _validate_otp, _OTP_REGISTRY, _PENDING_REGISTRATIONS
 from backend.app.db.database import Base, engine, SessionLocal
 from backend.app.db.models import UserModel
 
@@ -53,6 +53,49 @@ def test_send_and_verify_otp_api_flow():
     assert data_verify["success"] is True
     assert data_verify["user"]["is_email_verified"] is True
     assert data_verify["user"]["email"] == target_email
+
+def test_signup_deferred_account_creation_until_otp():
+    signup_email = "new_deferred_candidate@dev.io"
+    
+    # 1. Submit signup request
+    res_signup = client.post("/api/auth/signup", json={
+        "full_name": "Deferred Signup User",
+        "email": signup_email,
+        "password": "Password123!",
+        "target_role": "Backend Engineer"
+    })
+    assert res_signup.status_code == 200
+    data_signup = res_signup.json()
+    assert data_signup["success"] is True
+    assert data_signup["user"] is None  # User account NOT created in DB yet!
+    
+    # Verify user does not exist in DB yet
+    db: Session = SessionLocal()
+    user_before = db.query(UserModel).filter(UserModel.email == signup_email).first()
+    db.close()
+    assert user_before is None
+    
+    # Retrieve OTP from pending registrations cache
+    assert signup_email in _PENDING_REGISTRATIONS
+    otp_code = _PENDING_REGISTRATIONS[signup_email]["otp"]
+    
+    # 2. Verify OTP code to trigger account creation
+    res_verify = client.post("/api/auth/verify-otp", json={
+        "email": signup_email,
+        "token": otp_code
+    })
+    assert res_verify.status_code == 200
+    data_verify = res_verify.json()
+    assert data_verify["success"] is True
+    assert data_verify["user"]["email"] == signup_email
+    assert data_verify["user"]["is_email_verified"] is True
+    
+    # Verify user NOW exists in DB and is verified
+    db = SessionLocal()
+    user_after = db.query(UserModel).filter(UserModel.email == signup_email).first()
+    db.close()
+    assert user_after is not None
+    assert user_after.is_email_verified is True
 
 def test_dedicated_email_verification_endpoints():
     verify_email = "security_test_user@dev.io"
