@@ -5,7 +5,24 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#080b14" />
-    <meta name="color-scheme" content="dark" />
+    <!-- Automatic ServiceWorker & CacheStorage purge for fresh build deployment -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) { registration.unregister(); }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) caches.delete(name);
+        });
+      }
+    </script>
+
+    <!-- Prevent Stale Browser Cache of Old Chunks -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     
     <!-- Primary Meta Tags -->
     <title>Next Opportunity Finder — The AI Career Acceleration Operating System</title>
@@ -61,10 +78,10 @@
         background: rgba(99, 102, 241, 0.6);
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-f9280e21.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/vendor-react-8a332d8f.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-ui-cc5cce58.js">
-    <link rel="stylesheet" href="/assets/index-e0b5874b.css">
+    <script type="module" crossorigin src="/assets/index-6cd343b5.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-e72fc605.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-ui-92a68975.js">
+    <link rel="stylesheet" href="/assets/index-8733a272.css">
   </head>
   <body>
     <div id="root"></div>
