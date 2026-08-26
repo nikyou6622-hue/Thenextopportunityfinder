@@ -1751,6 +1751,9 @@ def get_subscription_status(
     )
 
 @app.post("/api/subscription/scrape")
+@app.post("/subscription/scrape")
+@app.get("/api/subscription/scrape")
+@app.get("/subscription/scrape")
 def record_scrape_action(
     payload: Dict[str, Any] = Body(default={}),
     db: Session = Depends(get_db)
@@ -4118,6 +4121,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
 ]
 
 @app.get("/api/internships/india")
+@app.get("/internships/india")
 def get_india_internships_endpoint(
     city: Optional[str] = Query(None),
     domain: Optional[str] = Query(None),
@@ -4173,6 +4177,7 @@ def get_india_internships_endpoint(
     return res
 
 @app.get("/api/internships/india/stats")
+@app.get("/internships/india/stats")
 def get_internship_stats_endpoint(db: Session = Depends(get_db)):
     total_internships = db.query(JobModel).filter(JobModel.role_title.ilike("%intern%")).count()
     return {
@@ -4183,7 +4188,9 @@ def get_internship_stats_endpoint(db: Session = Depends(get_db)):
     }
 
 @app.post("/api/internships/india/refresh")
+@app.post("/internships/india/refresh")
 @app.get("/api/internships/india/refresh")
+@app.get("/internships/india/refresh")
 def refresh_internship_hub_endpoint(db: Session = Depends(get_db)):
     total_count = db.query(JobModel).filter(
         JobModel.status == "active",
