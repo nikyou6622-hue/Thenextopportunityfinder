@@ -17,6 +17,13 @@ os.environ["VERCEL_ENV"] = "production"
 
 try:
     from backend.app.main import app
+
+@app.middleware("http")
+async def log_incoming_request_middleware(request, call_next):
+    print(f"[VERCEL REQUEST DEBUGLOG] Method: {request.method} | Path: {request.url.path}")
+    response = await call_next(request)
+    print(f"[VERCEL RESPONSE DEBUGLOG] Method: {request.method} | Path: {request.url.path} | Status: {response.status_code}")
+    return response
     handler = app
 except Exception as err:
     from fastapi import FastAPI
