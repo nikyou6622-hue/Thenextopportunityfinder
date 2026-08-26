@@ -49,7 +49,7 @@ def parse_numeric_stipend(stipend_str: Optional[str]) -> int:
     """Extract numeric INR monthly stipend from string."""
     if not stipend_str:
         return 25000
-    cleaned = re.sub(r'[,₹\s]', '', stipend_str)
+    cleaned = re.sub(r'[,INR \s]', '', stipend_str)
     nums = re.findall(r'\d+', cleaned)
     if nums:
         val = int(nums[0])
@@ -89,7 +89,7 @@ def _parse_card_html(card) -> Optional[UnstopInternship]:
         title = title_el.get_text(strip=True)
         company = company_el.get_text(strip=True) if company_el else "Unstop Partner Employer"
         location = location_el.get_text(strip=True) if location_el else "Remote (India)"
-        stipend_text = stipend_el.get_text(strip=True) if stipend_el else "₹30,000 / month"
+        stipend_text = stipend_el.get_text(strip=True) if stipend_el else "INR 30,000 / month"
 
         href = link_el.get("href", "")
         apply_url = f"{BASE_URL}{href}" if href.startswith("/") else href
@@ -135,7 +135,7 @@ def parse_unstop_json_item(item: Dict[str, Any]) -> Optional[UnstopInternship]:
         else:
             apply_url = f"{BASE_URL}/internships"
 
-        stipend = item.get("stipend") or item.get("salary_detail") or "₹30,000 / month"
+        stipend = item.get("stipend") or item.get("salary_detail") or "INR 30,000 / month"
         location = item.get("location") or item.get("region") or "Remote (India)"
 
         ppo = bool(

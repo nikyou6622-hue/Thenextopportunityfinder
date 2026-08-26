@@ -53,7 +53,7 @@ def parse_numeric_stipend(stipend_str: Optional[str]) -> int:
     """Extract numeric stipend in INR."""
     if not stipend_str:
         return 40000
-    cleaned = re.sub(r'[,₹\s$]', '', stipend_str)
+    cleaned = re.sub(r'[,INR \s$]', '', stipend_str)
     nums = re.findall(r'\d+', cleaned)
     if nums:
         val = int(nums[0])
@@ -131,7 +131,7 @@ def parse_markdown_table_rows(markdown_text: str) -> List[GitHubInternship]:
             company=company,
             location=location,
             apply_url=apply_url,
-            stipend_text="₹45,000 / month",
+            stipend_text="INR 45,000 / month",
             stipend_numeric=45000,
             duration="10-12 Weeks (Summer Track)",
             ppo_available=True,

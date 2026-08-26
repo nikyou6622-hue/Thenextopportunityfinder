@@ -112,7 +112,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
             <h3 class="job-internship-name">Software Engineering Intern</h3>
             <p class="company-name">Razorpay</p>
             <div class="locations"><span>Remote</span></div>
-            <span class="stipend">₹35,000 / month</span>
+            <span class="stipend">INR 35,000 / month</span>
             <span class="duration">3-6 Months</span>
             <a class="view_detail_button" href="/internship/razorpay-swe-01">Apply</a>
             <div class="internship_details">Build Python FastAPI backend services with PPO offer track.</div>
@@ -130,7 +130,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
         self.assertEqual(item["apply_url"], "https://internshala.com/internship/razorpay-swe-01")
         self.assertIn("Python", item["required_skills"])
         self.assertTrue(any(s.lower() == "fastapi" for s in item["required_skills"]))
-        self.assertIn("[Listing details | Stipend: ₹35,000 / month | Duration: 3-6 Months | PPO: yes]", item["description"])
+        self.assertIn("[Listing details | Stipend: INR 35,000 / month | Duration: 3-6 Months | PPO: yes]", item["description"])
         self.assertEqual(item["source"], "internshala")
 
     def test_parse_cuvette(self):
@@ -140,7 +140,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
             <h3 class="job-title">React Native Mobile Intern</h3>
             <p class="company-name">Zepto</p>
             <span class="location">Mumbai / Remote</span>
-            <span class="stipend">₹40,000 / month</span>
+            <span class="stipend">INR 40,000 / month</span>
             <span class="duration">6 Months</span>
             <div class="skill-badge">React Native</div>
             <div class="skill-badge">TypeScript</div>
@@ -159,7 +159,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
         self.assertIn("React", item["required_skills"])
         self.assertIn("React Native", item["required_skills"])
         self.assertIn("TypeScript", item["required_skills"])
-        self.assertIn("Stipend: ₹40,000 / month", item["description"])
+        self.assertIn("Stipend: INR 40,000 / month", item["description"])
         self.assertIn("PPO: yes", item["description"])
 
     def test_parse_json_ld_unique_external_ids_and_filtering(self):
@@ -210,16 +210,16 @@ class TestInternshipScraperSuite(unittest.TestCase):
     def test_stipend_and_details_helpers(self):
         print("\n[TEST 1D] Testing Stipend Parsing & Description Details Builder...")
         # Stipend parsing tests
-        self.assertEqual(parse_numeric_stipend("₹30,000 / month"), 30000)
-        self.assertEqual(parse_numeric_stipend("₹20,000 - ₹40,000 per month"), 30000)
+        self.assertEqual(parse_numeric_stipend("INR 30,000 / month"), 30000)
+        self.assertEqual(parse_numeric_stipend("INR 20,000 - INR 40,000 per month"), 30000)
         self.assertEqual(parse_numeric_stipend("INR 45000 monthly"), 45000)
         self.assertIsNone(parse_numeric_stipend("$25 per hour"))  # Non-monthly rejected
         self.assertIsNone(parse_numeric_stipend(None))
 
         # Description builder
-        desc = build_description_with_details("Core role overview", "₹30,000 / month", "3 Months", True)
+        desc = build_description_with_details("Core role overview", "INR 30,000 / month", "3 Months", True)
         self.assertIn("Core role overview", desc)
-        self.assertIn("[Listing details | Stipend: ₹30,000 / month | Duration: 3 Months | PPO: yes]", desc)
+        self.assertIn("[Listing details | Stipend: INR 30,000 / month | Duration: 3 Months | PPO: yes]", desc)
 
         # Skill extractor
         skills = extract_skills_from_listing("Python Developer", "Hands-on experience with Docker, AWS, and PostgreSQL.")
@@ -302,7 +302,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
                 "remote": False,
                 "required_skills": ["Python", "FastAPI", "Docker"],
                 "domain": "backend / foodtech",
-                "description": "High scale API engineering. [Listing details | Stipend: ₹45,000 / month | Duration: 6 Months | PPO: yes]",
+                "description": "High scale API engineering. [Listing details | Stipend: INR 45,000 / month | Duration: 6 Months | PPO: yes]",
                 "apply_url": "https://swiggy.com/careers/intern-1",
                 "apply_url_raw": "https://swiggy.com/careers/intern-1?utm=source",
                 "apply_url_resolved": "https://swiggy.com/careers/intern-1",
@@ -318,7 +318,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
                 "remote": True,
                 "required_skills": ["React", "TypeScript"],
                 "domain": "frontend / fintech",
-                "description": "Crafting premium user interfaces. [Listing details | Stipend: ₹50,000 / month | Duration: 3-6 Months | PPO: yes]",
+                "description": "Crafting premium user interfaces. [Listing details | Stipend: INR 50,000 / month | Duration: 3-6 Months | PPO: yes]",
                 "apply_url": "https://cred.club/careers/intern-2",
                 "apply_url_raw": "https://cred.club/careers/intern-2",
                 "apply_url_resolved": "https://cred.club/careers/intern-2",
@@ -369,7 +369,7 @@ class TestInternshipScraperSuite(unittest.TestCase):
                 "remote": False,
                 "required_skills": ["Python", "Machine Learning"],
                 "domain": "ai/ml",
-                "description": "Cutting edge ML models. [Listing details | Stipend: ₹1,00,000 / month | Duration: 6 Months | PPO: yes]",
+                "description": "Cutting edge ML models. [Listing details | Stipend: INR 1,00,000 / month | Duration: 6 Months | PPO: yes]",
                 "apply_url": "https://careers.google.com/jobs/1",
                 "apply_url_raw": "https://careers.google.com/jobs/1",
                 "source": "google_careers"

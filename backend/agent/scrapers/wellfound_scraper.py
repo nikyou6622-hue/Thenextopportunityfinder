@@ -48,7 +48,7 @@ def parse_numeric_stipend(stipend_str: Optional[str]) -> int:
     """Extract numeric monthly compensation in INR."""
     if not stipend_str:
         return 35000
-    cleaned = re.sub(r'[,₹\s$]', '', stipend_str)
+    cleaned = re.sub(r'[,INR \s$]', '', stipend_str)
     nums = re.findall(r'\d+', cleaned)
     if nums:
         val = int(nums[0])
@@ -95,7 +95,7 @@ def _parse_card_html(card) -> Optional[WellfoundInternship]:
         title = title_el.get_text(strip=True)
         company = company_el.get_text(strip=True) if company_el else "Global Startup"
         location = location_el.get_text(strip=True) if location_el else "Remote (India / Global)"
-        stipend_text = comp_el.get_text(strip=True) if comp_el else "₹40,000 / month"
+        stipend_text = comp_el.get_text(strip=True) if comp_el else "INR 40,000 / month"
 
         href = link_el.get("href", "")
         apply_url = f"{BASE_URL}{href}" if href.startswith("/") else href

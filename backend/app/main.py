@@ -1816,7 +1816,7 @@ def record_scrape_action(
     if current_used >= FREE_SCRAPE_LIMIT:
         raise HTTPException(
             status_code=402,
-            detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for ₹{PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
+            detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for INR {PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
         )
         
     if sub:
@@ -1859,7 +1859,7 @@ def upgrade_to_pro(
     db: Session = Depends(get_db)
 ):
     """
-    Upgrades candidate to Pro tier for ₹99 one-time payment. Unlocks unlimited features.
+    Upgrades candidate to Pro tier for INR 99 one-time payment. Unlocks unlimited features.
     """
     target_profile_id = payload.get("profile_id")
     payment_method = payload.get("payment_method", "upi_qr")
@@ -3919,7 +3919,7 @@ def get_mnc_jobs_endpoint(
             "company": j.company,
             "role_title": j.role_title,
             "location": j.location or "Pan India",
-            "salary_range": "₹12L - ₹28L / yr",
+            "salary_range": "INR 12L - INR 28L / yr",
             "match_score": score,
             "experience_level": "0-3 years exp",
             "role_type": "Full-time",
@@ -3964,7 +3964,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Cuvette Tech",
         "platform": "Cuvette",
         "location": "Remote / Bengaluru, India",
-        "stipend": "₹35,000 / month",
+        "stipend": "INR 35,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -3979,7 +3979,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Zomato (Blinkit Tech)",
         "platform": "Wellfound",
         "location": "Gurugram / Remote",
-        "stipend": "₹50,000 / month",
+        "stipend": "INR 50,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -3994,7 +3994,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Razorpay",
         "platform": "LinkedIn",
         "location": "Bengaluru, India",
-        "stipend": "₹40,000 / month",
+        "stipend": "INR 40,000 / month",
         "duration": "3-6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4009,7 +4009,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Swiggy",
         "platform": "Unstop",
         "location": "Bengaluru, India",
-        "stipend": "₹45,000 / month",
+        "stipend": "INR 45,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4024,7 +4024,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Flipkart",
         "platform": "LinkedIn",
         "location": "Bengaluru, India",
-        "stipend": "₹60,000 / month",
+        "stipend": "INR 60,000 / month",
         "duration": "2 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4039,7 +4039,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Paytm",
         "platform": "Internshala",
         "location": "Noida / Remote",
-        "stipend": "₹35,000 / month",
+        "stipend": "INR 35,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4054,7 +4054,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "PhonePe",
         "platform": "Unstop",
         "location": "Bengaluru, India",
-        "stipend": "₹45,000 / month",
+        "stipend": "INR 45,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4069,7 +4069,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "CRED",
         "platform": "Wellfound",
         "location": "Bengaluru, India",
-        "stipend": "₹55,000 / month",
+        "stipend": "INR 55,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4084,7 +4084,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Zepto",
         "platform": "Cuvette",
         "location": "Mumbai / Remote",
-        "stipend": "₹45,000 / month",
+        "stipend": "INR 45,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4099,7 +4099,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Groww",
         "platform": "LinkedIn",
         "location": "Bengaluru, India",
-        "stipend": "₹50,000 / month",
+        "stipend": "INR 50,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4114,7 +4114,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Meesho",
         "platform": "Unstop",
         "location": "Bengaluru, India",
-        "stipend": "₹40,000 / month",
+        "stipend": "INR 40,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4129,7 +4129,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Microsoft India",
         "platform": "Curated",
         "location": "Hyderabad / Bengaluru, India",
-        "stipend": "₹1,10,000 / month",
+        "stipend": "INR 1,10,000 / month",
         "duration": "2-6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4144,7 +4144,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Google India",
         "platform": "Curated",
         "location": "Bengaluru / Hyderabad",
-        "stipend": "₹1,05,000 / month",
+        "stipend": "INR 1,05,000 / month",
         "duration": "3 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4159,7 +4159,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "TCS Research",
         "platform": "Internshala",
         "location": "Pune / Remote",
-        "stipend": "₹30,000 / month",
+        "stipend": "INR 30,000 / month",
         "duration": "6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4174,7 +4174,7 @@ RAW_INDIA_INTERNSHIPS_SEED = [
         "company": "Infosys InStep",
         "platform": "LinkedIn",
         "location": "Bengaluru / Mysore",
-        "stipend": "₹32,000 / month",
+        "stipend": "INR 32,000 / month",
         "duration": "3-6 Months",
         "ppo_offered": True,
         "tier2_3_friendly": True,
@@ -4225,7 +4225,7 @@ def get_india_internships_endpoint(
             "company": j.company,
             "platform": j.source or "Verified Portal",
             "location": j.location or "Bengaluru, India",
-            "stipend": "₹35,000 - ₹60,000 / month",
+            "stipend": "INR 35,000 - INR 60,000 / month",
             "duration": "3-6 Months",
             "ppo_offered": True,
             "tier2_3_friendly": True,
@@ -4248,7 +4248,7 @@ def get_internship_stats_endpoint(db: Session = Depends(get_db)):
     total_internships = db.query(JobModel).filter(JobModel.role_title.ilike("%intern%")).count()
     return {
         "active_internships": max(45, total_internships if total_internships > 0 else 15),
-        "avg_stipend": "₹45,000 / month",
+        "avg_stipend": "INR 45,000 / month",
         "ppo_conversion_rate": "85%",
         "top_hiring_hubs": ["Bengaluru", "Gurugram", "Remote", "Hyderabad", "Pune", "Mumbai"]
     }

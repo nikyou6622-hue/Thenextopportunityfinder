@@ -47,7 +47,7 @@ def parse_numeric_stipend(stipend_str: Optional[str]) -> int:
     """Extract numeric INR monthly stipend from string."""
     if not stipend_str:
         return 30000
-    cleaned = re.sub(r'[,₹\s]', '', stipend_str)
+    cleaned = re.sub(r'[,INR \s]', '', stipend_str)
     nums = re.findall(r'\d+', cleaned)
     if nums:
         val = int(nums[0])
@@ -83,7 +83,7 @@ def _parse_card_html(card) -> Optional[CuvetteInternship]:
         title = title_el.get_text(strip=True)
         company = company_el.get_text(strip=True) if company_el else "Cuvette Verified Startup"
         location = location_el.get_text(strip=True) if location_el else "Remote (India)"
-        stipend_text = stipend_el.get_text(strip=True) if stipend_el else "₹35,000 / month"
+        stipend_text = stipend_el.get_text(strip=True) if stipend_el else "INR 35,000 / month"
 
         href = link_el.get("href", "")
         apply_url = f"{BASE_URL}{href}" if href.startswith("/") else href
@@ -119,7 +119,7 @@ def parse_cuvette_json_item(item: Dict[str, Any]) -> Optional[CuvetteInternship]
         job_id = item.get("id") or item.get("_id") or item.get("slug") or ""
         apply_url = f"{BASE_URL}/app/public/job/{job_id}" if job_id else f"{BASE_URL}/app/public/jobs"
 
-        stipend = item.get("stipend") or item.get("salary") or "₹35,000 / month"
+        stipend = item.get("stipend") or item.get("salary") or "INR 35,000 / month"
         location = item.get("location") or "Remote (India)"
         skills = item.get("skills") or item.get("required_skills") or []
         if isinstance(skills, str):

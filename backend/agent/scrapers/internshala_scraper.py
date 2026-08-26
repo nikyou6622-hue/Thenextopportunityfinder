@@ -109,7 +109,7 @@ def parse_numeric_stipend(stipend_str: Optional[str]) -> int:
     if not stipend_str:
         return 25000
     import re
-    cleaned = re.sub(r'[,₹\s]', '', stipend_str)
+    cleaned = re.sub(r'[,INR \s]', '', stipend_str)
     nums = re.findall(r'\d+', cleaned)
     if nums:
         val = int(nums[0])

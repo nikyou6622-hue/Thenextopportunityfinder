@@ -10,7 +10,7 @@ All blockers resolved:
 - Network failures → "unverified" not "dead"
 - All fields persisted into database models
 - Dedicated source-specific parsers (Internshala, Cuvette, JSON-LD, Generic)
-- Clean UTF-8 currency formatting (₹ / INR)
+- Clean UTF-8 currency formatting (INR  / INR)
 - Robust sync & async runners with event-loop safety
 - Modern async HTTP networking via httpx (with aiohttp compatibility)
 """
@@ -246,7 +246,7 @@ def parse_numeric_stipend(stipend: Optional[str]) -> Optional[int]:
     """Returns monthly INR only when source provides monthly data."""
     if not stipend:
         return None
-    text = stipend.casefold().replace(",", "").replace("₹", "").replace("rs.", "").replace("inr", "")
+    text = stipend.casefold().replace(",", "").replace("INR ", "").replace("rs.", "").replace("inr", "")
     if not re.search(r"month|per\s*month|/\s*month|monthly|mo", text):
         return None
     values = [int(v) for v in re.findall(r"\d+", text)]

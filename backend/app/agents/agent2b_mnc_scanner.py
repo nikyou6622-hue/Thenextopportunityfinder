@@ -107,7 +107,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Design and architect distributed microservices, cloud applications, and high-throughput transaction pipelines.",
                 "source_category": "mnc",
-                "salary_range": "₹9,50,000 - ₹16,00,000 P.A."
+                "salary_range": "INR 9,50,000 - INR 16,00,000 P.A."
             },
             {
                 "external_id": "mnc_inf_002",
@@ -120,7 +120,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Cloud & DevOps",
                 "description": "Manage multi-region enterprise Kubernetes clusters, automated CI/CD pipelines, and cloud security compliance.",
                 "source_category": "mnc",
-                "salary_range": "₹12,00,000 - ₹20,00,000 P.A."
+                "salary_range": "INR 12,00,000 - INR 20,00,000 P.A."
             }
         ]
     },
@@ -146,7 +146,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "AI & Consulting",
                 "description": "Lead enterprise digital transformations, generative AI implementations, and scalable cloud application development.",
                 "source_category": "mnc",
-                "salary_range": "₹15,00,000 - ₹24,00,000 P.A."
+                "salary_range": "INR 15,00,000 - INR 24,00,000 P.A."
             },
             {
                 "external_id": "mnc_del_002",
@@ -159,7 +159,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Cybersecurity",
                 "description": "Evaluate threat landscapes, execute vulnerability assessments, and safeguard Fortune 500 enterprise architectures.",
                 "source_category": "mnc",
-                "salary_range": "₹11,00,000 - ₹18,00,000 P.A."
+                "salary_range": "INR 11,00,000 - INR 18,00,000 P.A."
             }
         ]
     },
@@ -185,7 +185,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Lead engineering teams building resilient API services, distributed message queues, and high-frequency backend systems.",
                 "source_category": "mnc",
-                "salary_range": "₹14,00,000 - ₹22,00,000 P.A."
+                "salary_range": "INR 14,00,000 - INR 22,00,000 P.A."
             }
         ]
     },
@@ -211,7 +211,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Develop mission-critical banking and fintech platforms serving tens of millions of daily active transactions.",
                 "source_category": "mnc",
-                "salary_range": "₹8,50,000 - ₹15,00,000 P.A."
+                "salary_range": "INR 8,50,000 - INR 15,00,000 P.A."
             }
         ]
     },
@@ -237,7 +237,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Cloud & Infrastructure",
                 "description": "Architect automated cloud deployment frameworks, serverless APIs, and resilient data processing systems.",
                 "source_category": "mnc",
-                "salary_range": "₹10,00,000 - ₹17,50,000 P.A."
+                "salary_range": "INR 10,00,000 - INR 17,50,000 P.A."
             }
         ]
     },
@@ -263,7 +263,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Build modern Web applications, interactive dashboards, and cloud-connected user experiences for global clients.",
                 "source_category": "mnc",
-                "salary_range": "₹11,50,000 - ₹19,00,000 P.A."
+                "salary_range": "INR 11,50,000 - INR 19,00,000 P.A."
             }
         ]
     },
@@ -289,7 +289,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Construct high-throughput enterprise backends, API gateways, and cloud microservices for global financial systems.",
                 "source_category": "mnc",
-                "salary_range": "₹10,50,000 - ₹18,00,000 P.A."
+                "salary_range": "INR 10,50,000 - INR 18,00,000 P.A."
             }
         ]
     },
@@ -315,7 +315,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Data & Analytics",
                 "description": "Architect real-time ETL pipelines, data lakes, and predictive analytics platforms for healthcare & retail enterprises.",
                 "source_category": "mnc",
-                "salary_range": "₹12,00,000 - ₹20,00,000 P.A."
+                "salary_range": "INR 12,00,000 - INR 20,00,000 P.A."
             }
         ]
     },
@@ -341,7 +341,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Develop hyperscale infrastructure services, storage engines, and network virtualization platforms powering Google Cloud.",
                 "source_category": "mnc",
-                "salary_range": "₹28,00,000 - ₹45,00,000 P.A."
+                "salary_range": "INR 28,00,000 - INR 45,00,000 P.A."
             },
             {
                 "external_id": "mnc_goog_002",
@@ -354,7 +354,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "AI & Cloud",
                 "description": "Collaborate with Tier-1 enterprise engineering leadership to deploy Vertex AI, LLMs, and cloud-native solutions.",
                 "source_category": "mnc",
-                "salary_range": "₹32,00,000 - ₹50,00,000 P.A."
+                "salary_range": "INR 32,00,000 - INR 50,00,000 P.A."
             }
         ]
     },
@@ -380,7 +380,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Build high-reliability Azure cloud virtualization, software-defined networking, and global compute platforms.",
                 "source_category": "mnc",
-                "salary_range": "₹26,00,000 - ₹42,00,000 P.A."
+                "salary_range": "INR 26,00,000 - INR 42,00,000 P.A."
             }
         ]
     },
@@ -406,7 +406,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "domain": "Software Engineering",
                 "description": "Engineer low-latency, mission-critical AWS cloud microservices handling billions of global HTTP requests daily.",
                 "source_category": "mnc",
-                "salary_range": "₹27,00,000 - ₹44,00,000 P.A."
+                "salary_range": "INR 27,00,000 - INR 44,00,000 P.A."
             }
         ]
     }

@@ -952,7 +952,7 @@ def compute_ats_score(profile_data: Dict[str, Any], target_job: Optional[Dict[st
     skills_score = min(30.0, len(unique_skills) * 3.75)
     
     # 2. Metrics & Lead Action Verbs (25 max)
-    metrics_matches = re.findall(r'\b\d+(?:[\.,]\d+)?%?|[₹$]\d+|\b\d+\+\b|\b\d+x\b', all_text)
+    metrics_matches = re.findall(r'\b\d+(?:[\.,]\d+)?%?|[INR $]\d+|\b\d+\+\b|\b\d+x\b', all_text)
     metrics_count = len(metrics_matches)
     found_verbs = [v for v in ACTION_VERBS if re.search(rf'\b{re.escape(v)}\b', all_text)]
     verb_count = len(found_verbs)
