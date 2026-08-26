@@ -1151,6 +1151,11 @@ export default function App() {
         scrapesUsed={userSubscription.scrapes_used}
         freeLimit={userSubscription.free_limit || 5}
       />
+
+      {/* 📱 Locked Mobile Bottom Navigation Bar (Rendered on candidate views) */}
+      {activeTab !== 'auth' && (
+        <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      )}
     </div>
   );
 }
