@@ -350,6 +350,18 @@ def readiness_check(db: Session = Depends(get_db)):
             content={"ready": False, "database": "unhealthy", "error": str(e)}
         )
 
+@app.get("/api/debug-path")
+@app.get("/debug-path")
+@app.post("/api/debug-path")
+@app.post("/debug-path")
+def debug_path_endpoint(request: Request):
+    return {
+        "method": request.method,
+        "path": request.url.path,
+        "scope_path": request.scope.get("path"),
+        "root_path": request.scope.get("root_path")
+    }
+
 @app.get("/health")
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
