@@ -56,8 +56,8 @@ const TermsOfServicePage = lazyWithRetry(() => import('./components/TermsOfServi
 const SystemStatusPage = lazyWithRetry(() => import('./components/SystemStatusPage'));
 const SkillAssessmentStudio = lazyWithRetry(() => import('./components/SkillAssessmentStudio'));
 const CommunityForumView = lazyWithRetry(() => import('./components/CommunityForumView'));
-const ChangelogPage = lazyWithRetry(() => import('./components/ChangelogPage'));
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
+const SalaryIntelligenceStudio = lazyWithRetry(() => import('./components/SalaryIntelligenceStudio'));
 
 const DEFAULT_FALLBACK_PROFILE = {
   id: 'usr_sample_01',
@@ -929,6 +929,10 @@ export default function App() {
                   isPro={userSubscription.is_pro}
                 />
               </ProtectedRoute>
+            )}
+
+            {activeTab === 'salary' && (
+              <SalaryIntelligenceStudio profile={profile} />
             )}
 
             {activeTab === 'tailor' && (

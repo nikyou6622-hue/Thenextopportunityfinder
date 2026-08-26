@@ -101,7 +101,9 @@ FALLBACK_GLOBAL_TECH_JOBS = [
 ]
 
 
-def search_freehire_jobs(query: str = "", location: str = "", limit: int = 10) -> List[Dict[str, Any]]:
+MAX_RESULTS_PER_SOURCE = 100
+
+def search_freehire_jobs(query: str = "", location: str = "", limit: int = MAX_RESULTS_PER_SOURCE) -> List[Dict[str, Any]]:
     """
     Queries the freehire.me public aggregator JSON API.
     Falls back gracefully to curated high-yield ATS data on network timeout.
@@ -109,7 +111,7 @@ def search_freehire_jobs(query: str = "", location: str = "", limit: int = 10) -
     results: List[Dict[str, Any]] = []
     try:
         url = "https://freehire.me/api/jobs"
-        params = {"limit": min(limit * 2, 50)}
+        params = {"limit": min(limit * 2, 100)}
         if query:
             params["q"] = query
             
@@ -170,53 +172,72 @@ def search_freehire_jobs(query: str = "", location: str = "", limit: int = 10) -
     return deduped[:limit]
 
 
-def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str = "India", limit: int = 10) -> List[Dict[str, Any]]:
+def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str = "India", limit: int = MAX_RESULTS_PER_SOURCE) -> List[Dict[str, Any]]:
     """
     Searches LinkedIn's public guest jobs endpoint with zero auth.
+    Paginates through start=0, 25, 50, ... up to requested limit while enforcing polite rate-limiting.
     """
     results: List[Dict[str, Any]] = []
+    page_size = 25
+    max_pages = (limit + page_size - 1) // page_size
+
     try:
         url = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
-        params = {
-            "keywords": query or "Software Engineer",
-            "location": location or "India",
-            "start": 0
-        }
         headers = {
             "User-Agent": USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5"
         }
-        resp = requests.get(url, params=params, headers=headers, timeout=4)
-        if resp.status_code == 200 and len(resp.text) > 200:
-            # Parse public cards with lightweight regex
-            titles = re.findall(r'<h3 class="base-search-card__title[^"]*">\s*([^<]+)\s*</h3>', resp.text)
-            companies = re.findall(r'<h4 class="base-search-card__subtitle[^"]*">\s*<a[^>]*>\s*([^<]+)\s*</a>', resp.text)
-            locations = re.findall(r'<span class="job-search-card__location">\s*([^<]+)\s*</span>', resp.text)
-            links = re.findall(r'<a class="base-card__full-link[^"]*"\s+href="([^"]+)"', resp.text)
-            
-            count = min(len(titles), len(companies), len(locations), limit)
-            for i in range(count):
-                co = companies[i].strip()
-                t = titles[i].strip()
-                loc = locations[i].strip()
-                link = links[i] if i < len(links) else f"https://www.linkedin.com/jobs/search?keywords={query}"
-                clean_link = re.sub(r'\?.*$', '', link) # Clean tracking parameters
+        
+        for p in range(max_pages):
+            if len(results) >= limit:
+                break
                 
-                results.append({
-                    "id": f"li_{hashlib.md5(clean_link.encode()).hexdigest()[:10]}",
-                    "title": t,
-                    "company": co,
-                    "location": loc,
-                    "source": "LinkedIn Public",
-                    "apply_url": clean_link,
-                    "description": f"{t} opportunity at {co} in {loc}. Discover direct hiring requisitions via verified LinkedIn public job postings.",
-                    "skills": ["Software Engineering", "Problem Solving", "System Architecture"],
-                    "seniority": "Mid",
-                    "posted_date": "Recent",
-                    "workplace_type": "Onsite/Hybrid",
-                    "salary_benchmark": lookup_salary_benchmark(co, t, loc)
-                })
+            start_offset = p * page_size
+            params = {
+                "keywords": query or "Software Engineer",
+                "location": location or "India",
+                "start": start_offset
+            }
+            
+            resp = requests.get(url, params=params, headers=headers, timeout=5)
+            if resp.status_code == 200 and len(resp.text) > 200:
+                titles = re.findall(r'<h3 class="base-search-card__title[^"]*">\s*([^<]+)\s*</h3>', resp.text)
+                companies = re.findall(r'<h4 class="base-search-card__subtitle[^"]*">\s*<a[^>]*>\s*([^<]+)\s*</a>', resp.text)
+                locations = re.findall(r'<span class="job-search-card__location">\s*([^<]+)\s*</span>', resp.text)
+                links = re.findall(r'<a class="base-card__full-link[^"]*"\s+href="([^"]+)"', resp.text)
+                
+                fetched_count = min(len(titles), len(companies), len(locations))
+                if fetched_count == 0:
+                    break # Real data exhausted
+                    
+                for i in range(fetched_count):
+                    co = companies[i].strip()
+                    t = titles[i].strip()
+                    loc = locations[i].strip()
+                    link = links[i] if i < len(links) else f"https://www.linkedin.com/jobs/search?keywords={query}"
+                    clean_link = re.sub(r'\?.*$', '', link)
+                    
+                    results.append({
+                        "id": f"li_{hashlib.md5(clean_link.encode()).hexdigest()[:10]}",
+                        "title": t,
+                        "company": co,
+                        "location": loc,
+                        "source": "LinkedIn Public",
+                        "apply_url": clean_link,
+                        "description": f"{t} opportunity at {co} in {loc}. Discover direct hiring requisitions via verified LinkedIn public job postings.",
+                        "skills": ["Software Engineering", "Problem Solving", "System Architecture"],
+                        "seniority": "Mid",
+                        "posted_date": "Recent",
+                        "workplace_type": "Onsite/Hybrid",
+                        "salary_benchmark": lookup_salary_benchmark(co, t, loc)
+                    })
+                    
+                # Rate limit etiquette between paginated calls
+                time.sleep(0.5)
+            else:
+                break
+                
     except Exception as e:
         logger.warning(f"LinkedIn public scraper notice: {e}")
 

@@ -1482,11 +1482,11 @@ def get_active_profile(db: Session) -> Optional[ProfileModel]:
         profile.raw_resume_text = decrypt_field(profile.raw_resume_text)
     return profile
 
-def run_matching_pipeline(db: Session, profile: ProfileModel):
+def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match: Optional[int] = None):
     """
     1. Automatically executes discovery scrapers (MNC Scanner, Discovery Scraper, India Internships Scraper)
        to discover and ingest fresh live opportunities matching candidate skills & target role.
-    2. Computes high-accuracy match scores across all job listings.
+    2. Pre-filters jobs and computes high-accuracy match scores across job listings.
     """
     try:
         from backend.app.agents.agent2b_mnc_scanner import run_mnc_scan
@@ -1542,8 +1542,31 @@ def run_matching_pipeline(db: Session, profile: ProfileModel):
     except Exception as e:
         logger.warning(f"Auto-discovery notice during matching pipeline execution: {e}")
 
-    jobs = db.query(JobModel).all()
+    # Indexed Pre-filtering for High-Scale Catalog
+    jobs_query = db.query(JobModel).filter(
+        JobModel.status == "active",
+        JobModel.link_status != "dead"
+    )
+    if max_jobs_to_match and max_jobs_to_match > 0:
+        jobs = jobs_query.order_by(JobModel.id.desc()).limit(max_jobs_to_match).all()
+    else:
+        jobs = jobs_query.order_by(JobModel.id.desc()).all()
+
     decrypted_resume_text = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
+
+
+def run_matching_pipeline_background(profile_id: int):
+    """Executes full catalog matching asynchronously in background."""
+    from backend.app.db.database import SessionLocal
+    db = SessionLocal()
+    try:
+        profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
+        if profile:
+            run_matching_pipeline(db, profile, max_jobs_to_match=None)
+    except Exception as e:
+        logger.error(f"Background matching pipeline error: {e}")
+    finally:
+        db.close()
     
     profile_dict = {
         "name": profile.name,
@@ -1928,9 +1951,13 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    # Run job discovery scrapers and matching pipeline directly so opportunities are scraped and matched immediately
+    # Scalable Two-Tier Matching Execution:
+    # 1. Synchronous Fast Match (top 200 jobs) for instant HTTP response
+    # 2. Asynchronous Background Task for full catalog matching
     try:
-        run_matching_pipeline(db, profile)
+        run_matching_pipeline(db, profile, max_jobs_to_match=200)
+        if background_tasks:
+            background_tasks.add_task(run_matching_pipeline_background, profile.id)
     except Exception as e:
         logger.error(f"Error executing matching pipeline during resume upload: {e}")
     
@@ -2644,8 +2671,14 @@ async def import_jobs_file(file: UploadFile = File(...), db: Session = Depends(g
 UNRELIABLE_COMPANIES = {"infosys", "wipro", "cognizant", "tcs", "hcl tech", "hcl technologies"}
 
 @app.get("/api/jobs", response_model=List[JobSchema])
-def get_jobs(include_dead: bool = False, db: Session = Depends(get_db)):
-    """Surfaces job opportunities, filtering out dead links, invalid URLs, and unreliable sources by default."""
+def get_jobs(
+    include_dead: bool = False,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Surfaces job opportunities, filtering out dead links, invalid URLs, and unreliable sources by default. Supports page/limit pagination."""
     query = db.query(JobModel)
     if not include_dead:
         query = query.filter(
@@ -2656,18 +2689,34 @@ def get_jobs(include_dead: bool = False, db: Session = Depends(get_db)):
             JobModel.apply_url != "#",
             ~JobModel.apply_url.contains("staletest")
         )
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                JobModel.role_title.ilike(pattern),
+                JobModel.company.ilike(pattern),
+                JobModel.domain.ilike(pattern)
+            )
+        )
     all_jobs = query.order_by(JobModel.id.desc()).all()
-    return [j for j in all_jobs if not (j.company and j.company.strip().lower() in UNRELIABLE_COMPANIES)]
+    filtered = [j for j in all_jobs if not (j.company and j.company.strip().lower() in UNRELIABLE_COMPANIES)]
+    
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    return filtered[start_idx:end_idx]
 
 @app.get("/api/matches", response_model=List[MatchSchema])
 def get_matches(
     include_dead: bool = False,
     min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Surfaces matched opportunities sorted descending by match score and matched skill count.
-    Filters out dead links, matches below minimum relevance threshold, and unreliable sources by default.
+    Supports global sort order across page/limit pagination boundaries.
     """
     profile = get_active_profile(db)
     if not profile:
@@ -2694,6 +2743,10 @@ def get_matches(
             continue
         if job.company and job.company.strip().lower() in UNRELIABLE_COMPANIES:
             continue
+        if search:
+            s_lower = search.lower()
+            if s_lower not in job.role_title.lower() and s_lower not in job.company.lower() and s_lower not in (job.domain or "").lower():
+                continue
         url = (job.apply_url_resolved or job.apply_url or "").strip()
         if not include_dead:
             if job.status == "removed" or job.link_status == "dead" or not url or url in ["", "#"] or "staletest" in url.lower() or not url.startswith(("http://", "https://", "mailto:")):
@@ -2725,7 +2778,10 @@ def get_matches(
         result.append(match_dict)
 
     result.sort(key=lambda x: (x["match_score"], x["matched_count"], x["skill_match_percentage"]), reverse=True)
-    return result
+    
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    return result[start_idx:end_idx]
 
 @app.post("/api/jobs/revalidate-links", response_model=LinkRevalidationResponse)
 def revalidate_job_links_endpoint(

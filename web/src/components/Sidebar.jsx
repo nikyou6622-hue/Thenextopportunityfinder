@@ -103,6 +103,13 @@ const NAV_GROUPS = [
         icon: Building2,
       },
       {
+        id: 'salary',
+        label: 'Salary Benchmarks',
+        icon: Flame,
+        badge: 'CTC',
+        badgeColor: '#F59E0B'
+      },
+      {
         id: 'saved',
         label: 'Saved Opportunities',
         icon: Bookmark,

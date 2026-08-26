@@ -208,6 +208,13 @@ export default function JobDiscovery({
     return Math.round(35 + (1 / requiredSkills.length) * 10);
   }, [profile]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterDomain, minScore]);
+
   const filteredMatches = safeMatches.filter(m => {
     const job = m.job || m;
     const qLower = searchQuery.toLowerCase().trim();
@@ -221,6 +228,9 @@ export default function JobDiscovery({
     const scoreMatch = getJobMatchScore(m) >= minScore;
     return matchesSearch && domainMatch && scoreMatch;
   }).sort((a, b) => getJobMatchScore(b) - getJobMatchScore(a));
+
+  const totalPages = Math.ceil(filteredMatches.length / itemsPerPage) || 1;
+  const paginatedMatches = filteredMatches.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const DEFAULT_GLOBAL_JOBS = [
     {
@@ -574,11 +584,12 @@ export default function JobDiscovery({
                 />
               </div>
             ) : (
-              filteredMatches.map((m, idx) => {
+              paginatedMatches.map((m, idx) => {
               const job = m.job || {};
               const comp = job.company || 'TechCorp';
               const cLower = comp.toLowerCase();
-              const isJobLocked = !isPro && idx >= 5;
+              const globalIdx = (currentPage - 1) * itemsPerPage + idx;
+              const isJobLocked = !isPro && globalIdx >= 5;
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :
@@ -966,6 +977,53 @@ export default function JobDiscovery({
             })
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {filteredMatches.length > itemsPerPage && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => {
+                  SoundSystem.playPop();
+                  setCurrentPage(p => Math.max(1, p - 1));
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  background: currentPage <= 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
+                  color: currentPage <= 1 ? '#64748B' : '#F8FAFC',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+                  fontSize: '0.82rem',
+                  fontWeight: 600
+                }}
+              >
+                ← Previous Page
+              </button>
+              <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: 600 }}>
+                Page <strong style={{ color: '#F8FAFC' }}>{currentPage}</strong> of <strong style={{ color: '#F8FAFC' }}>{totalPages}</strong> ({filteredMatches.length} total matches)
+              </span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => {
+                  SoundSystem.playPop();
+                  setCurrentPage(p => Math.min(totalPages, p + 1));
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  background: currentPage >= totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
+                  color: currentPage >= totalPages ? '#64748B' : '#F8FAFC',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                  fontSize: '0.82rem',
+                  fontWeight: 600
+                }}
+              >
+                Next Page →
+              </button>
+            </div>
+          )}
         </>
       )}
 

@@ -267,12 +267,14 @@ KNOWN_SKILLS = [
 
 from backend.app.utils.skill_normalizer import extract_skills_from_text, normalize_skill_list
 
+MAX_RESULTS_PER_SOURCE = 100
+
 def extract_skills(text: str) -> List[str]:
     """Helper to detect key skills in job description text."""
     return extract_skills_from_text(text)
 
 
-def fetch_remoteok_live_jobs(max_results: int = 20) -> List[Dict[str, Any]]:
+def fetch_remoteok_live_jobs(max_results: int = MAX_RESULTS_PER_SOURCE) -> List[Dict[str, Any]]:
     """
     Fetches REAL live job listings from RemoteOK's public JSON API.
     This is an actual outbound HTTP call — not simulated seed data.
@@ -356,7 +358,7 @@ def fetch_remoteok_live_jobs(max_results: int = 20) -> List[Dict[str, Any]]:
 
 
 
-def discover_all_jobs(strict_compliance_mode: bool = False) -> List[Dict[str, Any]]:
+def discover_all_jobs(strict_compliance_mode: bool = False, max_results: int = MAX_RESULTS_PER_SOURCE) -> List[Dict[str, Any]]:
     """
     Aggregate jobs across India-focused startup sources and fallback seed listings.
     Applies source compliance check, robots.txt permission, rate limiting, and canonical deduplication.
@@ -366,7 +368,7 @@ def discover_all_jobs(strict_compliance_mode: bool = False) -> List[Dict[str, An
     # 1. Evaluate compliance per source
     sources_to_run = [
         ("instahyre", INDIA_STARTUP_JOBS),
-        ("remoteok", fetch_remoteok_live_jobs(max_results=20))  # REAL API call — not seed data
+        ("remoteok", fetch_remoteok_live_jobs(max_results=max_results))  # REAL API call — scalable
     ]
     
     for src_key, job_batch in sources_to_run:
