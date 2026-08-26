@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 
 DEFAULT_SUPABASE_URL = "postgresql+pg8000://postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
 
@@ -24,11 +25,20 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and not SQLALCHEMY_DATABASE_URL.startswith("postgresql+"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    connect_args={"check_same_thread": False, "timeout": 30.0} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {},
-    pool_pre_ping=True
-)
+# Configure NullPool for Vercel/serverless environments connecting to Supabase PgBouncer.
+# NullPool forces SQLAlchemy to release sockets immediately back to PgBouncer, preventing socket exhaustion.
+engine_kwargs = {"pool_pre_ping": True}
+if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    if is_cloud_environment():
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        engine_kwargs["pool_size"] = 10
+        engine_kwargs["max_overflow"] = 20
+        engine_kwargs["pool_recycle"] = 1800
+else:
+    engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30.0}
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
