@@ -13,7 +13,8 @@ import {
   BookOpen,
   RefreshCw,
   ShieldCheck,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import SkillGapActionPlanModal from './SkillGapActionPlanModal';
 import SoundSystem from './characters/SoundEffects';

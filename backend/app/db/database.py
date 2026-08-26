@@ -39,6 +39,7 @@ else:
     engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30.0}
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
+print(f"DATABASE ENGINE POOL CLASS: {engine.pool.__class__.__name__}")
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
