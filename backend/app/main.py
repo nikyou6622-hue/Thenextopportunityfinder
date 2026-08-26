@@ -9,7 +9,7 @@ from fastapi.responses import Response, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, or_, and_
 
 try:
     from dotenv import load_dotenv
@@ -1821,10 +1821,14 @@ def record_scrape_action(
             detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for INR {PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
         )
         
-    if sub:
-        sub.scrapes_used = current_used + 1
-        db.commit()
-        db.refresh(sub)
+    if sub and getattr(sub, 'id', None):
+        try:
+            sub.scrapes_used = current_used + 1
+            db.commit()
+            db.refresh(sub)
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Error persisting scrape count: {e}")
         
     scrapes_remaining = max(0, FREE_SCRAPE_LIMIT - (current_used + 1))
     return {
@@ -1832,27 +1836,8 @@ def record_scrape_action(
         "is_pro": False,
         "scrapes_used": current_used + 1,
         "scrapes_remaining": scrapes_remaining,
-        "message": f"Scrape recorded successfully ({scrapes_remaining} free scrapes remaining)"
-    }
-        
-    # Increment scrapes used if persisted
-    sub.scrapes_used = current_used + 1
-    sub.credits_remaining = max(0, FREE_SCRAPE_LIMIT - sub.scrapes_used)
-    if sub.id:
-        try:
-            db.commit()
-            db.refresh(sub)
-        except Exception as e:
-            db.rollback()
-    
-    remaining = FREE_SCRAPE_LIMIT - sub.scrapes_used
-    return {
-        "allowed": True,
-        "is_pro": False,
-        "scrapes_used": sub.scrapes_used,
-        "scrapes_remaining": remaining,
         "free_limit": FREE_SCRAPE_LIMIT,
-        "message": f"Scrape recorded ({sub.scrapes_used}/{FREE_SCRAPE_LIMIT} used). {remaining} free scrapes remaining."
+        "message": f"Scrape recorded ({current_used + 1}/{FREE_SCRAPE_LIMIT} used). {scrapes_remaining} free scrapes remaining."
     }
 
 @app.post("/api/subscription/upgrade")
