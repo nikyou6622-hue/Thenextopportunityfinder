@@ -1935,45 +1935,51 @@ async def upload_resume(
     raw_text = parsed_data.get("raw_resume_text") or str(parsed_data)
     encrypted_raw_text = encrypt_field(raw_text)
     
-    try:
-        existing_profiles = db.query(ProfileModel).all()
-        for old_p in existing_profiles:
-            cascade_delete_profile(db, old_p.id)
-    except Exception as e:
-        logger.warning(f"Cleanup error during resume upload: {e}")
-        try:
-            db.rollback()
-        except Exception:
-            pass
-    
     now = datetime.datetime.now(datetime.timezone.utc)
     exp_items = parsed_data.get("experience_list") or parsed_data.get("past_roles") or []
     edu_items = parsed_data.get("education_list") or parsed_data.get("education") or []
     proj_items = parsed_data.get("projects") or []
     strengths = parsed_data.get("key_strengths") or (parsed_data.get("skills", [])[:5] if parsed_data.get("skills") else [])
 
-    profile = ProfileModel(
-        name=parsed_data.get("name") or "Candidate",
-        email=parsed_data.get("email"),
-        phone=parsed_data.get("phone"),
-        location=parsed_data.get("location") or {},
-        skills=parsed_data.get("skills") or [],
-        experience_years=float(parsed_data.get("experience_years") or 0.0),
-        past_roles=exp_items,
-        experience_list=exp_items,
-        domains=parsed_data.get("domains") or [],
-        education=edu_items,
-        education_list=edu_items,
-        projects=proj_items,
-        summary=parsed_data.get("summary"),
-        key_strengths=strengths,
-        section_order=parsed_data.get("section_order", ["summary", "skills", "experience", "projects", "education"]),
-        raw_resume_text=encrypted_raw_text,
-        consent_given=True,
-        consent_timestamp=now,
-        last_analyzed_at=now
-    )
-    db.add(profile)
+    profile = get_active_profile(db)
+    if not profile:
+        profile = ProfileModel(
+            name=parsed_data.get("name") or "Candidate",
+            email=parsed_data.get("email"),
+            phone=parsed_data.get("phone"),
+            location=parsed_data.get("location") or {},
+            skills=parsed_data.get("skills") or [],
+            experience_years=float(parsed_data.get("experience_years") or 0.0),
+            past_roles=exp_items,
+            experience_list=exp_items,
+            domains=parsed_data.get("domains") or [],
+            education=edu_items,
+            education_list=edu_items,
+            projects=proj_items,
+            summary=parsed_data.get("summary"),
+            key_strengths=strengths,
+            section_order=parsed_data.get("section_order", ["summary", "skills", "experience", "projects", "education"]),
+            raw_resume_text=encrypted_raw_text,
+            consent_given=True,
+            consent_timestamp=now,
+            last_analyzed_at=now
+        )
+        db.add(profile)
+    else:
+        profile.name = parsed_data.get("name") or profile.name or "Candidate"
+        if parsed_data.get("email"): profile.email = parsed_data.get("email")
+        if parsed_data.get("phone"): profile.phone = parsed_data.get("phone")
+        if parsed_data.get("skills"): profile.skills = parsed_data.get("skills")
+        profile.experience_years = float(parsed_data.get("experience_years") or profile.experience_years or 0.0)
+        if exp_items: profile.experience_list = exp_items; profile.past_roles = exp_items
+        if edu_items: profile.education_list = edu_items; profile.education = edu_items
+        if proj_items: profile.projects = proj_items
+        if parsed_data.get("summary"): profile.summary = parsed_data.get("summary")
+        if strengths: profile.key_strengths = strengths
+        profile.raw_resume_text = encrypted_raw_text
+        profile.consent_given = True
+        profile.last_analyzed_at = now
+
     db.commit()
     db.refresh(profile)
 
