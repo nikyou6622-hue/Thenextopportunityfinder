@@ -106,17 +106,33 @@ export default function StagedResumeProcessor({
         setStageStatus(prev => ({ ...prev, 3: 'completed' }));
         if (onTriggerCelebration) onTriggerCelebration();
 
-        // --- STAGE 4: Async Full Catalog Search (Non-Blocking Background) ---
+        // --- STAGE 4: Async Full Catalog Search (Non-Blocking Background Polling) ---
         setIsBackgroundSearching(true);
         setStageStatus(prev => ({ ...prev, 4: 'active' }));
         setCurrentStage(4);
+
+        try {
+          const pollRes = await fetch('/api/profile/upload-status');
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            const stage2 = pollData?.stages?.['2_ats_scoring'];
+            if (stage2?.ats_score && !atsScoreData) {
+              setAtsScoreData({
+                score: stage2.ats_score,
+                pillars: stage2.pillars
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("Background upload status poll notice:", e);
+        }
 
         setTimeout(() => {
           if (isMounted) {
             setIsBackgroundSearching(false);
             setStageStatus(prev => ({ ...prev, 4: 'completed' }));
           }
-        }, 3000);
+        }, 2500);
 
       } catch (err) {
         if (!isMounted) return;
