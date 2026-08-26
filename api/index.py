@@ -10,14 +10,6 @@ if sys_path_root not in sys.path:
 os.environ["VERCEL"] = "1"
 os.environ["VERCEL_ENV"] = "production"
 
-# Load environment secrets into runtime if available
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(sys_path_root, ".env"), override=True)
-    load_dotenv(os.path.join(sys_path_root, "backend", ".env"), override=True)
-except ImportError:
-    pass
-
 import traceback
 from fastapi.responses import JSONResponse
 
@@ -32,3 +24,5 @@ async def vercel_global_exception_handler(request, exc):
         status_code=500,
         content={"detail": str(exc), "error_type": type(exc).__name__}
     )
+
+handler = app
