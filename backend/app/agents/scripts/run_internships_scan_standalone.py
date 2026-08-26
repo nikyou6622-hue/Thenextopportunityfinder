@@ -27,9 +27,9 @@ def main():
     
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        from backend.app.db.database import SQLALCHEMY_DATABASE_URL
-        db_url = SQLALCHEMY_DATABASE_URL
-        logger.info("DATABASE_URL environment variable not explicitly set; using default database configuration.")
+        from backend.app.db.database import DEFAULT_SUPABASE_URL
+        db_url = DEFAULT_SUPABASE_URL
+        logger.info("DATABASE_URL environment variable not explicitly set; defaulting to production Supabase PostgreSQL.")
 
     try:
         from backend.app.db.database import Base

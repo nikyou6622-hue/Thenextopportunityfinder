@@ -16,10 +16,8 @@ def is_cloud_environment():
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    if is_cloud_environment():
-        SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
-    else:
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL or "sqlite:///./nextoppr.db"
+    # Default to production Supabase PostgreSQL connection target
+    SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
 
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
