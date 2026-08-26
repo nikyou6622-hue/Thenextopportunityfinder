@@ -3605,6 +3605,7 @@ def get_mnc_scan_status_endpoint(db: Session = Depends(get_db)):
 # --- INDIA INTERNSHIPS SCRAPER & AGGREGATOR ENDPOINTS ---
 
 @app.get("/api/internships/india")
+@app.get("/internships/india")
 def list_india_internships_endpoint(
     location: Optional[str] = None, 
     domain: Optional[str] = None, 
@@ -3644,6 +3645,7 @@ def list_india_internships_endpoint(
     return results
 
 @app.post("/api/internships/india/scan")
+@app.post("/internships/india/scan")
 def trigger_india_internship_scan_endpoint(
     background: bool = Query(True, description="Run scan asynchronously in background"),
     background_tasks: BackgroundTasks = None,
@@ -3667,7 +3669,9 @@ def trigger_india_internship_scan_endpoint(
     }
 
 @app.get("/api/internships/market-stats")
+@app.get("/internships/market-stats")
 @app.get("/api/internships/india/stats")
+@app.get("/internships/india/stats")
 def get_internship_market_stats_endpoint(db: Session = Depends(get_db)):
     """
     Computes real-time market intelligence metrics across active internship requisitions (avg stipend, top skills, PPO conversion).
