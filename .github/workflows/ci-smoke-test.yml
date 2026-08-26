@@ -29,20 +29,24 @@ jobs:
         env:
           VERCEL: "1"
           VERCEL_ENV: "production"
+          CI_SMOKE_TEST: "1"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python -c "from backend.app.main import app; print('SUCCESS: FastAPI app imported cleanly under Vercel cold-start environment!')"
 
-      - name: Execute End-to-End API Route Health Check
+      - name: Execute End-to-End API Route Health Check (Clean Read-Only / Zero DB Pollution)
         env:
           VERCEL: "1"
           VERCEL_ENV: "production"
+          CI_SMOKE_TEST: "1"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python -c "
           import os, sys
           from fastapi.testclient import TestClient
           from backend.app.main import app
+          from backend.app.db.database import SessionLocal
+          from backend.app.db.models import ProfileModel, UserModel, SubscriptionModel
 
           client = TestClient(app, raise_server_exceptions=False)
           routes = [
@@ -54,22 +58,29 @@ jobs:
               ('GET', '/api/internships/india'),
               ('GET', '/api/applications'),
               ('GET', '/api/subscription/status'),
-              ('POST', '/api/subscription/scrape'),
           ]
 
           failed = False
-          print('Executing Production API Route Verification Gate...')
+          print('Executing Production API Route Verification Gate (Zero DB Pollution)...')
           for method, path in routes:
-              if method == 'GET':
-                  resp = client.get(path, headers={'x-api-key': 'dev_test_key'})
-              else:
-                  resp = client.post(path, json={'profile_id': 1}, headers={'x-api-key': 'dev_test_key'})
+              resp = client.get(path, headers={'x-api-key': 'dev_test_key'})
               print(f'  {method:<4} {path:<30} -> HTTP {resp.status_code}')
               if resp.status_code >= 500:
                   print(f'  [FAIL]: Endpoint {path} returned HTTP {resp.status_code}')
                   failed = True
 
+          # Cleanup any transient CI test artifacts if created
+          db = SessionLocal()
+          try:
+              db.query(UserModel).filter(UserModel.email.like('%ci_test_%')).delete(synchronize_session=False)
+              db.query(ProfileModel).filter(ProfileModel.email.like('%ci_test_%')).delete(synchronize_session=False)
+              db.commit()
+          except Exception as ex:
+              db.rollback()
+          finally:
+              db.close()
+
           if failed:
               sys.exit(1)
-          print('ALL CORE API ROUTES PASSED PRE-DEPLOY CI GATE!')
+          print('ALL CORE API ROUTES PASSED PRE-DEPLOY CI GATE CLEANLY WITH ZERO DB POLLUTION!')
           "

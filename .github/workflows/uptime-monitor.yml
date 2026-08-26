@@ -1,0 +1,30 @@
+name: Production Live Uptime & Health Monitor
+
+on:
+  schedule:
+    # Run automated production health ping every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  uptime-check:
+    name: Live Endpoint Health Probe
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Production /api/health Endpoint
+        run: |
+          PROD_URL="https://thenextopportunityfinder.vercel.app/api/health"
+          echo "Pinging Live Production Health Endpoint: $PROD_URL"
+          
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" --max-time 10 "$PROD_URL" || echo "000")
+          echo "HTTP Response Status: $HTTP_STATUS"
+          cat response.json || true
+          echo ""
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::PRODUCTION SITE OUTAGE DETECTED! /api/health returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "SUCCESS: Production health check passed cleanly (HTTP 200)."
