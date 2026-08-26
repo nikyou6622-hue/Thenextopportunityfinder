@@ -439,6 +439,7 @@ export default function OverviewDashboard({
       {/* 📄 RESUME UPLOAD HERO BANNER (Directly displayed after Verification to start applying) */}
       <UploadResumeBanner 
         profile={profile}
+        matches={matches}
         onUploadResume={onUploadResume}
         onNavigate={onNavigate}
         onTriggerCelebration={onTriggerCelebration}

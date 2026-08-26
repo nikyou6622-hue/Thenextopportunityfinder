@@ -13,16 +13,18 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import SoundSystem from './characters/SoundEffects';
+import StagedResumeProcessor from './StagedResumeProcessor';
 
 export default function UploadResumeBanner({ 
   profile, 
+  matches = [],
   onUploadResume, 
   onNavigate, 
   onTriggerCelebration,
   onSeedDemo
 }) {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [activeFile, setActiveFile] = useState(null);
   const [selectedFileName, setSelectedFileName] = useState('');
   const fileInputRef = useRef(null);
 
@@ -34,22 +36,9 @@ export default function UploadResumeBanner({
     processUpload(file);
   };
 
-  const processUpload = async (file) => {
+  const processUpload = (file) => {
     setSelectedFileName(file.name);
-    setUploading(true);
-    SoundSystem.playPop();
-    try {
-      if (onUploadResume) {
-        await onUploadResume(file);
-      }
-      if (onTriggerCelebration) {
-        onTriggerCelebration();
-      }
-    } catch (err) {
-      console.error("Banner resume upload error:", err);
-    } finally {
-      setUploading(false);
-    }
+    setActiveFile(file);
   };
 
   const handleDragOver = (e) => {
@@ -70,6 +59,23 @@ export default function UploadResumeBanner({
       processUpload(files[0]);
     }
   };
+
+  if (activeFile) {
+    return (
+      <StagedResumeProcessor
+        file={activeFile}
+        profile={profile}
+        matches={matches}
+        onUploadResume={onUploadResume}
+        onNavigate={onNavigate}
+        onTriggerCelebration={onTriggerCelebration}
+        onCancel={() => setActiveFile(null)}
+        onComplete={() => {
+          if (onNavigate) onNavigate('jobs');
+        }}
+      />
+    );
+  }
 
   return (
     <motion.div
@@ -186,7 +192,6 @@ export default function UploadResumeBanner({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
               className="btn-gradient-coral-purple"
               style={{
                 padding: '11px 24px',
@@ -198,17 +203,8 @@ export default function UploadResumeBanner({
                 cursor: 'pointer'
               }}
             >
-              {uploading ? (
-                <>
-                  <RefreshCw size={16} className="animate-spin" />
-                  <span>Parsing Resume...</span>
-                </>
-              ) : (
-                <>
-                  <UploadCloud size={17} />
-                  <span>{hasResume ? 'Update Resume (PDF/DOCX)' : 'Upload Resume to Apply'}</span>
-                </>
-              )}
+              <UploadCloud size={17} />
+              <span>{hasResume ? 'Update Resume (PDF/DOCX)' : 'Upload Resume to Apply'}</span>
             </button>
 
             {!hasResume && onSeedDemo && (
