@@ -15,33 +15,6 @@ if current_dir not in sys.path:
 os.environ["VERCEL"] = "1"
 os.environ["VERCEL_ENV"] = "production"
 
-try:
-    from backend.app.main import app
+from backend.app.main import app as app
 
-    @app.middleware("http")
-    async def log_incoming_request_middleware(request, call_next):
-        print(f"[VERCEL REQUEST LOG] {request.method} {request.url.path}")
-        response = await call_next(request)
-        print(f"[VERCEL RESPONSE LOG] {request.method} {request.url.path} -> {response.status_code}")
-        return response
-
-    handler = app
-except Exception as err:
-    from fastapi import FastAPI
-    from fastapi.responses import JSONResponse
-    app = FastAPI()
-    
-    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-    async def global_error_fallback(request):
-        tb = traceback.format_exc()
-        print(f"[VERCEL STARTUP FATAL ERROR]: {err}\n{tb}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": "Vercel Serverless Function Startup Failed",
-                "detail": str(err),
-                "error_type": type(err).__name__,
-                "traceback": tb
-            }
-        )
-    handler = app
+handler = app
