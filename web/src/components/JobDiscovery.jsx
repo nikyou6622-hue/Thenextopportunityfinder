@@ -28,6 +28,7 @@ export default function JobDiscovery({
   onDiscover, 
   onRefreshData, 
   loading,
+  error = null,
   onSelectJob,
   onApplyJob,
   onOpenFilters,
@@ -50,138 +51,7 @@ export default function JobDiscovery({
   const [globalQuery, setGlobalQuery] = useState('');
   const [globalLocation, setGlobalLocation] = useState('');
 
-  const DEFAULT_MATCHES = [
-    {
-      id: 'm-1',
-      match_score: 98,
-      job: {
-        id: 'j-1',
-        role_title: 'Software Development Engineer I (SDE-1)',
-        company: 'Amazon',
-        location: 'Bengaluru / Hyderabad, India',
-        salary_range: '₹22L - ₹32L / yr',
-        domain: 'Engineering',
-        source_platform: 'Amazon Careers',
-        apply_url: 'https://www.amazon.jobs/',
-        required_skills: ['Java', 'Python', 'Data Structures', 'AWS', 'System Design'],
-        description: 'Design and build high-throughput microservices handling millions of transactions daily.'
-      }
-    },
-    {
-      id: 'm-2',
-      match_score: 96,
-      job: {
-        id: 'j-2',
-        role_title: 'Full Stack Engineer (React + Node.js)',
-        company: 'Razorpay',
-        location: 'Bengaluru, India (Hybrid)',
-        salary_range: '₹28L - ₹42L / yr',
-        domain: 'Fintech',
-        source_platform: 'LinkedIn',
-        apply_url: 'https://razorpay.com/jobs',
-        required_skills: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Redis'],
-        description: 'Engineering the future of digital payments across India and Southeast Asia.'
-      }
-    },
-    {
-      id: 'm-3',
-      match_score: 95,
-      job: {
-        id: 'j-3',
-        role_title: 'AI / LLM Platform Engineer',
-        company: 'Zomato (Blinkit Tech)',
-        location: 'Gurugram / Remote',
-        salary_range: '₹30L - ₹50L / yr',
-        domain: 'AI/ML',
-        source_platform: 'Wellfound',
-        apply_url: 'https://wellfound.com/jobs',
-        required_skills: ['Python', 'FastAPI', 'PyTorch', 'LangChain', 'Docker'],
-        description: 'Building ultra-low-latency computer vision and LLM dispatch algorithms.'
-      }
-    },
-    {
-      id: 'm-4',
-      match_score: 94,
-      job: {
-        id: 'j-4',
-        role_title: 'Staff Backend Systems Engineer',
-        company: 'Swiggy',
-        location: 'Bengaluru, India',
-        salary_range: '₹35L - ₹55L / yr',
-        domain: 'Backend',
-        source_platform: 'FreeHire',
-        apply_url: 'https://careers.swiggy.com/',
-        required_skills: ['Go', 'Java', 'Kafka', 'Kubernetes', 'Redis'],
-        description: 'Scaling quick-commerce logistics infrastructure to 100K+ concurrent requests/sec.'
-      }
-    },
-    {
-      id: 'm-5',
-      match_score: 92,
-      job: {
-        id: 'j-5',
-        role_title: 'Frontend React & UI Engineer',
-        company: 'CRED',
-        location: 'Bengaluru, India',
-        salary_range: '₹25L - ₹38L / yr',
-        domain: 'Frontend',
-        source_platform: 'LinkedIn',
-        apply_url: 'https://cred.club/careers',
-        required_skills: ['React.js', 'Next.js', 'TailwindCSS', 'Redux', 'Jest'],
-        description: 'Crafting pixel-perfect luxury fintech consumer experiences with 60fps animations.'
-      }
-    },
-    {
-      id: 'm-6',
-      match_score: 91,
-      job: {
-        id: 'j-6',
-        role_title: 'Software Engineer - Cloud & Infrastructure',
-        company: 'Microsoft',
-        location: 'Hyderabad / Noida / Remote',
-        salary_range: '₹26L - ₹40L / yr',
-        domain: 'Cloud',
-        source_platform: 'Microsoft Careers',
-        apply_url: 'https://careers.microsoft.com/',
-        required_skills: ['C#', '.NET Core', 'Azure', 'Kubernetes', 'Go'],
-        description: 'Building global scale Azure computing nodes and distributed storage engine.'
-      }
-    },
-    {
-      id: 'm-7',
-      match_score: 90,
-      job: {
-        id: 'j-7',
-        role_title: 'High-Throughput Logistics Systems Developer',
-        company: 'Zepto',
-        location: 'Mumbai / Remote',
-        salary_range: '₹28L - ₹45L / yr',
-        domain: 'Backend',
-        source_platform: 'LinkedIn',
-        apply_url: 'https://www.zeptonow.com/careers',
-        required_skills: ['Go', 'Node.js', 'PostgreSQL', 'Elasticsearch', 'Docker'],
-        description: 'Optimizing 10-minute delivery routing algorithms across dark store networks.'
-      }
-    },
-    {
-      id: 'm-8',
-      match_score: 89,
-      job: {
-        id: 'j-8',
-        role_title: 'API Platform Infrastructure Engineer',
-        company: 'Postman',
-        location: 'Bengaluru / Remote',
-        salary_range: '₹30L - ₹48L / yr',
-        domain: 'Engineering',
-        source_platform: 'LinkedIn',
-        apply_url: 'https://www.postman.com/careers/',
-        required_skills: ['Node.js', 'TypeScript', 'OpenAPI', 'PostgreSQL', 'Docker'],
-        description: 'Building developer tooling relied on by 30+ million engineers worldwide.'
-      }
-    }
-  ];
-
-  const safeMatches = (Array.isArray(matches) && matches.length > 0) ? matches : DEFAULT_MATCHES;
+  const safeMatches = Array.isArray(matches) ? matches : [];
   const domains = ['all', ...new Set(safeMatches.map(m => m.job?.domain).filter(Boolean))];
 
   const getJobMatchScore = useCallback((m) => {
@@ -567,14 +437,39 @@ export default function JobDiscovery({
 
           {/* Matches Grid */}
           <div className="job-cards-grid">
-            {filteredMatches.length === 0 ? (
+            {error ? (
+              <div style={{ gridColumn: '1 / -1', padding: '36px 20px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '16px' }}>
+                <AlertCircle size={40} color="#f87171" style={{ margin: '0 auto 12px' }} />
+                <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', fontWeight: 800, marginBottom: '6px' }}>
+                  Unable to Load Matches
+                </h3>
+                <p style={{ color: '#94a3b8', fontSize: '0.84rem', marginBottom: '18px', maxWidth: '500px', margin: '0 auto 18px' }}>
+                  {String(typeof error === 'string' ? error : (error.message || 'Could not connect to opportunity database. Please refresh or check connection.'))}
+                </p>
+                <button
+                  onClick={onRefreshData || onDiscover}
+                  className="btn-primary"
+                  style={{ fontSize: '0.82rem', padding: '8px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px', margin: '0 auto' }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry Opportunity Match</span>
+                </button>
+              </div>
+            ) : loading ? (
+              <div style={{ gridColumn: '1 / -1', padding: '50px 20px', textAlign: 'center' }}>
+                <RefreshCw size={32} color="#818cf8" style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 16px' }} />
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
+                  Evaluating 3,000+ Active Database Listings Against Your Resume...
+                </div>
+              </div>
+            ) : filteredMatches.length === 0 ? (
               <div style={{ gridColumn: '1 / -1' }}>
                 <EmptyStateCharacter
                   character="nova"
                   pose="search"
-                  title="No Opportunities Matching Current Filters"
-                  description="Try lowering the min match score threshold or clearing domain filters to discover 10,000+ verified active tech postings."
-                  actionLabel="Reset Score & Refresh Jobs"
+                  title="No Matches Found Yet"
+                  description="No job postings match your current resume skills or filters. Try lowering the match score threshold or updating your resume skills."
+                  actionLabel="Reset Filters & Lower Score"
                   onAction={() => {
                     SoundSystem.playPop();
                     setMinScore(0);

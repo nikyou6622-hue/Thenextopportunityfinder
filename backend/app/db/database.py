@@ -76,6 +76,9 @@ def run_auto_migrations():
                     conn.commit()
                 except Exception as ex:
                     print(f"PostgreSQL migration warning: {ex}")
+    except Exception as e:
+        print(f"Auto-migration notice: {e}")
+
 # Run DDL auto-migrations locally only (Skip during Vercel cold-starts)
 if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
     run_auto_migrations()

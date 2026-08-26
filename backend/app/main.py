@@ -1672,6 +1672,50 @@ def cascade_delete_profile(db: Session, profile_id: int) -> Dict[str, int]:
         db.rollback()
     return deleted_counts
 
+# Helper function for safe SubscriptionModel retrieval & creation
+def get_or_create_subscription(db: Session, profile_id: Optional[int] = None) -> SubscriptionModel:
+    """
+    Safely retrieves or provisions a SubscriptionModel for a candidate profile.
+    Guarantees foreign key safety and session isolation.
+    """
+    target_id = profile_id if isinstance(profile_id, int) and profile_id > 0 else None
+    if not target_id:
+        active_p = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+        target_id = active_p.id if active_p else None
+
+    if target_id:
+        sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_id).first()
+        if sub:
+            return sub
+        
+        # Check if profile exists before trying to insert
+        p_exists = db.query(ProfileModel.id).filter(ProfileModel.id == target_id).first()
+        if p_exists:
+            try:
+                sub = SubscriptionModel(
+                    profile_id=target_id,
+                    tier=DEFAULT_SUBSCRIPTION_TIER,
+                    status="active",
+                    credits_remaining=FREE_SCRAPE_LIMIT,
+                    scrapes_used=0
+                )
+                db.add(sub)
+                db.commit()
+                db.refresh(sub)
+                return sub
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"Subscription creation fallback for profile {target_id}: {e}")
+
+    # Fallback transient subscription object (foreign key safe)
+    return SubscriptionModel(
+        profile_id=target_id or 1,
+        tier=DEFAULT_SUBSCRIPTION_TIER,
+        status="active",
+        credits_remaining=FREE_SCRAPE_LIMIT,
+        scrapes_used=0
+    )
+
 # --- SUBSCRIPTION & MONETIZATION ENDPOINTS ---
 
 @app.get("/api/subscription/status", response_model=SubscriptionSchema)
@@ -1682,30 +1726,8 @@ def get_subscription_status(
     """
     Returns current subscription status, scrapes used, scrapes remaining, and Pro tier status.
     """
-    target_profile_id = profile_id if isinstance(profile_id, int) else None
-    if not target_profile_id:
-        active_p = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
-        target_profile_id = active_p.id if active_p else None
-
-    sub = None
-    if target_profile_id:
-        sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
-        if not sub and db.query(ProfileModel).filter(ProfileModel.id == target_profile_id).first():
-            try:
-                sub = SubscriptionModel(
-                    profile_id=target_profile_id,
-                    tier=DEFAULT_SUBSCRIPTION_TIER,
-                    status="active",
-                    credits_remaining=FREE_SCRAPE_LIMIT,
-                    scrapes_used=0
-                )
-                db.add(sub)
-                db.commit()
-                db.refresh(sub)
-            except Exception as e:
-                db.rollback()
-                logger.warning(f"Subscription auto-creation notice for profile {target_profile_id}: {e}")
-
+    sub = get_or_create_subscription(db, profile_id)
+        
     tier_val = sub.tier if sub and getattr(sub, 'tier', None) else DEFAULT_SUBSCRIPTION_TIER
     status_val = sub.status if sub and getattr(sub, 'status', None) else "active"
     scrapes_used = getattr(sub, 'scrapes_used', 0) if sub else 0
@@ -1714,7 +1736,7 @@ def get_subscription_status(
     scrapes_remaining = 999999 if is_pro else max(0, FREE_SCRAPE_LIMIT - scrapes_used)
     
     return SubscriptionSchema(
-        profile_id=target_profile_id or 1,
+        profile_id=sub.profile_id or 1,
         tier=tier_val,
         status=status_val,
         credits_remaining=scrapes_remaining,
@@ -1736,20 +1758,8 @@ def record_scrape_action(
     Validates and records a scrape operation. Free tier allows 5 free scrapes.
     Raises HTTP 402 Payment Required if limit is reached on free tier.
     """
-    target_profile_id = payload.get("profile_id", 1)
-    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
-    
-    if not sub:
-        sub = SubscriptionModel(
-            profile_id=target_profile_id,
-            tier=DEFAULT_SUBSCRIPTION_TIER,
-            status="active",
-            credits_remaining=FREE_SCRAPE_LIMIT,
-            scrapes_used=0
-        )
-        db.add(sub)
-        db.commit()
-        db.refresh(sub)
+    target_profile_id = payload.get("profile_id")
+    sub = get_or_create_subscription(db, target_profile_id)
         
     is_pro = (sub.tier.lower() == "pro")
     if is_pro:
@@ -1768,11 +1778,15 @@ def record_scrape_action(
             detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for ₹{PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
         )
         
-    # Increment scrapes used
+    # Increment scrapes used if persisted
     sub.scrapes_used = current_used + 1
     sub.credits_remaining = max(0, FREE_SCRAPE_LIMIT - sub.scrapes_used)
-    db.commit()
-    db.refresh(sub)
+    if sub.id:
+        try:
+            db.commit()
+            db.refresh(sub)
+        except Exception as e:
+            db.rollback()
     
     remaining = FREE_SCRAPE_LIMIT - sub.scrapes_used
     return {
@@ -1792,19 +1806,19 @@ def upgrade_to_pro(
     """
     Upgrades candidate to Pro tier for ₹99 one-time payment. Unlocks unlimited features.
     """
-    target_profile_id = payload.get("profile_id", 1)
+    target_profile_id = payload.get("profile_id")
     payment_method = payload.get("payment_method", "upi_qr")
     
-    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
-    if not sub:
-        sub = SubscriptionModel(profile_id=target_profile_id)
-        db.add(sub)
-        
+    sub = get_or_create_subscription(db, target_profile_id)
     sub.tier = "pro"
     sub.status = "active"
     sub.credits_remaining = 999999
-    db.commit()
-    db.refresh(sub)
+    if sub.id:
+        try:
+            db.commit()
+            db.refresh(sub)
+        except Exception as e:
+            db.rollback()
     
     return {
         "success": True,

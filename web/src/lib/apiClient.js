@@ -9,15 +9,13 @@
 if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype._originalJson) {
   Response.prototype._originalJson = Response.prototype.json;
   Response.prototype.json = async function () {
-    try {
-      const text = await this.text();
-      if (!text || !text.trim()) return {};
-      const trimmed = text.trim();
-      if (trimmed.startsWith('<')) return {};
-      return JSON.parse(trimmed);
-    } catch (err) {
-      return {};
+    const text = await this.text();
+    if (!text || !text.trim()) return {};
+    const trimmed = text.trim();
+    if (trimmed.startsWith('<')) {
+      throw new Error('API returned an HTML error response page instead of valid JSON');
     }
+    return JSON.parse(trimmed);
   };
 }
 

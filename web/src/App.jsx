@@ -120,6 +120,7 @@ export default function App() {
     return loadProfileFromLocal() || DEFAULT_FALLBACK_PROFILE;
   });
   const [matches, setMatches] = useState([]);
+  const [matchesError, setMatchesError] = useState(null);
   const [applications, setApplications] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -316,10 +317,17 @@ export default function App() {
       }
 
       // 2. Matches
-      const matchRes = await apiFetch('/api/matches');
-      if (matchRes && matchRes.ok) {
-        const matchData = await safeJson(matchRes, []);
-        if (Array.isArray(matchData) && matchData.length > 0) setMatches(matchData);
+      try {
+        setMatchesError(null);
+        const matchRes = await apiFetch('/api/matches');
+        if (matchRes && matchRes.ok) {
+          const matchData = await safeJson(matchRes, []);
+          if (Array.isArray(matchData)) setMatches(matchData);
+        } else {
+          setMatchesError('Failed to fetch job matches from server.');
+        }
+      } catch (err) {
+        setMatchesError(err.message || 'Error connecting to opportunity server.');
       }
 
       // 3. Applications
@@ -895,6 +903,7 @@ export default function App() {
                   onDiscover={handleDiscover}
                   onRefreshData={loadData}
                   loading={loading}
+                  error={matchesError}
                   onSelectJob={(j) => setSelectedJobDetails(j)}
                   onApplyJob={(j) => setSelectedJobApply(j)}
                   onOpenFilters={() => setSearchFiltersOpen(true)}
