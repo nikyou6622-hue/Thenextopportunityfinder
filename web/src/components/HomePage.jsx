@@ -293,7 +293,7 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         overflow: 'hidden',
         borderRadius: '24px'
       }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '28px', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+        <div className="homepage-hero-grid" style={{ display: 'grid', gap: '28px', alignItems: 'center', position: 'relative', zIndex: 2 }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '820px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '6px 16px', borderRadius: '24px', alignSelf: 'flex-start' }}>
@@ -307,11 +307,11 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
               </span>
             </div>
 
-            <h1 style={{ fontSize: '2.4rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.15, letterSpacing: '-0.03em' }}>
+            <h1 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.18, letterSpacing: '-0.03em' }}>
               Level Up Your Tech Career — From Zero to Dream Offer
             </h1>
 
-            <p style={{ fontSize: '0.98rem', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
+            <p style={{ fontSize: 'clamp(0.88rem, 2vw, 1rem)', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
               End-to-end career operating system. Optimize your ATS score with live A4 preview (11 certified templates), discover 10,000+ verified Indian & global tech roles, 1-click tailored CVs, voice AI mock interviews, and in-browser DSA coding sandbox.
             </p>
 

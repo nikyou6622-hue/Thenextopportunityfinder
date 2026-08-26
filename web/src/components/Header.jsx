@@ -107,19 +107,23 @@ export default function Header({
             }} 
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+            <span style={{ fontSize: '1.15rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
               Next Opportunity Finder
             </span>
-            <span style={{ 
-              fontSize: '0.62rem', 
-              fontWeight: 800, 
-              background: 'rgba(99, 102, 241, 0.2)', 
-              color: '#818cf8', 
-              border: '1px solid rgba(99, 102, 241, 0.4)', 
-              padding: '2px 7px', 
-              borderRadius: '8px',
-              letterSpacing: '0.04em'
-            }}>
+            <span 
+              className="desktop-only-badge"
+              style={{ 
+                fontSize: '0.62rem', 
+                fontWeight: 800, 
+                background: 'rgba(99, 102, 241, 0.2)', 
+                color: '#818cf8', 
+                border: '1px solid rgba(99, 102, 241, 0.4)', 
+                padding: '2px 7px', 
+                borderRadius: '8px',
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap'
+              }}
+            >
               AI CAREER ENGINE
             </span>
           </div>

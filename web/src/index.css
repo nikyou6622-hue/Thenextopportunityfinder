@@ -743,10 +743,21 @@ button, a, input, select, textarea {
    RESPONSIVE MEDIA QUERIES & BREAKPOINTS
    ========================================================================== */
 
+/* Homepage Hero Grid Layout */
+.homepage-hero-grid {
+  grid-template-columns: 1fr auto;
+}
+
 /* Laptop & Tablet (< 1024px) */
 @media (max-width: 1024px) {
-  .desktop-sidebar-only {
+  .desktop-sidebar-only,
+  .guest-nav-links,
+  .desktop-only-badge {
     display: none !important;
+  }
+
+  .homepage-hero-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .glazzed-main-content {
