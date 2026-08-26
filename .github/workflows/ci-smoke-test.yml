@@ -34,7 +34,7 @@ jobs:
         run: |
           python -c "from backend.app.main import app; print('SUCCESS: FastAPI app imported cleanly under Vercel cold-start environment!')"
 
-      - name: Execute End-to-End API Route Health Check (Clean Read-Only / Zero DB Pollution)
+      - name: Execute End-to-End API Route Health Check (Dedicated CI Profile 999999 + Automatic Cleanup)
         env:
           VERCEL: "1"
           VERCEL_ENV: "production"
@@ -48,39 +48,42 @@ jobs:
           from backend.app.db.database import SessionLocal
           from backend.app.db.models import ProfileModel, UserModel, SubscriptionModel
 
+          CI_TEST_PROFILE_ID = 999999
           client = TestClient(app, raise_server_exceptions=False)
           routes = [
-              ('GET', '/api/health'),
-              ('GET', '/api/profile'),
-              ('GET', '/api/matches'),
-              ('GET', '/api/auth/me'),
-              ('GET', '/api/dashboard/metrics'),
-              ('GET', '/api/internships/india'),
-              ('GET', '/api/applications'),
-              ('GET', '/api/subscription/status'),
+              ('GET', f'/api/health'),
+              ('GET', f'/api/profile?profile_id={CI_TEST_PROFILE_ID}'),
+              ('GET', f'/api/matches?profile_id={CI_TEST_PROFILE_ID}'),
+              ('GET', f'/api/auth/me'),
+              ('GET', f'/api/dashboard/metrics'),
+              ('GET', f'/api/internships/india'),
+              ('GET', f'/api/applications?profile_id={CI_TEST_PROFILE_ID}'),
+              ('GET', f'/api/subscription/status?profile_id={CI_TEST_PROFILE_ID}'),
           ]
 
           failed = False
-          print('Executing Production API Route Verification Gate (Zero DB Pollution)...')
+          print('Executing Production API Route Verification Gate (Isolated CI Profile 999999)...')
           for method, path in routes:
               resp = client.get(path, headers={'x-api-key': 'dev_test_key'})
-              print(f'  {method:<4} {path:<30} -> HTTP {resp.status_code}')
+              print(f'  {method:<4} {path:<40} -> HTTP {resp.status_code}')
               if resp.status_code >= 500:
                   print(f'  [FAIL]: Endpoint {path} returned HTTP {resp.status_code}')
                   failed = True
 
-          # Cleanup any transient CI test artifacts if created
+          # Explicit post-execution cleanup for dedicated CI Profile ID 999999
           db = SessionLocal()
           try:
-              db.query(UserModel).filter(UserModel.email.like('%ci_test_%')).delete(synchronize_session=False)
-              db.query(ProfileModel).filter(ProfileModel.email.like('%ci_test_%')).delete(synchronize_session=False)
+              db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == CI_TEST_PROFILE_ID).delete(synchronize_session=False)
+              db.query(ProfileModel).filter(ProfileModel.id == CI_TEST_PROFILE_ID).delete(synchronize_session=False)
               db.commit()
+              print(f'SUCCESS: Cleaned up transient CI test profile {CI_TEST_PROFILE_ID} from database.')
           except Exception as ex:
               db.rollback()
+              print(f'CI Cleanup notice: {ex}')
           finally:
               db.close()
 
           if failed:
               sys.exit(1)
-          print('ALL CORE API ROUTES PASSED PRE-DEPLOY CI GATE CLEANLY WITH ZERO DB POLLUTION!')
+          print('ALL CORE API ROUTES PASSED PRE-DEPLOY CI GATE CLEANLY!')
           "
