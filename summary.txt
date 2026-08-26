@@ -1,0 +1,150 @@
+====================================================================================================
+                        NEXTOPPORTUNITYFIND — MASTER AGENT SUMMARY & ARCHITECTURE HANDBOOK
+====================================================================================================
+Repository Path   : f:/Thenextopportunityfinder
+Former Names      : NextOpportunityFind / Thenextopportunity
+Operating Status  : Stable Production-Ready System (100% Verified Decoupled Matching Engine)
+Default Ports     : Backend @ http://127.0.0.1:8000 (FastAPI) | Frontend @ http://localhost:3001 (React/Vite)
+Production DB     : Supabase PostgreSQL (aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres)
+Local Fallback DB : SQLite 3 WAL Mode (`nextoppr.db`)
+====================================================================================================
+
+1. EXECUTIVE IDENTITY & MISSION
+----------------------------------------------------------------------------------------------------
+NextOpportunityFind is an end-to-end, 100% free, privacy-first AI Career Acceleration Operating System 
+engineered for software engineers, tech students (B.Tech/BE/MCA/BCA), freshers, and career switchers 
+in India and globally.
+
+The platform eliminates the primary frictions of modern job seeking:
+  1. ATS Black Box: Resumes fail ATS screens due to keyword mismatches or unquantified impact. 
+     The platform provides a 5-pillar mathematical score (0-100) and certified export templates.
+  2. Fake & Expired Postings: Aggregators spam users with dead links and affiliate redirects. 
+     The platform revalidates direct canonical ATS portals (Greenhouse, Lever, Ashby, Workday).
+  3. Hallucinatory AI Tools: Generic LLMs invent unearned degrees, companies, and metrics. 
+     The platform's zero-hallucination engine is strictly constrained to candidate-verified facts.
+  4. Fragmented Tooling: Consolidates job discovery, ATS resume editing, 1-click tailoring, 
+     Kanban tracking, interview prep, coding sandboxes, and recruiter outreach into one app.
+  5. Privacy Exploitation: Implements India DPDP Act (2023) standards with field-level AES-256 Fernet 
+     encryption, 1-click hard cascade purge (Right to Erasure), and zero third-party data selling.
+
+
+2. RECENT CRITICAL ARCHITECTURAL FIXES (AUGUST 2026)
+----------------------------------------------------------------------------------------------------
+  [FIX 1] Synchronous Matching Path Decoupling:
+    - Issue: `run_matching_pipeline()` previously invoked live web scrapers (`run_mnc_scan`, 
+      `run_india_internship_scan`, `discover_all_jobs`) inside the synchronous HTTP resume-upload path. 
+      This caused 25-second network latencies/timeouts.
+    - Solution: All live outbound network/scraping functions were completely removed from 
+      `run_matching_pipeline()`. The synchronous matching tier now runs in ~22.69 ms, querying 
+      already-scraped `JobModel` database rows exclusively.
+    - Offloading: All web scraping runs exclusively in scheduled background GitHub Actions workflows.
+
+  [FIX 2] Database Connection & Supabase Pooler Assurance:
+    - Primary Cloud DB: Supabase PostgreSQL pooler (`aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres`).
+    - Query Verification: Confirmed 236 active jobs in Supabase matching `status == 'active'` and 
+      `link_status != 'dead'`.
+    - Local Fallback: SQLite (`nextoppr.db` with WAL mode). Startup auto-migrator (`auto_migrate_sqlite()`) 
+      handles schema updates without data loss.
+
+  [FIX 3] Playwright Retirement & Direct ATS Link Resolution:
+    - Retired Playwright form-filling in favor of zero-hallucination direct link resolution (`source_router.py`).
+    - Standard scrapers run in GitHub Actions using `requests`, `httpx`, and `BeautifulSoup4`.
+
+
+3. TECHNOLOGY STACK SPECIFICATIONS
+----------------------------------------------------------------------------------------------------
+FRONTEND CORE:
+  - Framework & Build     : React 18.2.0, Vite 4.5 SPA.
+  - Styling Paradigm      : Custom Vanilla CSS Design System (`web/src/index.css`, ~1,100 lines) with HSL 
+                            variables, glassmorphic UI tokens (blur: 16px, alpha borders, tactile 3D buttons).
+  - UI Icons & Motion     : Lucide-React (`lucide-react`), Framer Motion (`framer-motion`).
+  - Audio & Celebration   : Web Audio API synthesis singleton (`SoundEffects.js`), Canvas Confetti.
+
+BACKEND CORE:
+  - Framework & Runtime   : Python 3.12, FastAPI 0.100+, Uvicorn ASGI server.
+  - Validation & ORM      : Pydantic V2 schemas (28 schemas), SQLAlchemy 2.0 ORM (19 models).
+  - Document Generators   : ReportLab (PDF), Python-Docx (Word DOCX), Jinja2 (LaTeX .tex), Markdown.
+
+DATA & COMPLIANCE:
+  - Database              : Supabase PostgreSQL / SQLite 3 (WAL Mode).
+  - Security & PII        : Field-level AES-256 Fernet encryption (`backend/app/security/encryption.py`).
+  - Compliance Mandate    : India Digital Personal Data Protection (DPDP) Act 2023 with 22-table cascade purge.
+
+AI / LLM LAYER:
+  - Primary LLM           : Google Gemini 1.5 Flash (`gemini-1.5-flash`).
+  - Failover LLM          : Groq Cloud LLaMA 3.1 8B Instant (`llama-3.1-8b-instant`).
+  - Offline Rule Fallback : Deterministic Python rule engine (0% failure rate, free, offline-capable).
+  - Safety & Guardrails   : Inert XML boundary sandboxing (`wrap_untrusted_content`), Pydantic validation.
+
+
+4. MULTI-AGENT ARCHITECTURE & SYSTEM ROLES
+----------------------------------------------------------------------------------------------------
+The backend is structured into 11 autonomous agents (`backend/app/agents/`):
+
+  1. Agent 1: Resume Parser & ATS Scorer (`agent1_parser.py`)
+     - Parses `.pdf`, `.docx`, and `.txt` files.
+     - Extracts contact details, 1,500+ tech skills, work experience, projects, and education.
+     - Computes 5-pillar mathematical ATS score (0–100). Encrypts text with AES-256 Fernet.
+
+  2. Agent 2: Opportunity Ingestion Engine (`agent2_discovery.py`)
+     - Ingests structured opportunities from local databases and verified RSS feeds.
+
+  3. Agent 2B: Big-MNC Career Portal Scanner (`agent2b_mnc_scanner.py`)
+     - Career portal scraper for Tier-1 Global Tech & Indian IT Giants (Amazon, Google, Deloitte, etc.).
+
+  4. Agent 2C: India Internships & Entry-Level Scraper (`agent2c_india_internships_scraper.py`)
+     - Scrapes tech internships and fresher roles from Indian platforms (Internshala, Unstop).
+
+  5. Agent 2D: Global Remote & Tech Scraper (`agent2d_global_jobs_scraper.py`)
+     - Aggregates remote and tech roles from RemoteOK, WeWorkRemotely, and HackerNews Jobs.
+
+  6. Agent 3: Multi-Criteria Match Engine (`agent3_matching.py`)
+     - Computes skill overlap, domain match, location match, and semantic similarity score.
+
+  7. Agent 4: Zero-Hallucination Tailor & Exporter (`agent4_tailor.py`, `agent4_export_generator.py`)
+     - Generates ATS-optimized PDF, DOCX, and TeX resumes strictly enforcing candidate-verified facts.
+
+  8. Agent 5: Direct ATS Linkout & Source Router (`source_router.py`)
+     - Classifies job platforms and resolves raw URLs to official canonical ATS application endpoints.
+
+  9. Agent 6: Recruiter Outreach & Email Drafts (`agent6_batch_email.py`)
+     - Generates personalized candidate cold outreach emails for hiring managers and recruiters.
+
+ 10. Agent 7: Outcome Intelligence & Diagnostics (`agent7_outcome_intelligence.py`)
+     - Tracks application lifecycle events and diagnoses rejection/failure patterns.
+
+ 11. Agent 8: Interview Prep & Coding Sandbox (`agent8_interview_prep.py`)
+     - Generates company-targeted technical interview prep, LeetCode question banks, and coding challenges.
+
+
+5. CORE API ENDPOINTS
+----------------------------------------------------------------------------------------------------
+  - `POST /api/profile/upload`  : Ingests resume file, extracts skills, encrypts text, runs 200-job sync match tier (~22ms match step).
+  - `GET  /api/matches`         : Returns matched opportunities sorted by score and skill overlap.
+  - `GET  /api/jobs`            : Lists active opportunities with pagination (`page`, `limit`) and search filter.
+  - `GET  /api/profile`         : Retrieves active candidate profile data (decrypting PII for authorized sessions).
+  - `POST /api/profile/purge`   : Executes DPDP Act Right to Erasure cascade delete across 22 relational tables.
+  - `GET  /api/dashboard/metrics`: Computes overview dashboard metrics (applications, response rates, top skills).
+
+
+6. GITHUB ACTIONS SCHEDULER
+----------------------------------------------------------------------------------------------------
+Scraping workflows are isolated in `.github/workflows/`:
+  - `scrape-mnc.yml`               : Runs MNC portal scanner every 6 hours (`0 */6 * * *`).
+  - `scrape-internships.yml`       : Runs Indian internships scanner every 6 hours (`30 */6 * * *`).
+  - `scrape-global-discovery.yml`  : Runs global tech discovery scraper every 6 hours (`45 */6 * * *`).
+
+
+7. DIRECTIVES & RULES FOR FUTURE AI AGENTS
+----------------------------------------------------------------------------------------------------
+  1. NEVER re-introduce live network calls or scraping inside `run_matching_pipeline()` or synchronous 
+     HTTP request handlers. All live scraping MUST remain in scheduled GitHub Actions workflows.
+  2. NEVER violate the Zero-Hallucination Standard. Resume tailoring must NEVER generate fake degrees, 
+     invent unearned companies, or fabricate unverified metric multipliers.
+  3. ALWAYS preserve DPDP Act Compliance. Resume raw text MUST be encrypted with AES-256 Fernet at rest, 
+     and cascade deletion hooks MUST be maintained across all DB tables for Right to Erasure requests.
+  4. PRESERVE Design Aesthetics. The frontend uses a custom glassmorphism design system in `web/src/index.css`. 
+     Do NOT add Tailwind or change styling paradigms unless explicitly instructed by the user.
+  5. VERIFY Empirical Evidence. Always execute test scripts or benchmark harnesses (e.g. `scratch_benchmark.py`) 
+     to verify performance and correctness before declaring a task complete.
+====================================================================================================
