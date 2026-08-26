@@ -1,6 +1,5 @@
 import os
 import sys
-import traceback
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
@@ -14,20 +13,20 @@ os.environ["VERCEL"] = "1"
 os.environ["VERCEL_ENV"] = "production"
 
 from backend.app.main import app
-from fastapi.responses import JSONResponse
 
-@app.exception_handler(Exception)
-async def vercel_global_exception_handler(request, exc):
-    tb = traceback.format_exc()
-    print(f"[VERCEL EXCEPTION] {request.method} {request.url.path}: {exc}\n{tb}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Vercel Serverless Internal Exception",
-            "detail": str(exc),
-            "error_type": type(exc).__name__,
-            "traceback": tb
-        }
-    )
+class VercelPathRestorerMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-handler = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            headers = dict(scope.get("headers", []))
+            # Recover original raw path from Vercel edge headers
+            raw_path = headers.get(b"x-matched-path", b"").decode("utf-8") or \
+                       headers.get(b"x-forwarded-uri", b"").decode("utf-8") or \
+                       headers.get(b"x-original-uri", b"").decode("utf-8")
+            if raw_path and raw_path.startswith("/api"):
+                scope["path"] = raw_path
+        await self.app(scope, receive, send)
+
+handler = VercelPathRestorerMiddleware(app)

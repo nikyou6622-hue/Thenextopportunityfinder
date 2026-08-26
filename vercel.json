@@ -1,15 +1,8 @@
 {
-  "functions": {
-    "api/index.py": {
-      "memory": 1024,
-      "maxDuration": 15,
-      "includeFiles": "backend/**"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api"
     },
     {
       "source": "/((?!api/|assets/|.*\\..*).*)",
