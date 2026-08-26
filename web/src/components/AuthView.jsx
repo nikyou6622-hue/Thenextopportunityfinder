@@ -299,13 +299,15 @@ export default function AuthView({
         is_email_verified: true
       };
       const tokenStr = data.token || `jwt_token_${Date.now()}`;
-      localStorage.setItem('nof_auth_token', tokenStr);
-      localStorage.setItem('nof_user', JSON.stringify(verifiedUser));
+      const isSignUpFlow = authMode === 'verify-signup' || authMode === 'signup';
+      if (isSignUpFlow) {
+        sessionStorage.setItem('nof_just_signed_up', 'true');
+      }
 
       SoundSystem.playSuccess();
-      setSuccessMessage(data.message || 'Account verified and created successfully! Redirecting to candidate dashboard...');
+      setSuccessMessage(data.message || 'Account verified successfully! Redirecting to candidate dashboard...');
       if (onAuthSuccess) {
-        setTimeout(() => onAuthSuccess(verifiedUser, tokenStr), 500);
+        setTimeout(() => onAuthSuccess(verifiedUser, tokenStr, { isNewSignUp: isSignUpFlow }), 500);
       }
     } catch (err) {
       setErrorMessage(err.message || 'Verification failed. Please check the 6-digit code and try again.');

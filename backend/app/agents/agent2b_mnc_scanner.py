@@ -86,6 +86,61 @@ HEALTH_CHECK_CACHE = ThreadSafeCache(ttl_seconds=HEALTH_CHECK_CACHE_TTL)
 # Config-driven MNC targets — official career portals & ATS endpoints
 MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
     {
+        "company": "PhonePe",
+        "domain_name": "phonepe.com",
+        "careers_url": "https://www.phonepe.com/careers/",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/phonepe/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/phonepe/jobs"
+    },
+    {
+        "company": "Meesho",
+        "domain_name": "meesho.io",
+        "careers_url": "https://meesho.io/careers",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://api.lever.co/v0/postings/meesho",
+        "data_access_method": "api",
+        "job_listing_url": "https://api.lever.co/v0/postings/meesho"
+    },
+    {
+        "company": "InMobi",
+        "domain_name": "inmobi.com",
+        "careers_url": "https://www.inmobi.com/company/careers",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/inmobi/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/inmobi/jobs"
+    },
+    {
+        "company": "Postman",
+        "domain_name": "postman.com",
+        "careers_url": "https://www.postman.com/careers/",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/postman/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/postman/jobs"
+    },
+    {
+        "company": "CRED",
+        "domain_name": "cred.club",
+        "careers_url": "https://cred.club/careers",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://api.lever.co/v0/postings/cred",
+        "data_access_method": "api",
+        "job_listing_url": "https://api.lever.co/v0/postings/cred"
+    },
+    {
         "company": "Infosys",
         "domain_name": "infosys.com",
         "careers_url": "https://www.infosys.com/careers.html",
@@ -662,6 +717,63 @@ def fetch_direct_ats_api(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], 
                             "job_fingerprint": fingerprint
                         })
                 
+                status_info["data_success"] = len(jobs_found) > 0
+
+            # Greenhouse API parser (PhonePe, InMobi, Postman, etc.)
+            elif isinstance(data, dict) and "jobs" in data:
+                for item in data["jobs"][:15]:
+                    title = item.get("title", "")
+                    apply_url = item.get("absolute_url") or item.get("hosted_url", "")
+                    loc_name = item.get("location", {}).get("name", "India") if isinstance(item.get("location"), dict) else str(item.get("location", "India"))
+                    
+                    if title and apply_url:
+                        fingerprint = compute_job_fingerprint(config["company"], title, loc_name, str(item.get("id", "")))
+                        is_ind = "india" in loc_name.lower() or any(c in loc_name.lower() for c in ["bengaluru", "mumbai", "pune", "delhi", "hyderabad", "chennai", "noida", "gurugram", "bangalore"])
+                        jobs_found.append({
+                            "role_title": title,
+                            "company": config["company"],
+                            "location": loc_name,
+                            "location_type": "On-site: India" if is_ind else "On-site: International",
+                            "remote": "remote" in loc_name.lower(),
+                            "required_skills": extract_skills_from_text(f"{title} {item.get('content', '')}"),
+                            "domain": "software engineering",
+                            "role_type": "full-time",
+                            "description": item.get("content") or f"{config['company']} role: {title}",
+                            "apply_url": apply_url,
+                            "apply_email": "",
+                            "external_id": fingerprint,
+                            "source_posted_at": item.get("updated_at"),
+                            "job_fingerprint": fingerprint
+                        })
+                status_info["data_success"] = len(jobs_found) > 0
+
+            # Lever API parser (Meesho, CRED, etc.)
+            elif isinstance(data, list):
+                for item in data[:15]:
+                    title = item.get("text", "")
+                    apply_url = item.get("hostedUrl") or item.get("applyUrl", "")
+                    cats = item.get("categories", {}) or {}
+                    loc_name = cats.get("location") or "India"
+                    
+                    if title and apply_url:
+                        fingerprint = compute_job_fingerprint(config["company"], title, loc_name, str(item.get("id", "")))
+                        is_ind = "india" in loc_name.lower() or any(c in loc_name.lower() for c in ["bengaluru", "mumbai", "pune", "delhi", "hyderabad", "chennai", "noida", "gurugram", "bangalore"])
+                        jobs_found.append({
+                            "role_title": title,
+                            "company": config["company"],
+                            "location": loc_name,
+                            "location_type": "On-site: India" if is_ind else "On-site: International",
+                            "remote": "remote" in loc_name.lower() or item.get("workplaceType") == "remote",
+                            "required_skills": extract_skills_from_text(f"{title} {item.get('description', '')}"),
+                            "domain": cats.get("team") or "software engineering",
+                            "role_type": item.get("workplaceType", "full-time"),
+                            "description": item.get("description") or f"{config['company']} role: {title}",
+                            "apply_url": apply_url,
+                            "apply_email": "",
+                            "external_id": fingerprint,
+                            "source_posted_at": str(item.get("createdAt", "")),
+                            "job_fingerprint": fingerprint
+                        })
                 status_info["data_success"] = len(jobs_found) > 0
             else:
                 status_info["error"] = "Unexpected JSON structure"

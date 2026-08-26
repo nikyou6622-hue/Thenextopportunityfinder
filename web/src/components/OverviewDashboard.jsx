@@ -40,6 +40,7 @@ import NotificationCenter from './NotificationCenter';
 import OutcomeDiagnosisCard from './OutcomeDiagnosisCard';
 import OnboardingHeroBanner from './OnboardingHeroBanner';
 import UploadResumeBanner from './UploadResumeBanner';
+import PostSignupResumeModal from './PostSignupResumeModal';
 import UserAvatar from './UserAvatar';
 import SoundSystem from './characters/SoundEffects';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
@@ -71,6 +72,17 @@ export default function OverviewDashboard({
   const [revalidating, setRevalidating] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPostSignupModal, setShowPostSignupModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      const justSignedUp = sessionStorage.getItem('nof_just_signed_up') === 'true';
+      const hasResume = Boolean(profile?.raw_text || profile?.resume_url || (profile?.skills && profile.skills.length > 0));
+      if (justSignedUp || !hasResume) {
+        setShowPostSignupModal(true);
+      }
+    } catch {}
+  }, [profile]);
 
   const fetchLinkHealth = async () => {
     try {
@@ -390,6 +402,25 @@ export default function OverviewDashboard({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+
+      {/* 🚀 POST SIGNUP / NO RESUME UPLOAD PROMPT MODAL */}
+      <PostSignupResumeModal
+        isOpen={showPostSignupModal}
+        onClose={() => {
+          try { sessionStorage.removeItem('nof_just_signed_up'); } catch {}
+          setShowPostSignupModal(false);
+        }}
+        onUploadResume={async (file) => {
+          try { sessionStorage.removeItem('nof_just_signed_up'); } catch {}
+          if (onUploadResume) await onUploadResume(file);
+        }}
+        onSeedDemo={async () => {
+          try { sessionStorage.removeItem('nof_just_signed_up'); } catch {}
+          if (onSeedDemo) await onSeedDemo();
+        }}
+        onTriggerCelebration={onTriggerCelebration}
+        candidateName={displayName}
+      />
 
       {/* 🌟 AI CAREER OS GUIDANCE */}
       <CharacterSpeechBubble

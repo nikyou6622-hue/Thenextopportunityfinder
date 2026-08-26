@@ -2780,6 +2780,17 @@ def get_matches(
             if job.status == "removed" or job.link_status == "dead" or not url or url in ["", "#"] or "staletest" in url.lower() or not url.startswith(("http://", "https://", "mailto:")):
                 continue
 
+        # Gatekeeper 1: Strict India Relevance Filter
+        loc_str = str(job.location or "").lower()
+        loc_type = str(job.location_type or "").lower()
+        is_international = "international" in loc_type or any(x in loc_str for x in ["shanghai", "darwin", "sydney", "london", "tokyo", "berlin"])
+        if is_international and "india" not in loc_str:
+            continue
+
+        # Gatekeeper 2: Minimum Qualification Score & Skill Overlap Threshold
+        if m.match_score < min_score:
+            continue
+
         m_skills = m.matched_skills or m.matching_skills or []
         m_count = max(len(m_skills), m.matched_count or 0)
         req_skills = job.required_skills or []
@@ -2806,9 +2817,12 @@ def get_matches(
         result.append(match_dict)
 
     if not result:
-        # Dynamic fallback: Surface top active catalog jobs as matches directly in < 50ms
+        # Dynamic fallback: Surface top active India catalog jobs as matches directly in < 50ms
         try:
-            active_jobs = db.query(JobModel).filter(JobModel.status == "active").order_by(JobModel.id.desc()).limit(50).all()
+            active_jobs = db.query(JobModel).filter(
+                JobModel.status == "active",
+                ~JobModel.location_type.ilike("%international%")
+            ).order_by(JobModel.id.desc()).limit(50).all()
             for idx, job in enumerate(active_jobs, 1):
                 if search:
                     s_lower = search.lower()

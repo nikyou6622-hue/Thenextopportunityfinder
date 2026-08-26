@@ -693,12 +693,16 @@ export default function App() {
     }
   };
 
-  const handleAuthSuccess = async (user, token) => {
+  const handleAuthSuccess = async (user, token, meta = {}) => {
     setCurrentUser(user);
     if (token) localStorage.setItem('nof_auth_token', token);
     localStorage.setItem('nof_user', JSON.stringify(user));
     SoundSystem.playSuccess();
     setConfettiActive(true);
+
+    if (meta?.isNewSignUp) {
+      sessionStorage.setItem('nof_just_signed_up', 'true');
+    }
 
     // Refresh profile, matches, applications & metrics for candidate session
     setLoading(true);
