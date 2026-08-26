@@ -231,7 +231,8 @@ if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
 app = FastAPI(
     title="Next Opportunity Finder CS/Tech API",
     description="CS/Tech multi-agent job discovery, ATS resume editor, interview studio, & DPDP Act compliant career platform",
-    version="2.0.0"
+    version="2.0.0",
+    redirect_slashes=False
 )
 
 # Background scheduler task for daily MNC scan
@@ -1770,9 +1771,13 @@ def get_subscription_status(
     )
 
 @app.post("/api/subscription/scrape")
+@app.post("/api/subscription/scrape/")
 @app.post("/subscription/scrape")
+@app.post("/subscription/scrape/")
 @app.get("/api/subscription/scrape")
+@app.get("/api/subscription/scrape/")
 @app.get("/subscription/scrape")
+@app.get("/subscription/scrape/")
 def record_scrape_action(
     payload: Dict[str, Any] = Body(default={}),
     db: Session = Depends(get_db)
