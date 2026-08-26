@@ -18,5 +18,17 @@ try:
 except ImportError:
     pass
 
+import traceback
+from fastapi.responses import JSONResponse
+
 # Export main FastAPI app for Vercel Serverless Function execution
 from backend.app.main import app
+
+@app.exception_handler(Exception)
+async def vercel_global_exception_handler(request, exc):
+    print(f"[VERCEL SERVERLESS EXCEPTION] {request.method} {request.url.path}: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "error_type": type(exc).__name__}
+    )

@@ -207,16 +207,19 @@ def auto_migrate_sqlite():
     except Exception as e:
         print(f"Auto-migration info: {e}")
 
-auto_migrate_sqlite()
+# Run SQLite auto-migrations locally only
+if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
+    auto_migrate_sqlite()
 
-# Seed learning resources, interview questions, coding questions & templates
-try:
-    with engine.begin() as conn:
-        from sqlalchemy.orm import Session as LocalSession
-        db_session = LocalSession(bind=conn)
-        seed_learning_resources_and_questions(db_session)
-except Exception as e:
-    print(f"Seed initialization info: {e}")
+# Seed learning resources, interview questions, coding questions & templates (Skip on Vercel cold-starts)
+if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
+    try:
+        with engine.begin() as conn:
+            from sqlalchemy.orm import Session as LocalSession
+            db_session = LocalSession(bind=conn)
+            seed_learning_resources_and_questions(db_session)
+    except Exception as e:
+        print(f"Seed initialization info: {e}")
 
 app = FastAPI(
     title="Next Opportunity Finder CS/Tech API",
@@ -1679,40 +1682,41 @@ def get_subscription_status(
     """
     Returns current subscription status, scrapes used, scrapes remaining, and Pro tier status.
     """
-    target_profile_id = profile_id if isinstance(profile_id, int) else 1
-    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
-    
-    if not sub:
-        try:
-            sub = SubscriptionModel(
-                profile_id=target_profile_id,
-                tier=DEFAULT_SUBSCRIPTION_TIER,
-                status="active",
-                credits_remaining=FREE_SCRAPE_LIMIT,
-                scrapes_used=0
-            )
-            db.add(sub)
-            db.commit()
-            db.refresh(sub)
-        except Exception as e:
-            db.rollback()
-            logger.warning(f"Subscription auto-creation notice for profile {target_profile_id}: {e}")
-            sub = SubscriptionModel(
-                profile_id=target_profile_id,
-                tier=DEFAULT_SUBSCRIPTION_TIER,
-                status="active",
-                credits_remaining=FREE_SCRAPE_LIMIT,
-                scrapes_used=0
-            )
-        
-    is_pro = (sub.tier.lower() == "pro")
-    scrapes_used = getattr(sub, 'scrapes_used', 0) or 0
+    target_profile_id = profile_id if isinstance(profile_id, int) else None
+    if not target_profile_id:
+        active_p = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+        target_profile_id = active_p.id if active_p else None
+
+    sub = None
+    if target_profile_id:
+        sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).first()
+        if not sub and db.query(ProfileModel).filter(ProfileModel.id == target_profile_id).first():
+            try:
+                sub = SubscriptionModel(
+                    profile_id=target_profile_id,
+                    tier=DEFAULT_SUBSCRIPTION_TIER,
+                    status="active",
+                    credits_remaining=FREE_SCRAPE_LIMIT,
+                    scrapes_used=0
+                )
+                db.add(sub)
+                db.commit()
+                db.refresh(sub)
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"Subscription auto-creation notice for profile {target_profile_id}: {e}")
+
+    tier_val = sub.tier if sub and getattr(sub, 'tier', None) else DEFAULT_SUBSCRIPTION_TIER
+    status_val = sub.status if sub and getattr(sub, 'status', None) else "active"
+    scrapes_used = getattr(sub, 'scrapes_used', 0) if sub else 0
+    scrapes_used = scrapes_used or 0
+    is_pro = (tier_val.lower() == "pro")
     scrapes_remaining = 999999 if is_pro else max(0, FREE_SCRAPE_LIMIT - scrapes_used)
     
     return SubscriptionSchema(
-        profile_id=target_profile_id,
-        tier=sub.tier,
-        status=sub.status,
+        profile_id=target_profile_id or 1,
+        tier=tier_val,
+        status=status_val,
         credits_remaining=scrapes_remaining,
         scrapes_used=scrapes_used,
         scrapes_remaining=scrapes_remaining,
