@@ -672,6 +672,8 @@ export default function ResumeAnalyzer({
   const fileInputRef = useRef(null);
   const lastSavedStateRef = useRef(JSON.stringify(formData));
   const autoSaveDebounceRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+  const initialProfileRef = useRef(formData);
 
   // Update form data when profile prop changes
   useEffect(() => {
