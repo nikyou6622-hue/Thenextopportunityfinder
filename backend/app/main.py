@@ -344,6 +344,15 @@ def liveness_check():
     """Lightweight Kubernetes / Container liveness probe."""
     return {"status": "ok", "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z"}
 
+@app.get("/")
+@app.get("/api")
+def root_health_endpoint():
+    return {
+        "status": "healthy",
+        "service": "Next Opportunity Finder CS/Tech API",
+        "version": "2.0.0"
+    }
+
 @app.get("/readyz")
 def readiness_check(db: Session = Depends(get_db)):
     """Container readiness probe validating DB connectivity."""
