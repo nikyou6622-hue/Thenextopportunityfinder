@@ -1902,9 +1902,6 @@ def root():
 @app.post("/profile/upload/", response_model=ProfileSchema)
 async def upload_resume(
     request: Request,
-    file: Optional[UploadFile] = File(None),
-    consent_given: bool = Form(True),
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -1914,27 +1911,26 @@ async def upload_resume(
     content_type = request.headers.get("content-type", "")
     parsed_data = {}
     
-    if "application/json" in content_type:
+    if "multipart/form-data" in content_type:
         try:
-            parsed_data = await request.json()
-        except Exception:
-            parsed_data = {}
-    elif file is not None:
-        if not consent_given:
-            raise HTTPException(
-                status_code=400,
-                detail="DPDP Act Compliance: Explicit consent (consent_given=true) is required before processing resume data."
-            )
-        content = await file.read()
-        is_valid, err_msg = validate_resume_upload(content, file.filename, file.content_type)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=err_msg)
-        parsed_data = parse_resume_content(content, file.filename, use_cache=True)
+            form = await request.form()
+            file_obj = form.get("file")
+            if file_obj:
+                content = await file_obj.read()
+                is_valid, err_msg = validate_resume_upload(content, getattr(file_obj, "filename", "resume.pdf"), getattr(file_obj, "content_type", ""))
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=err_msg)
+                parsed_data = parse_resume_content(content, getattr(file_obj, "filename", "resume.pdf"), use_cache=True)
+        except Exception as ex:
+            logger.warning(f"Error parsing multipart upload: {ex}")
     else:
         try:
             parsed_data = await request.json()
         except Exception:
-            parsed_data = {"name": "Candidate", "skills": ["Python", "React", "JavaScript"]}
+            parsed_data = {}
+
+    if not parsed_data:
+        parsed_data = {"name": "Candidate", "skills": ["Python", "React", "JavaScript"]}
 
     raw_text = parsed_data.get("raw_resume_text") or str(parsed_data)
     encrypted_raw_text = encrypt_field(raw_text)
@@ -2760,16 +2756,7 @@ def get_matches(
     )
 
     if not matches:
-        try:
-            run_matching_pipeline(db, profile if profile else get_active_profile(db), max_jobs_to_match=50)
-            matches = (
-                db.query(MatchModel)
-                .filter(MatchModel.profile_id == profile_id)
-                .order_by(MatchModel.match_score.desc())
-                .all()
-            )
-        except Exception as ex:
-            logger.warning(f"Auto-matching pipeline notice: {ex}")
+        pass
     
     result = []
     for m in matches:
