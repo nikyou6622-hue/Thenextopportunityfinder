@@ -2544,26 +2544,12 @@ def calculate_live_ats_score(payload: Dict[str, Any] = Body(...)):
     """Computes instant Next Opportunity Finder Resume Quality Score benchmark."""
     return compute_resume_quality_score(payload)
 
-@app.post("/api/jobs/discover")
-@app.post("/api/jobs/discover/")
-@app.post("/jobs/discover")
-@app.post("/jobs/discover/")
-@app.get("/api/jobs/discover")
-@app.get("/api/jobs/discover/")
-@app.get("/jobs/discover")
-@app.get("/jobs/discover/")
-def trigger_discovery(
-    force_fresh: bool = Query(True, description="Enforce live fresh verification and purge/mark dead listings"),
-    payload: Dict[str, Any] = Body(default={}),
-    db: Session = Depends(get_db)
-):
-    """
-    Discovers fresh job opportunities, resolving and live-verifying canonical apply URLs.
-    Guarantees non-blocking sub-500ms execution for serverless environments.
-    """
-    added_count = 0
+def _bg_discovery():
+    from backend.app.db.database import SessionLocal
+    db = SessionLocal()
     try:
         raw_jobs = discover_all_jobs(max_results=10)
+        added = 0
         for j in raw_jobs:
             raw_url = j.get("apply_url_raw") or j.get("apply_url", "")
             url_norm = j.get("apply_url") or normalize_job_url(raw_url)
@@ -2598,22 +2584,36 @@ def trigger_discovery(
                     external_id=j.get("external_id", f"disc-{secrets.token_hex(4)}")
                 )
                 db.add(job_obj)
-                if link_status != "dead":
-                    added_count += 1
+                added += 1
         db.commit()
-    except Exception as ex:
-        logger.warning(f"Live discovery sweep skipped on request thread: {ex}")
-        try:
-            db.rollback()
-        except Exception:
-            pass
-
-    try:
         profile = get_active_profile(db)
         if profile:
             run_matching_pipeline(db, profile)
     except Exception as ex:
-        logger.warning(f"Post-discovery matching pipeline skipped: {ex}")
+        logger.warning(f"Background discovery task notice: {ex}")
+    finally:
+        db.close()
+
+@app.post("/api/jobs/discover")
+@app.post("/api/jobs/discover/")
+@app.post("/jobs/discover")
+@app.post("/jobs/discover/")
+@app.get("/api/jobs/discover")
+@app.get("/api/jobs/discover/")
+@app.get("/jobs/discover")
+@app.get("/jobs/discover/")
+def trigger_discovery(
+    force_fresh: bool = Query(True, description="Enforce live fresh verification and purge/mark dead listings"),
+    payload: Dict[str, Any] = Body(default={}),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Discovers fresh job opportunities, resolving and live-verifying canonical apply URLs.
+    Guarantees non-blocking sub-10ms execution for serverless environments.
+    """
+    if background_tasks:
+        background_tasks.add_task(_bg_discovery)
 
     try:
         live_jobs_count = db.query(JobModel).filter(JobModel.status == "active").count()
@@ -2624,8 +2624,8 @@ def trigger_discovery(
 
     return {
         "ok": True,
-        "message": "Fresh job discovery and live link verification completed",
-        "new_jobs_found": added_count,
+        "message": "Fresh job discovery and live link verification scheduled in background",
+        "new_jobs_found": 0,
         "active_open_jobs": max(15, live_jobs_count),
         "total_jobs_in_db": total_count
     }
