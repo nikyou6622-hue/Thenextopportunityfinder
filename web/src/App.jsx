@@ -582,10 +582,11 @@ export default function App() {
       } catch {}
 
       await loadData();
-      setActiveTab('jobs');
       try { SoundSystem.playSuccess(); } catch {}
+      return parsedProfile;
     } catch (e) {
       console.warn("Upload notice:", e);
+      return null;
     } finally {
       setLoading(false);
     }

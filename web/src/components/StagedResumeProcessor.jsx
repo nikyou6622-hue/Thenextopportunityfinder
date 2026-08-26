@@ -68,6 +68,7 @@ export default function StagedResumeProcessor({
           }
         }
 
+        if (!currentProfile) currentProfile = profile;
         if (!isMounted) return;
         setParsedData(currentProfile);
         setStageStatus(prev => ({ ...prev, 1: 'completed' }));
