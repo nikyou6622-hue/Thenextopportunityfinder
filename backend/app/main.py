@@ -1720,6 +1720,7 @@ def get_or_create_subscription(db: Session, profile_id: Optional[int] = None) ->
 # --- SUBSCRIPTION & MONETIZATION ENDPOINTS ---
 
 @app.get("/api/subscription/status", response_model=SubscriptionSchema)
+@app.get("/subscription/status", response_model=SubscriptionSchema)
 def get_subscription_status(
     profile_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
@@ -1958,6 +1959,7 @@ async def upload_resume(
     return ProfileSchema(**res_dict)
 
 @app.get("/api/profile", response_model=Optional[ProfileSchema])
+@app.get("/profile", response_model=Optional[ProfileSchema])
 def get_profile(
     db: Session = Depends(get_db),
     auth_user: str = Depends(require_auth_or_api_key)
@@ -2673,6 +2675,7 @@ def get_jobs(
     return filtered[start_idx:end_idx]
 
 @app.get("/api/matches", response_model=List[MatchSchema])
+@app.get("/matches", response_model=List[MatchSchema])
 def get_matches(
     include_dead: bool = False,
     min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
@@ -3288,6 +3291,7 @@ def list_resume_templates(category: str = "mnc_pattern", db: Session = Depends(g
     return db.query(ResumeTemplateModel).filter(ResumeTemplateModel.category == category).all()
 
 @app.get("/api/applications", response_model=List[ApplicationSchema])
+@app.get("/applications", response_model=List[ApplicationSchema])
 def get_applications(db: Session = Depends(get_db)):
     apps = db.query(ApplicationModel).order_by(ApplicationModel.updated_at.desc()).all()
     res = []
@@ -3434,6 +3438,7 @@ def get_outcome_metrics(db: Session = Depends(get_db)):
     return compute_outcome_metrics(db)
 
 @app.get("/api/dashboard/metrics", response_model=DashboardMetrics)
+@app.get("/dashboard/metrics", response_model=DashboardMetrics)
 def get_dashboard(db: Session = Depends(get_db)):
     return generate_dashboard_metrics(db)
 
