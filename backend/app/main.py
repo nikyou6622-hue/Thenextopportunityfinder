@@ -1780,16 +1780,20 @@ def get_subscription_status(
 @app.get("/subscription/scrape/")
 def record_scrape_action(
     payload: Dict[str, Any] = Body(default={}),
+    profile_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Validates and records a scrape operation. Free tier allows 5 free scrapes.
     Raises HTTP 402 Payment Required if limit is reached on free tier.
     """
-    target_profile_id = payload.get("profile_id")
+    target_profile_id = payload.get("profile_id") if isinstance(payload, dict) else None
+    if not target_profile_id:
+        target_profile_id = profile_id
+        
     sub = get_or_create_subscription(db, target_profile_id)
         
-    is_pro = (sub.tier.lower() == "pro")
+    is_pro = (sub.tier.lower() == "pro") if sub and getattr(sub, 'tier', None) else False
     if is_pro:
         return {
             "allowed": True,
@@ -1805,6 +1809,20 @@ def record_scrape_action(
             status_code=402,
             detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for ₹{PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
         )
+        
+    if sub:
+        sub.scrapes_used = current_used + 1
+        db.commit()
+        db.refresh(sub)
+        
+    scrapes_remaining = max(0, FREE_SCRAPE_LIMIT - (current_used + 1))
+    return {
+        "allowed": True,
+        "is_pro": False,
+        "scrapes_used": current_used + 1,
+        "scrapes_remaining": scrapes_remaining,
+        "message": f"Scrape recorded successfully ({scrapes_remaining} free scrapes remaining)"
+    }
         
     # Increment scrapes used if persisted
     sub.scrapes_used = current_used + 1
