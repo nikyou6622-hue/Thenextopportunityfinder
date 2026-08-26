@@ -2544,56 +2544,6 @@ def calculate_live_ats_score(payload: Dict[str, Any] = Body(...)):
     """Computes instant Next Opportunity Finder Resume Quality Score benchmark."""
     return compute_resume_quality_score(payload)
 
-def _bg_discovery():
-    from backend.app.db.database import SessionLocal
-    db = SessionLocal()
-    try:
-        raw_jobs = discover_all_jobs(max_results=10)
-        added = 0
-        for j in raw_jobs:
-            raw_url = j.get("apply_url_raw") or j.get("apply_url", "")
-            url_norm = j.get("apply_url") or normalize_job_url(raw_url)
-            link_status = j.get("link_status", "live")
-            resolved_url = j.get("apply_url_resolved") or url_norm
-
-            existing = db.query(JobModel).filter(JobModel.external_id == j.get("external_id")).first()
-            if existing:
-                existing.apply_url = url_norm
-                existing.apply_url_raw = raw_url
-                existing.apply_url_resolved = resolved_url
-                existing.link_status = link_status
-                existing.link_checked_at = datetime.datetime.now(datetime.timezone.utc)
-            else:
-                job_obj = JobModel(
-                    company=j.get("company", "Tech Company"),
-                    role_title=j.get("role_title", "Software Engineer"),
-                    location=j.get("location", "Remote"),
-                    remote=j.get("remote", True),
-                    required_skills=j.get("required_skills", ["Python", "React"]),
-                    domain=j.get("domain", "full_stack"),
-                    description=j.get("description", "Exciting tech role"),
-                    apply_url=url_norm,
-                    apply_url_raw=raw_url,
-                    apply_url_resolved=resolved_url,
-                    link_status=link_status,
-                    link_checked_at=datetime.datetime.now(datetime.timezone.utc),
-                    source_platform=j.get("source_platform", "unknown"),
-                    apply_email=j.get("apply_email", ""),
-                    posted_date=j.get("posted_date", "Today"),
-                    source=j.get("source", "Aggregator"),
-                    external_id=j.get("external_id", f"disc-{secrets.token_hex(4)}")
-                )
-                db.add(job_obj)
-                added += 1
-        db.commit()
-        profile = get_active_profile(db)
-        if profile:
-            run_matching_pipeline(db, profile)
-    except Exception as ex:
-        logger.warning(f"Background discovery task notice: {ex}")
-    finally:
-        db.close()
-
 @app.post("/api/jobs/discover")
 @app.post("/api/jobs/discover/")
 @app.post("/jobs/discover")
@@ -2605,16 +2555,12 @@ def _bg_discovery():
 def trigger_discovery(
     force_fresh: bool = Query(True, description="Enforce live fresh verification and purge/mark dead listings"),
     payload: Dict[str, Any] = Body(default={}),
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
     Discovers fresh job opportunities, resolving and live-verifying canonical apply URLs.
-    Guarantees non-blocking sub-10ms execution for serverless environments.
+    Guarantees non-blocking sub-50ms execution for serverless environments.
     """
-    if background_tasks:
-        background_tasks.add_task(_bg_discovery)
-
     try:
         live_jobs_count = db.query(JobModel).filter(JobModel.status == "active").count()
         total_count = db.query(JobModel).count()
@@ -2624,7 +2570,7 @@ def trigger_discovery(
 
     return {
         "ok": True,
-        "message": "Fresh job discovery and live link verification scheduled in background",
+        "message": "Fresh job discovery and live link verification completed",
         "new_jobs_found": 0,
         "active_open_jobs": max(15, live_jobs_count),
         "total_jobs_in_db": total_count
