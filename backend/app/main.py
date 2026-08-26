@@ -3654,17 +3654,24 @@ def list_india_internships_endpoint(
         sort_by=sort_by
     )
     if not results:
-        run_india_internship_scan(db)
-        results = get_india_internships(
-            db, 
-            location_filter=location, 
-            domain_filter=domain,
-            min_stipend=min_stipend,
-            ppo_only=ppo_only,
-            remote_only=remote_only,
-            search_query=search,
-            sort_by=sort_by
-        )
+        try:
+            run_india_internship_scan(db)
+            results = get_india_internships(
+                db, 
+                location_filter=location, 
+                domain_filter=domain,
+                min_stipend=min_stipend,
+                ppo_only=ppo_only,
+                remote_only=remote_only,
+                search_query=search,
+                sort_by=sort_by
+            )
+        except Exception as ex:
+            logger.warning(f"Live internship scan skipped on request thread: {ex}")
+            
+    if not results:
+        results = RAW_INDIA_INTERNSHIPS_SEED
+
     return results
 
 @app.post("/api/internships/india/scan")
