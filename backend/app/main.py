@@ -88,6 +88,12 @@ from backend.app.data_source_registry import is_source_compliant, DATA_SOURCE_RE
 
 logger = logging.getLogger(__name__)
 
+@app.middleware("http")
+async def debug_path_middleware(request: Request, call_next):
+    print(f"[DEBUG PATH MIDDLEWARE] {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
 # Initialize DB tables locally (Skip DDL execution during Vercel cold-starts)
 if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
     try:
