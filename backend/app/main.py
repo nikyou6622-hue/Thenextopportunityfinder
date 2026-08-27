@@ -2784,7 +2784,7 @@ def get_matches(
     include_dead: bool = False,
     min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(1000, ge=1, le=5000),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):

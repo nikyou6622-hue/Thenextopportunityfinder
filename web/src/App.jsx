@@ -319,7 +319,7 @@ export default function App() {
       // 2. Matches
       try {
         setMatchesError(null);
-        const matchRes = await apiFetch('/api/matches');
+        const matchRes = await apiFetch('/api/matches?limit=1000');
         if (matchRes && matchRes.ok) {
           const matchData = await safeJson(matchRes, []);
           if (Array.isArray(matchData)) setMatches(matchData);
