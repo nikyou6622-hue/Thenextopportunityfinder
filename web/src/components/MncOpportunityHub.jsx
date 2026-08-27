@@ -484,7 +484,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
             const comp = job.company || 'MNC Corp';
             const isNewToday = job.posted_date === todayStr;
             const cLower = comp.toLowerCase();
-            const isJobLocked = !isPro && idx >= 5;
+            const isJobLocked = !isPro && (!profile || !profile.email) && idx >= 15;
 
             const themeType = cLower.includes('spotify') ? 'amber' :
               cLower.includes('airbnb') ? 'coral' :

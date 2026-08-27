@@ -833,7 +833,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               const matchScore = getDynamicMatchScore(item);
               const comp = item.company || 'TechCorp';
               const cLower = comp.toLowerCase();
-              const isJobLocked = !isPro && idx >= 5;
+              const isJobLocked = !isPro && (!profile || !profile.email) && idx >= 15;
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :

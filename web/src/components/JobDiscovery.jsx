@@ -485,7 +485,7 @@ export default function JobDiscovery({
               const comp = job.company || 'TechCorp';
               const cLower = comp.toLowerCase();
               const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-              const isJobLocked = !isPro && globalIdx >= 5;
+              const isJobLocked = !isPro && (!profile || !profile.email) && globalIdx >= 15;
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :

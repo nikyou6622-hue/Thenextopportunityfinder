@@ -24,8 +24,11 @@ export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.e
   : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? `http://${window.location.hostname}:8000` : '');
 
 export async function apiFetch(url, options = {}) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
   const defaultHeaders = {
-    'Accept': 'application/json', ...options.headers
+    'Accept': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...options.headers
   };
 
   const fetchOptions = {
