@@ -1,4 +1,3 @@
-// Synthetic Web Audio API Sound Effects Engine (Zero heavy external assets)
 let audioCtx = null;
 let soundEnabled = true;
 
@@ -9,18 +8,31 @@ try {
   }
 } catch {}
 
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener('click', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
+}
+
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
   if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
-    }
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+    } catch {}
   }
   if (audioCtx && audioCtx.state === 'suspended') {
     audioCtx.resume().catch(() => {});
   }
-  return audioCtx;
+  return audioCtx && audioCtx.state === 'running' ? audioCtx : null;
 }
 
 export const SoundSystem = {
