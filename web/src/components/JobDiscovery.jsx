@@ -56,11 +56,17 @@ export default function JobDiscovery({
   const domains = ['all', ...new Set(safeMatches.map(m => m.job?.domain).filter(Boolean))];
 
   const getJobMatchScore = useCallback((m) => {
+    if (!m) return 75;
+    if (typeof m.match_score === 'number' && m.match_score > 0) {
+      return m.match_score;
+    }
     const job = m.job || m;
-    if (m.match_score) return m.match_score;
-    
+    if (typeof job.match_score === 'number' && job.match_score > 0) {
+      return job.match_score;
+    }
+
     if (!profile || !profile.skills || profile.skills.length === 0) {
-      return job.match_score || 75;
+      return 75;
     }
 
     const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
@@ -76,7 +82,7 @@ export default function JobDiscovery({
     if (matchCount > 0) {
       return Math.min(99, Math.round(70 + ratio * 28));
     }
-    return Math.round(35 + (1 / requiredSkills.length) * 10);
+    return 75;
   }, [profile]);
 
   const [currentPage, setCurrentPage] = useState(1);

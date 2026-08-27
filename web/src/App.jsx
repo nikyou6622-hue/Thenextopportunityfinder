@@ -67,7 +67,7 @@ const DEFAULT_FALLBACK_PROFILE = {
   city: 'Bengaluru',
   country: 'India',
   summary: 'Experienced tech professional specializing in full-stack web applications, scalable backend microservices, and system architecture.',
-  skills: ['React', 'JavaScript', 'Python', 'FastAPI', 'Node.js', 'PostgreSQL', 'Docker', 'Git'],
+  skills: ['TypeScript', 'Python', 'Django', 'Node.js', 'Java', 'Go', 'PostgreSQL', 'Redis', 'Elasticsearch', 'Docker', 'Kubernetes', 'AWS', 'REST API', 'Git', 'Terraform', 'CI/CD', 'SQL', 'System Design', 'Microservices', 'Kafka'],
   experience_list: [
     {
       title: 'Backend & Systems Engineer',
