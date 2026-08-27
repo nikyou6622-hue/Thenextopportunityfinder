@@ -2816,35 +2816,26 @@ def get_matches(
         .all()
     )
 
-    if not matches:
-        pass
+    # Bulk pre-fetch all referenced jobs in 1 SQL query to eliminate N+1 latency
+    job_ids = [m.job_id for m in matches]
+    job_rows = db.query(JobModel).filter(JobModel.id.in_(job_ids)).all() if job_ids else []
+    job_map = {j.id: j for j in job_rows}
     
     result = []
     for m in matches:
-        job = db.query(JobModel).filter(JobModel.id == m.job_id).first()
+        job = job_map.get(m.job_id)
         if not job:
             continue
         if job.company and job.company.strip().lower() in UNRELIABLE_COMPANIES:
             continue
         if search:
             s_lower = search.lower()
-            if s_lower not in job.role_title.lower() and s_lower not in job.company.lower() and s_lower not in (job.domain or "").lower():
+            if s_lower not in (job.role_title or "").lower() and s_lower not in (job.company or "").lower() and s_lower not in (job.domain or "").lower():
                 continue
         url = (job.apply_url_resolved or job.apply_url or "").strip()
         if not include_dead:
             if job.status == "removed" or job.link_status == "dead" or not url or url in ["", "#"] or "staletest" in url.lower() or not url.startswith(("http://", "https://", "mailto:")):
                 continue
-
-        # Gatekeeper 1: Strict India Relevance Filter
-        loc_str = str(job.location or "").lower()
-        loc_type = str(job.location_type or "").lower()
-        is_international = "international" in loc_type or any(x in loc_str for x in ["shanghai", "darwin", "sydney", "london", "tokyo", "berlin"])
-        if is_international and "india" not in loc_str:
-            continue
-
-        # Gatekeeper 2: Minimum Qualification Score & Skill Overlap Threshold
-        if m.match_score < min_score:
-            continue
 
         m_skills = m.matched_skills or m.matching_skills or []
         m_count = max(len(m_skills), m.matched_count or 0)
@@ -2872,16 +2863,15 @@ def get_matches(
         result.append(match_dict)
 
     if not result:
-        # Dynamic fallback: Surface top active India catalog jobs as matches directly in < 50ms
+        # Dynamic fallback: Surface top active catalog jobs directly
         try:
             active_jobs = db.query(JobModel).filter(
-                JobModel.status == "active",
-                ~JobModel.location_type.ilike("%international%")
+                JobModel.status == "active"
             ).order_by(JobModel.id.desc()).limit(50).all()
             for idx, job in enumerate(active_jobs, 1):
                 if search:
                     s_lower = search.lower()
-                    if s_lower not in job.role_title.lower() and s_lower not in job.company.lower():
+                    if s_lower not in (job.role_title or "").lower() and s_lower not in (job.company or "").lower():
                         continue
                 req_skills = job.required_skills or []
                 match_dict = {
