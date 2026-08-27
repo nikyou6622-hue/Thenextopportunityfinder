@@ -1973,11 +1973,13 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    # Automatically compute job matches for this candidate profile asynchronously
+    # Synchronously purge stale matches and compute fresh job matches for this candidate profile
     try:
-        run_matching_pipeline_background(profile.id)
+        db.query(MatchModel).filter(MatchModel.profile_id == profile.id).delete(synchronize_session=False)
+        db.commit()
+        run_matching_pipeline(db, profile)
     except Exception as e:
-        logger.warning(f"Background matching pipeline trigger notice: {e}")
+        logger.warning(f"Synchronous matching pipeline execution notice: {e}")
 
     # Evaluate Quality Score
     quality_eval = evaluate_resume_quality({
@@ -2500,17 +2502,20 @@ def trigger_retention_purge(
 
 @app.post("/api/profile", response_model=ProfileSchema)
 def update_profile(
+    request: Request,
     profile_data: ProfileSchema, 
     db: Session = Depends(get_db),
     auth_user: str = Depends(require_auth_or_api_key)
 ):
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, request=request)
     if not profile:
-        profile = ProfileModel()
+        user = get_current_user_from_request(request, db)
+        user_email = user.email if user else "candidate@dev.io"
+        profile = ProfileModel(email=user_email)
         db.add(profile)
     
     profile.name = profile_data.name
-    profile.email = profile_data.email
+    profile.email = profile_data.email or profile.email
     profile.phone = profile_data.phone
     profile.location = profile_data.location.dict() if hasattr(profile_data.location, "dict") else profile_data.location
     profile.skills = profile_data.skills
@@ -2537,6 +2542,9 @@ def update_profile(
     db.commit()
     db.refresh(profile)
 
+    # Purge stale matches and run synchronous matching pipeline
+    db.query(MatchModel).filter(MatchModel.profile_id == profile.id).delete(synchronize_session=False)
+    db.commit()
     run_matching_pipeline(db, profile)
     raw_decrypted = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
 
