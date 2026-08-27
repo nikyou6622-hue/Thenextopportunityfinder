@@ -553,37 +553,47 @@ export default function App() {
     try {
       // 1. Client-Side Parsing via Mozilla PDF.js engine
       const parsedProfile = await parseResumeFileClient(file);
+      let finalProf = parsedProfile;
       
       // 2. Sync Extracted Resume Profile to Supabase & Backend API
       if (parsedProfile) {
         setProfile(parsedProfile);
+        saveProfileToLocal(parsedProfile);
         await saveProfileToSupabase(parsedProfile);
 
         try {
-          await apiFetch('/api/profile/upload', {
+          const syncRes = await apiFetch('/api/profile/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(parsedProfile),
             credentials: 'include'
           });
+          if (syncRes && syncRes.ok) {
+            const apiSaved = await syncRes.json();
+            if (apiSaved && apiSaved.skills && apiSaved.skills.length > 0) {
+              finalProf = apiSaved;
+              setProfile(apiSaved);
+              saveProfileToLocal(apiSaved);
+            }
+          }
         } catch (err) {
           console.warn("API profile sync notice:", err);
         }
       }
 
-      // 3. Scrape fresh matching jobs for newly extracted candidate skills & refresh matches
+      // 3. Directly fetch fresh matches for newly extracted candidate skills & refresh matches
       try {
-        const activeSkills = parsedProfile?.skills || profile?.skills || [];
-        await apiFetch('/api/jobs/discover', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ skills: activeSkills }) 
-        });
-      } catch {}
+        const matchRes = await apiFetch('/api/matches?limit=1000');
+        if (matchRes && matchRes.ok) {
+          const matchData = await safeJson(matchRes, []);
+          if (Array.isArray(matchData)) setMatches(matchData);
+        }
+      } catch (e) {
+        console.warn("Match refresh notice:", e);
+      }
 
-      await loadData();
       try { SoundSystem.playSuccess(); } catch {}
-      return parsedProfile;
+      return finalProf;
     } catch (e) {
       console.warn("Upload notice:", e);
       return null;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '../lib/apiClient';
 import { 
   FileText, 
   Sparkles, 
@@ -113,7 +114,7 @@ export default function StagedResumeProcessor({
         setCurrentStage(4);
 
         try {
-          const pollRes = await fetch('/api/profile/upload-status');
+          const pollRes = await apiFetch('/api/profile/upload-status');
           if (pollRes.ok) {
             const pollData = await pollRes.json();
             const stage2 = pollData?.stages?.['2_ats_scoring'];

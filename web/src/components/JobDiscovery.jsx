@@ -39,7 +39,7 @@ export default function JobDiscovery({
 }) {
   const [activeTab, setActiveTab] = useState('matched'); // 'matched' | 'global_tech'
   const [filterDomain, setFilterDomain] = useState('all');
-  const [minScore, setMinScore] = useState(50);
+  const [minScore, setMinScore] = useState(0);
   const [actionPlanData, setActionPlanData] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [purging, setPurging] = useState(false);

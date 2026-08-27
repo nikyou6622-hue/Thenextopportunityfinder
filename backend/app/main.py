@@ -1949,11 +1949,13 @@ async def upload_resume(
     proj_items = parsed_data.get("projects") or []
     strengths = parsed_data.get("key_strengths") or (parsed_data.get("skills", [])[:5] if parsed_data.get("skills") else [])
 
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, request=request)
     if not profile:
+        user = get_current_user_from_request(request, db)
+        user_email = user.email if user else (parsed_data.get("email") or "candidate@dev.io")
         profile = ProfileModel(
-            name=parsed_data.get("name") or "Candidate",
-            email=parsed_data.get("email"),
+            name=parsed_data.get("name") or (user.full_name if user else "Candidate"),
+            email=user_email,
             phone=parsed_data.get("phone"),
             location=parsed_data.get("location") or {},
             skills=parsed_data.get("skills") or [],
@@ -1974,11 +1976,12 @@ async def upload_resume(
         )
         db.add(profile)
     else:
-        profile.name = parsed_data.get("name") or profile.name or "Candidate"
+        if parsed_data.get("name"): profile.name = parsed_data.get("name")
         if parsed_data.get("email"): profile.email = parsed_data.get("email")
         if parsed_data.get("phone"): profile.phone = parsed_data.get("phone")
         if parsed_data.get("skills"): profile.skills = parsed_data.get("skills")
-        profile.experience_years = float(parsed_data.get("experience_years") or profile.experience_years or 0.0)
+        if parsed_data.get("experience_years") is not None:
+            profile.experience_years = float(parsed_data.get("experience_years") or 0.0)
         if exp_items: profile.experience_list = exp_items; profile.past_roles = exp_items
         if edu_items: profile.education_list = edu_items; profile.education = edu_items
         if proj_items: profile.projects = proj_items
