@@ -1163,3 +1163,32 @@ button, a, input, select, textarea {
   }
 }
 
+/* 📱 MOBILE RESPONSIVE BOTTOM NAV CLEARANCE & FULL JOB GRID VISIBILITY */
+@media (max-width: 768px) {
+  body, #root, main, .page-container, .app-content {
+    padding-bottom: 120px !important;
+  }
+
+  .job-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  .mobile-pagination-wrap {
+    margin-bottom: 50px !important;
+    padding-bottom: 50px !important;
+    position: relative !important;
+    z-index: 10 !important;
+  }
+
+  .mobile-nowrap-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+  .mobile-nowrap-scroll::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+

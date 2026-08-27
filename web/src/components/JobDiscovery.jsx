@@ -80,11 +80,11 @@ export default function JobDiscovery({
   }, [profile]);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterDomain, minScore]);
+  }, [searchQuery, filterDomain, minScore, itemsPerPage]);
 
   const filteredMatches = safeMatches.filter(m => {
     const job = m.job || m;
@@ -891,50 +891,107 @@ export default function JobDiscovery({
             )}
           </div>
 
-          {/* Pagination Controls */}
-          {filteredMatches.length > itemsPerPage && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => {
-                  SoundSystem.playPop();
-                  setCurrentPage(p => Math.max(1, p - 1));
-                }}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  background: currentPage <= 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
-                  color: currentPage <= 1 ? '#64748B' : '#F8FAFC',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.82rem',
-                  fontWeight: 600
-                }}
-              >
-                ← Previous Page
-              </button>
-              <span style={{ fontSize: '0.82rem', color: '#94A3B8', fontWeight: 600 }}>
-                Page <strong style={{ color: '#F8FAFC' }}>{currentPage}</strong> of <strong style={{ color: '#F8FAFC' }}>{totalPages}</strong> ({filteredMatches.length} total matches)
-              </span>
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => {
-                  SoundSystem.playPop();
-                  setCurrentPage(p => Math.min(totalPages, p + 1));
-                }}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  background: currentPage >= totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
-                  color: currentPage >= totalPages ? '#64748B' : '#F8FAFC',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
-                  fontSize: '0.82rem',
-                  fontWeight: 600
-                }}
-              >
-                Next Page →
-              </button>
+          {/* Enhanced Mobile & Desktop Pagination Controls */}
+          {filteredMatches.length > 0 && (
+            <div 
+              className="mobile-pagination-wrap"
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '16px', 
+                marginTop: '32px', 
+                marginBottom: '40px',
+                paddingBottom: '40px',
+                width: '100%'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => {
+                    SoundSystem.playPop();
+                    setCurrentPage(p => {
+                      const nextP = Math.max(1, p - 1);
+                      window.scrollTo({ top: 250, behavior: 'smooth' });
+                      return nextP;
+                    });
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    background: currentPage <= 1 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    color: currentPage <= 1 ? '#64748B' : '#FFFFFF',
+                    border: '1px solid ' + (currentPage <= 1 ? 'rgba(255,255,255,0.1)' : '#818cf8'),
+                    cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    boxShadow: currentPage <= 1 ? 'none' : '0 4px 14px rgba(99, 102, 241, 0.3)'
+                  }}
+                >
+                  ← Prev
+                </button>
+
+                <span style={{ fontSize: '0.85rem', color: '#94A3B8', fontWeight: 700, padding: '0 8px' }}>
+                  Page <strong style={{ color: '#F8FAFC', fontSize: '0.95rem' }}>{currentPage}</strong> of <strong style={{ color: '#F8FAFC', fontSize: '0.95rem' }}>{totalPages}</strong>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#818cf8', marginTop: '2px', textAlign: 'center' }}>
+                    ({filteredMatches.length} total live matches)
+                  </span>
+                </span>
+
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => {
+                    SoundSystem.playPop();
+                    setCurrentPage(p => {
+                      const nextP = Math.min(totalPages, p + 1);
+                      window.scrollTo({ top: 250, behavior: 'smooth' });
+                      return nextP;
+                    });
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    background: currentPage >= totalPages ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    color: currentPage >= totalPages ? '#64748B' : '#FFFFFF',
+                    border: '1px solid ' + (currentPage >= totalPages ? 'rgba(255,255,255,0.1)' : '#818cf8'),
+                    cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    boxShadow: currentPage >= totalPages ? 'none' : '0 4px 14px rgba(99, 102, 241, 0.3)'
+                  }}
+                >
+                  Next →
+                </button>
+              </div>
+
+              {/* Show All / Page Size Options */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#94a3b8', background: 'rgba(255,255,255,0.04)', padding: '6px 16px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span>Jobs Per Page:</span>
+                {[12, 24, 50, 100].map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => {
+                      SoundSystem.playPop();
+                      setItemsPerPage(size);
+                      setCurrentPage(1);
+                    }}
+                    style={{
+                      background: itemsPerPage === size ? '#6366f1' : 'transparent',
+                      color: itemsPerPage === size ? '#ffffff' : '#94a3b8',
+                      border: 'none',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: itemsPerPage === size ? 800 : 500,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </>
