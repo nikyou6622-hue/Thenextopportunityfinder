@@ -1532,6 +1532,8 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
         jobs = jobs_query.order_by(JobModel.id.desc()).all()
 
     decrypted_resume_text = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
+    stopwords = {"the", "and", "a", "to", "in", "is", "for", "with", "on", "at", "by", "of", "an", "be", "as", "are", "or", "our", "we", "you", "your"}
+    parsed_resume_words = set(re.findall(r'\w+', decrypted_resume_text.lower())) - stopwords if decrypted_resume_text else set()
 
     profile_dict = {
         "name": profile.name,
@@ -1541,7 +1543,7 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
         "skills": profile.skills or [],
         "experience_years": profile.experience_years or 0.0,
         "domains": profile.domains or [],
-        "raw_resume_text": decrypted_resume_text
+        "raw_resume_text": parsed_resume_words
     }
 
     # Fetch outcome feedback signals
@@ -1601,31 +1603,6 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
                 skill_match_percentage=match_result["skill_match_percentage"]
             )
             db.add(new_match)
-            db.flush()
-            existing_match = new_match
-
-        if match_result["is_qualified"] and job.id not in existing_apps:
-            tailored_data = tailor_resume_for_job(profile_dict, job_dict, match_result)
-            app_entry = ApplicationModel(
-                match_id=existing_match.id,
-                job_id=job.id,
-                profile_id=profile.id,
-                status=tailored_data["status"],
-                apply_mode=tailored_data["apply_mode"],
-                tailored_summary=tailored_data["tailored_summary"],
-                tailored_skills=tailored_data["tailored_skills"],
-                form_autofill_data=tailored_data["form_autofill_data"]
-            )
-            db.add(app_entry)
-            db.flush()
-            existing_apps[job.id] = app_entry
-            
-            event = ApplicationEventModel(
-                application_id=app_entry.id,
-                event_type="matched_and_tailored",
-                details=f"Auto-tailored for {job.company} with score {match_result['match_score']}%"
-            )
-            db.add(event)
 
     db.commit()
 

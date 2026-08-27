@@ -5,7 +5,7 @@ Integrates deterministic skill normalization and zero-hallucination set intersec
 
 import re
 import logging
-from typing import Dict, Any, List, Tuple, Optional, Set
+from typing import Dict, Any, List, Tuple, Optional, Set, Union
 from backend.app.utils.skill_normalizer import normalize_skill, normalize_skill_list
 
 logger = logging.getLogger(__name__)
@@ -68,14 +68,14 @@ def compute_skill_match(resume_skills: List[str], job_required_skills: List[str]
 
 def calculate_domain_fit(profile_domains: List[str], job_domain: str) -> float:
     """Calculates domain fit score based on profile domains and job domain tag."""
-    if not job_domain or job_domain == "general":
+    if not job_domain or job_domain == "general" or not profile_domains:
         return 75.0
     
     job_domain_lower = job_domain.lower()
     for d in profile_domains:
         if d.lower() in job_domain_lower or job_domain_lower in d.lower():
             return 100.0
-    return 40.0
+    return 50.0
 
 def calculate_location_fit(profile_location: Dict[str, Any], job_location: str, job_remote: bool) -> float:
     """Calculates location fit score based on remote flags and location string."""
@@ -97,18 +97,19 @@ def calculate_location_fit(profile_location: Dict[str, Any], job_location: str, 
         
     return 60.0
 
-def calculate_semantic_sim(raw_resume_text: str, job_description: str) -> float:
+def calculate_semantic_sim(raw_resume_text: Union[str, Set[str]], job_description: str) -> float:
     """Calculates semantic similarity score between candidate resume text and job description."""
     if not raw_resume_text or not job_description:
         return 70.0
 
     try:
-        words_resume = set(re.findall(r'\w+', raw_resume_text.lower()))
-        words_job = set(re.findall(r'\w+', job_description.lower()))
-        
         stopwords = {"the", "and", "a", "to", "in", "is", "for", "with", "on", "at", "by", "of", "an", "be", "as", "are", "or", "our", "we", "you", "your"}
-        words_resume -= stopwords
-        words_job -= stopwords
+        if isinstance(raw_resume_text, set):
+            words_resume = raw_resume_text
+        else:
+            words_resume = set(re.findall(r'\w+', str(raw_resume_text).lower())) - stopwords
+        
+        words_job = set(re.findall(r'\w+', str(job_description).lower())) - stopwords
         
         if not words_job:
             return 70.0
