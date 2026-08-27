@@ -205,6 +205,7 @@ def compute_match(
         0.25 * domain_score +
         0.15 * location_score +
         0.20 * semantic_score
+    )
     # Sanity check: Non-technical roles (Store Manager, Cleaner, etc.) yield 0 match score
     is_technical = job.get("is_technical", True)
     if not is_technical:

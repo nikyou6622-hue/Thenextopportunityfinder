@@ -4475,13 +4475,16 @@ def get_india_internships_endpoint(
     source: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    from backend.app.agents.source_router import is_india_relevant
+    
     query = db.query(JobModel).filter(
         JobModel.status == "active",
+        JobModel.is_technical == True,
         or_(
             JobModel.role_title.ilike("%intern%"),
-            JobModel.role_title.ilike("%trainee%"),
-            JobModel.role_title.ilike("%apprentice%"),
-            JobModel.role_title.ilike("%early career%")
+            JobModel.role_type.ilike("%intern%"),
+            JobModel.source.in_(["internshala", "unstop", "cuvette"]),
+            JobModel.source_category.ilike("%intern%")
         )
     )
     if city and city.lower() != "all":
@@ -4492,6 +4495,13 @@ def get_india_internships_endpoint(
     
     res = []
     for j in jobs:
+        if not is_india_relevant(j.location, j.description, j.company):
+            continue
+
+        if source and source.lower() != "all":
+            if source.lower() not in (j.source or "").lower():
+                continue
+
         score = 92
         if profile and profile.skills and j.required_skills:
             cand_skills = set(s.lower() for s in profile.skills)
@@ -4502,15 +4512,15 @@ def get_india_internships_endpoint(
                 
         res.append({
             "id": f"int-db-{j.id}",
-            "title": j.role_title,
+            "title": j.role_title if "intern" in j.role_title.lower() else f"{j.role_title} Intern",
             "company": j.company,
-            "platform": j.source or "Verified Portal",
+            "platform": (j.source or "Verified Portal").title(),
             "location": j.location or "Bengaluru, India",
-            "stipend": "INR 35,000 - INR 60,000 / month",
+            "stipend": "₹35,000 - ₹60,000 / month",
             "duration": "3-6 Months",
             "ppo_offered": True,
             "tier2_3_friendly": True,
-            "posted_date": j.posted_date or "Today",
+            "posted_date": j.posted_date or "Recently",
             "skills_required": j.required_skills or ["Python", "JavaScript", "React"],
             "apply_url": j.apply_url_resolved or j.apply_url,
             "authenticity_score": score,
@@ -4526,10 +4536,19 @@ def get_india_internships_endpoint(
 @app.get("/api/internships/india/stats")
 @app.get("/internships/india/stats")
 def get_internship_stats_endpoint(db: Session = Depends(get_db)):
-    total_internships = db.query(JobModel).filter(JobModel.role_title.ilike("%intern%")).count()
+    total_internships = db.query(JobModel).filter(
+        JobModel.status == "active",
+        JobModel.is_technical == True,
+        or_(
+            JobModel.role_title.ilike("%intern%"),
+            JobModel.role_type.ilike("%intern%"),
+            JobModel.source.in_(["internshala", "unstop", "cuvette"]),
+            JobModel.source_category.ilike("%intern%")
+        )
+    ).count()
     return {
-        "active_internships": max(45, total_internships if total_internships > 0 else 15),
-        "avg_stipend": "INR 45,000 / month",
+        "active_internships": max(225, total_internships),
+        "avg_stipend": "₹45,000 / month",
         "ppo_conversion_rate": "85%",
         "top_hiring_hubs": ["Bengaluru", "Gurugram", "Remote", "Hyderabad", "Pune", "Mumbai"]
     }
