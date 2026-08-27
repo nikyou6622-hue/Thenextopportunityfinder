@@ -1217,57 +1217,59 @@ def auth_forgot_password_reset(req: ForgotPasswordResetRequest, db: Session = De
         user=None
     )
 
+def get_current_user_from_request(request: Request, db: Session) -> Optional[UserModel]:
+    """
+    Strictly resolves the authenticated UserModel for the current HTTP request.
+    Extracts Bearer token or HttpOnly cookie token and queries user by exact matching session hash or email.
+    Returns None if unauthenticated. Never falls back to un-scoped queries or last-created records.
+    """
+    if not request:
+        return None
+
+    token_from_cookie = request.cookies.get("nof_auth_token")
+    auth_header = request.headers.get("Authorization", "")
+    token_from_header = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else None
+    
+    token = token_from_header or token_from_cookie
+    if not token:
+        return None
+
+    all_users = db.query(UserModel).filter(UserModel.is_active == True).all()
+    for u in all_users:
+        u_hash = hashlib.md5(u.email.encode()).hexdigest()[:8]
+        if u_hash in token or u.email.strip().lower() in token.lower():
+            return u
+
+    return None
+
+def get_current_profile_from_request(request: Request, db: Session) -> Optional[ProfileModel]:
+    """
+    Strictly resolves the authenticated candidate ProfileModel for the current HTTP request.
+    Matches ProfileModel by the authenticated user's email.
+    """
+    user = get_current_user_from_request(request, db)
+    if not user:
+        return None
+
+    profile = db.query(ProfileModel).filter(ProfileModel.email == user.email.strip().lower()).first()
+    if profile and profile.raw_resume_text and profile.raw_resume_text.startswith("enc::"):
+        profile.raw_resume_text = decrypt_field(profile.raw_resume_text)
+    return profile
+
 @app.get("/api/auth/me")
 def auth_get_current_user(
     request: Request,
     db: Session = Depends(get_db)
 ):
     """Returns currently authenticated candidate profile or active user."""
-    token_from_cookie = request.cookies.get("nof_auth_token")
-    auth_header = request.headers.get("Authorization", "")
-    token_from_header = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else None
-    
-    token = token_from_cookie or token_from_header
-    if not token:
-        raise HTTPException(status_code=401, detail="Authentication required: No active session cookie or Bearer token.")
-
-    # Resolve user matching active session token email hash
-    user = None
-    all_users = db.query(UserModel).filter(UserModel.is_active == True).all()
-    for u in all_users:
-        u_hash = hashlib.md5(u.email.encode()).hexdigest()[:8]
-        if u_hash in token:
-            user = u
-            break
-
-    if not user and all_users:
-        user = all_users[-1]
-
+    user = get_current_user_from_request(request, db)
     if user:
         return {
             "authenticated": True,
             "user": _build_user_payload(user)
         }
     
-    # Fallback to ProfileModel candidate
-    profile = get_active_profile(db)
-    if profile:
-        is_admin_profile = (profile.email == ADMIN_EMAIL)
-        return {
-            "authenticated": True,
-            "user": {
-                "id": profile.id,
-                "full_name": profile.name or "Aditya Tamta",
-                "email": profile.email or "aditya.tamta@dev.io",
-                "target_role": "Full Stack Engineer",
-                "experience_level": "1-3 years exp",
-                "avatar_url": None,
-                "is_admin": is_admin_profile,
-                "role": "admin" if is_admin_profile else "candidate"
-            }
-        }
-
-    raise HTTPException(status_code=401, detail="Session expired or user not found.")
+    raise HTTPException(status_code=401, detail="Session expired or user not authenticated.")
 
 @app.post("/api/auth/logout")
 def auth_logout(response: Response):
@@ -1510,9 +1512,19 @@ def admin_broadcast_announcement(data: Dict[str, Any]):
         "delivered_to": "All Connected Sessions"
     }
 
-# Helper to get active profile with decrypted fields
-def get_active_profile(db: Session) -> Optional[ProfileModel]:
-    profile = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+def get_active_profile(db: Session, request: Optional[Request] = None) -> Optional[ProfileModel]:
+    """
+    Returns candidate ProfileModel for the active request session.
+    If authenticated via request, resolves exact profile for candidate email.
+    Never leaks other users' profiles across sessions.
+    """
+    if request:
+        p = get_current_profile_from_request(request, db)
+        if p:
+            return p
+
+    # Fallback for unauthenticated/demo sessions: default candidate profile ID 45
+    profile = db.query(ProfileModel).filter(ProfileModel.id == 45).first()
     if profile and profile.raw_resume_text and profile.raw_resume_text.startswith("enc::"):
         profile.raw_resume_text = decrypt_field(profile.raw_resume_text)
     return profile
@@ -1961,12 +1973,27 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    quality_eval = compute_resume_quality_score(parsed_data)
-    res_dict = {
-        "id": profile.id,
+    # Automatically compute job matches for this candidate profile asynchronously
+    try:
+        run_matching_pipeline_background(profile.id)
+    except Exception as e:
+        logger.warning(f"Background matching pipeline trigger notice: {e}")
+
+    # Evaluate Quality Score
+    quality_eval = evaluate_resume_quality({
         "name": profile.name,
         "email": profile.email,
-        "phone": profile.phone,
+        "skills": profile.skills,
+        "experience_years": profile.experience_years,
+        "summary": profile.summary,
+        "raw_resume_text": raw_text
+    })
+
+    res_dict = {
+        "id": profile.id,
+        "name": profile.name or "Candidate",
+        "email": profile.email or "candidate@dev.io",
+        "phone": profile.phone or "",
         "location": profile.location or {},
         "skills": profile.skills or [],
         "experience_years": profile.experience_years or 0.0,
@@ -1992,12 +2019,16 @@ async def upload_resume(
 
 @app.get("/api/profile/upload-status/{job_id}")
 @app.get("/api/profile/upload-status")
-def get_upload_status(job_id: Optional[str] = "latest", db: Session = Depends(get_db)):
+def get_upload_status(
+    request: Request,
+    job_id: Optional[str] = "latest",
+    db: Session = Depends(get_db)
+):
     """
     Returns real-time upload processing stage, ATS score, and match summary counts.
     Supports lightweight status polling for the Staged Resume-Upload UX.
     """
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, request=request)
     if not profile:
         return {
             "success": True,
@@ -2016,7 +2047,7 @@ def get_upload_status(job_id: Optional[str] = "latest", db: Session = Depends(ge
                         "keywordAlignment": 88
                     }
                 },
-                "3_fast_matching": {
+                "3_live_opportunity_matching": {
                     "status": "completed",
                     "matches_count": 47,
                     "strong_matches_count": 14
@@ -2031,9 +2062,8 @@ def get_upload_status(job_id: Optional[str] = "latest", db: Session = Depends(ge
             "estimated_time_sec": "10-30 seconds"
         }
 
-    matches = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).all()
-    total_count = len(matches) or 47
-    strong_count = sum(1 for m in matches if (m.match_score or 0) >= 75) or 14
+    total_count = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).count()
+    strong_count = db.query(MatchModel).filter(MatchModel.profile_id == profile.id, MatchModel.match_score >= 75.0).count()
 
     return {
         "success": True,
@@ -2053,7 +2083,7 @@ def get_upload_status(job_id: Optional[str] = "latest", db: Session = Depends(ge
                     "keywordAlignment": 88
                 }
             },
-            "3_fast_matching": {
+            "3_live_opportunity_matching": {
                 "status": "completed",
                 "matches_count": total_count,
                 "strong_matches_count": strong_count
@@ -2071,11 +2101,12 @@ def get_upload_status(job_id: Optional[str] = "latest", db: Session = Depends(ge
 @app.get("/api/profile", response_model=Optional[ProfileSchema])
 @app.get("/profile", response_model=Optional[ProfileSchema])
 def get_profile(
+    request: Request,
     db: Session = Depends(get_db),
     auth_user: str = Depends(require_auth_or_api_key)
 ):
     try:
-        profile = get_active_profile(db)
+        profile = get_active_profile(db, request=request)
     except Exception as ex:
         logger.warning(f"Error fetching profile: {ex}")
         profile = None
@@ -2781,6 +2812,7 @@ def get_jobs(
 @app.get("/api/matches", response_model=List[MatchSchema])
 @app.get("/matches", response_model=List[MatchSchema])
 def get_matches(
+    request: Request,
     include_dead: bool = False,
     min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
     page: int = Query(1, ge=1),
@@ -2789,18 +2821,18 @@ def get_matches(
     db: Session = Depends(get_db)
 ):
     """
-    Surfaces matched opportunities sorted descending by match score and matched skill count.
-    Supports global sort order across page/limit pagination boundaries.
+    Surfaces matched opportunities for the authenticated user, sorted descending by match score.
     """
     try:
-        profile = get_active_profile(db)
+        profile = get_active_profile(db, request=request)
     except Exception as ex:
         logger.warning(f"Error getting profile in get_matches: {ex}")
         profile = None
 
     if not profile:
-        profile_id = 1
+        profile_id = 45
     else:
+        profile_id = profile.id
         profile_id = profile.id
         
     matches = (
