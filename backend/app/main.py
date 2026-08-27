@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import datetime
 import logging
@@ -2811,7 +2812,8 @@ def get_matches(
         .order_by(
             MatchModel.match_score.desc(),
             MatchModel.matched_count.desc(),
-            MatchModel.skill_match_percentage.desc()
+            MatchModel.skill_match_percentage.desc(),
+            MatchModel.id.desc()
         )
         .all()
     )
@@ -2821,13 +2823,36 @@ def get_matches(
     job_rows = db.query(JobModel).filter(JobModel.id.in_(job_ids)).all() if job_ids else []
     job_map = {j.id: j for j in job_rows}
     
+    from backend.app.agents.source_router import is_india_relevant, is_technical_role
+    
     result = []
+    seen_job_ids = set()
+
     for m in matches:
+        if m.job_id in seen_job_ids:
+            continue
+        seen_job_ids.add(m.job_id)
+
         job = job_map.get(m.job_id)
         if not job:
             continue
         if job.company and job.company.strip().lower() in UNRELIABLE_COMPANIES:
             continue
+
+        # Sanity check: Exclude non-technical roles
+        is_tech = job.is_technical if job.is_technical is not None else is_technical_role(job.role_title, job.description)
+        if not is_tech:
+            continue
+
+        # Trust Tier Gate: Tier 3 sources require stricter 65%+ threshold
+        trust_tier = job.source_trust_tier or "tier1_verified"
+        if trust_tier == "tier3_aggregator" and m.match_score < 65.0:
+            continue
+
+        # Universal India Relevance Gate
+        if not is_india_relevant(job.location, job.description, job.company):
+            continue
+
         if search:
             s_lower = search.lower()
             if s_lower not in (job.role_title or "").lower() and s_lower not in (job.company or "").lower() and s_lower not in (job.domain or "").lower():

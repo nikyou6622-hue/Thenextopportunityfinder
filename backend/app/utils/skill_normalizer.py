@@ -218,19 +218,57 @@ def normalize_skill_list(raw_list: Iterable[str]) -> Set[str]:
                 result.add(norm)
     return result
 
+SHORT_AMBIGUOUS_SKILL_PATTERNS = {
+    "go": [
+        r"\bgolang\b",
+        r"\bgo\s+(programming|language|developer|engineer|backend|coding|code)\b",
+        r"\b(backend|software|systems?)\s+go\b",
+        r"\bgo\s*,\s*(python|java|c\+\+|rust|docker|kubernetes|postgres|sql)\b",
+        r"\b(python|java|c\+\+|rust|docker|kubernetes|postgres|sql)\s*,\s*go\b"
+    ],
+    "c": [
+        r"\bc\s+(programming|language|code|developer|engineer)\b",
+        r"\bc\s*/\s*c\+\+\b",
+        r"\bc\+\+\s*/\s*c\b",
+        r"\b(embedded|low-level|systems?)\s+c\b"
+    ],
+    "r": [
+        r"\br\s+(programming|language|stats|statistics|analytics)\b",
+        r"\br-project\b",
+        r"\br\s*,\s*(python|spss|sas|stata)\b"
+    ],
+    "py": [
+        r"\bpython\b", r"\bpy3\b", r"\bpython3\b"
+    ],
+    "js": [
+        r"\bjavascript\b", r"\bjs\b\s*(developer|framework|library|code)"
+    ],
+    "ts": [
+        r"\btypescript\b", r"\bts\b\s*(developer|framework|code)"
+    ]
+}
+
 def extract_skills_from_text(text: str) -> List[str]:
     """
     Extracts and normalizes skills found in job descriptions or resume text,
-    returning display-formatted canonical skill names.
+    returning display-formatted canonical skill names with strict context guards
+    for short/ambiguous English words (e.g., 'go', 'c', 'r').
     """
     if not text:
         return []
     text_lower = text.lower()
     extracted = set()
+
     for raw_skill, canonical in SKILL_SYNONYMS.items():
-        pattern = r'\b' + re.escape(raw_skill) + r'\b'
-        if re.search(pattern, text_lower):
-            extracted.add(format_skill_display(canonical))
+        if raw_skill in SHORT_AMBIGUOUS_SKILL_PATTERNS:
+            guards = SHORT_AMBIGUOUS_SKILL_PATTERNS[raw_skill]
+            if any(re.search(g_pat, text_lower) for g_pat in guards):
+                extracted.add(format_skill_display(canonical))
+        else:
+            pattern = r'\b' + re.escape(raw_skill) + r'\b'
+            if re.search(pattern, text_lower):
+                extracted.add(format_skill_display(canonical))
+                
     return sorted(list(extracted))
 
 def get_db_skill_normalization_stats(db_path: str = "nextoppr.db") -> Dict[str, Any]:

@@ -68,6 +68,8 @@ class JobModel(Base):
     posted_date = Column(String, default="")
     source = Column(String, index=True, default="manual") # internshala, naukri, instahyre, cutshort, wellfound, linkedin, etc.
     source_category = Column(String, index=True, default="startup") # startup vs mnc
+    source_trust_tier = Column(String, index=True, default="tier1_verified") # tier1_verified, tier2_curated, tier3_aggregator
+    is_technical = Column(Boolean, index=True, default=True) # Technical role sanity flag
     company_tier = Column(String, index=True, default="startup_ecosystem") # large_it_services, consulting, product_unicorn, etc.
     external_id = Column(String, unique=True, index=True, nullable=True)
     source_posted_at = Column(String, nullable=True)

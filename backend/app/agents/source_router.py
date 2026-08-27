@@ -583,3 +583,130 @@ def assert_no_auto_apply_handlers() -> bool:
         if cfg.get("allow_auto_apply", False):
             raise AssertionError(f"Compliance violation: source '{source_name}' has allow_auto_apply=True!")
     return True
+
+
+class SourceTrustTier(str, Enum):
+    TIER1_VERIFIED = "tier1_verified"
+    TIER2_CURATED = "tier2_curated"
+    TIER3_AGGREGATOR = "tier3_aggregator"
+
+
+def get_source_trust_tier(source: Optional[str] = "", apply_url: Optional[str] = "", source_category: Optional[str] = "") -> str:
+    """
+    Categorizes job listings into Source Trust Tiers:
+    - Tier 1 (Verified/Structured): Direct company ATS APIs (Greenhouse, Lever, Ashby, Workday) and verified direct company portals (Google, Microsoft, Amazon, Swiggy, Zomato, Razorpay, PhonePe, Cred, Postman, Atlassian, Uber, Stripe).
+    - Tier 2 (Curated Tech Portals): Internshala, Unstop, Cuvette, CutShort, Instahyre.
+    - Tier 3 (Generic Global Aggregators): RemoteOK, FreeHire, HackerNews, generic job boards.
+    """
+    src_str = (source or "").lower()
+    url_str = (apply_url or "").lower()
+    cat_str = (source_category or "").lower()
+
+    # Tier 1: Direct ATS & Verified MNC Portals
+    tier1_domains = ["greenhouse.io", "lever.co", "ashbyhq.com", "myworkdayjobs.com", "taleo.net", "oraclecloud.com"]
+    if any(d in url_str for d in tier1_domains) or cat_str == "mnc" or "mnc" in src_str:
+        return SourceTrustTier.TIER1_VERIFIED.value
+
+    tier1_companies = [
+        "google", "microsoft", "amazon", "swiggy", "zomato", "blinkit", "razorpay", 
+        "phonepe", "cred", "postman", "atlassian", "uber", "stripe", "browserstack", 
+        "deloitte", "wipro", "tcs", "infosys", "accenture", "cognizant", "capgemini"
+    ]
+    if any(c in src_str or c in url_str for c in tier1_companies):
+        return SourceTrustTier.TIER1_VERIFIED.value
+
+    # Tier 2: Curated India Tech Portals
+    tier2_keywords = ["internshala", "unstop", "cuvette", "cutshort", "instahyre"]
+    if any(k in src_str or k in url_str for k in tier2_keywords) or cat_str in ["internship", "curated_india"]:
+        return SourceTrustTier.TIER2_CURATED.value
+
+    # Tier 3: Generic Global Aggregators
+    return SourceTrustTier.TIER3_AGGREGATOR.value
+
+
+NON_TECHNICAL_ROLE_PATTERNS = [
+    r"\bstore\s+manager\b", r"\bgeneral\s+cleaner\b", r"\breceptionist\b", r"\bfront\s+office\b",
+    r"\bsales\s+(executive|representative|manager|associate)\b", r"\baccountant\b", r"\bwarehouse\b",
+    r"\bdriver\b", r"\bcleaner\b", r"\bsecurity\s+guard\b", r"\bwaiter\b", r"\bbarista\b",
+    r"\bnursery\s+teacher\b", r"\bhousekeeping\b", r"\bcashier\b", r"\bstorekeeper\b"
+]
+
+TECHNICAL_CORROBORATING_KEYWORDS = [
+    "software", "developer", "engineer", "coding", "programming", "full stack", "fullstack",
+    "backend", "frontend", "devops", "cloud", "data scientist", "data analyst", "data engineer",
+    "python", "react", "java", "golang", "c++", "fastapi", "django", "node.js", "typescript",
+    "postgresql", "mongodb", "docker", "kubernetes", "aws", "machine learning", "ai"
+]
+
+def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
+    """
+    Sanity check to confirm if a job posting genuinely represents a technical role.
+    Filters out non-technical job titles (e.g. Store Manager, Cleaner, Receptionist) 
+    that lack corroborating technical requirements.
+    """
+    if not role_title:
+        return False
+    
+    title_lower = role_title.lower()
+    desc_lower = (description or "").lower()
+    full_text = f"{title_lower} {desc_lower}"
+
+    # If title matches non-tech pattern and has no strong technical terms, flag False
+    is_non_tech_title = any(re.search(p, title_lower) for p in NON_TECHNICAL_ROLE_PATTERNS)
+    if is_non_tech_title:
+        # Check if there are at least 2 distinct corroborating tech terms in full text
+        tech_hits = sum(1 for kw in TECHNICAL_CORROBORATING_KEYWORDS if kw in full_text)
+        if tech_hits < 2:
+            return False
+
+    # Check if title or description has any technical signals
+    has_tech_title = any(kw in title_lower for kw in [
+        "developer", "engineer", "architect", "programmer", "tech", "data", "software",
+        "backend", "frontend", "full stack", "devops", "qa", "sde", "ai", "ml", "intern"
+    ])
+    if has_tech_title:
+        return True
+
+    # If title is neutral, check if description has technical terms
+    tech_hits = sum(1 for kw in TECHNICAL_CORROBORATING_KEYWORDS if kw in full_text)
+    return tech_hits >= 1
+
+
+INDIAN_CITIES_AND_REGIONS = [
+    "india", "bengaluru", "bangalore", "hyderabad", "gurugram", "gurgaon", "noida", 
+    "delhi", "ncr", "mumbai", "pune", "chennai", "kolkata", "ahmedabad", "jaipur", 
+    "kochi", "trivandrum", "indore", "chandigarh", "guwahati", "bhubaneswar", 
+    "coimbatore", "mysore", "remote (india)", "work from home"
+]
+
+def is_india_relevant(location: Optional[str] = "", description: Optional[str] = "", company: Optional[str] = "") -> bool:
+    """
+    Universal India relevance classifier applicable across all scrapers (Tier 1, Tier 2, Tier 3).
+    Ensures non-India, non-English-market jobs (e.g. Spanish-language Latin America, UK local)
+    are excluded from default India-focused feeds unless explicitly marked as global remote.
+    """
+    loc_str = str(location or "").lower()
+    desc_str = str(description or "").lower()
+    comp_str = str(company or "").lower()
+    full_text = f"{loc_str} {comp_str} {desc_str}"
+
+    # Explicit India mention or Indian city/region match
+    if any(city in loc_str for city in INDIAN_CITIES_AND_REGIONS):
+        return True
+
+    # Check for Spanish / Latin America non-English market listings without India reference
+    is_spanish = any(w in full_text for w in ["desarrollador", "rekluti", "caribe hilton", "san juan"])
+    if is_spanish and "india" not in loc_str:
+        return False
+
+    # Check for UK local or non-remote overseas specific locations without India
+    is_overseas_local = any(loc in loc_str for loc in ["aberdeen", "london, uk", "paris, france", "seoul", "tokyo", "berlin", "madrid"])
+    if is_overseas_local and "india" not in loc_str and "remote" not in loc_str:
+        return False
+
+    # Generic Global Remote listings are allowed if marked Remote
+    if "remote" in loc_str or "work from home" in loc_str:
+        return True
+
+    # Default fallback: check if India or Indian tech hub is mentioned in description
+    return any(city in full_text for city in INDIAN_CITIES_AND_REGIONS)

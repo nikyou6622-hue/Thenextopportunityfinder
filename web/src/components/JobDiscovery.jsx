@@ -39,7 +39,7 @@ export default function JobDiscovery({
 }) {
   const [activeTab, setActiveTab] = useState('matched'); // 'matched' | 'global_tech'
   const [filterDomain, setFilterDomain] = useState('all');
-  const [minScore, setMinScore] = useState(0);
+  const [minScore, setMinScore] = useState(50);
   const [actionPlanData, setActionPlanData] = useState(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [purging, setPurging] = useState(false);
@@ -625,9 +625,26 @@ export default function JobDiscovery({
                             fontSize: '0.82rem', 
                             color: isAmber ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.85)', 
                             fontWeight: 600,
-                            marginTop: '2px'
+                            marginTop: '2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            flexWrap: 'wrap'
                           }}>
-                            {comp}
+                            <span>{comp}</span>
+                            {job.source_trust_tier === 'tier1_verified' || (job.source_category === 'mnc' || ['greenhouse', 'lever', 'ashby', 'workday'].some(d => (job.apply_url || '').toLowerCase().includes(d))) ? (
+                              <span style={{ background: 'rgba(16, 185, 129, 0.25)', border: '1px solid rgba(16, 185, 129, 0.4)', color: isAmber ? '#065f46' : '#a7f3d0', padding: '1px 7px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                🛡️ Verified Direct
+                              </span>
+                            ) : job.source_trust_tier === 'tier2_curated' || ['internshala', 'unstop', 'cuvette'].some(k => (job.source || '').toLowerCase().includes(k)) ? (
+                              <span style={{ background: 'rgba(59, 130, 246, 0.25)', border: '1px solid rgba(59, 130, 246, 0.4)', color: isAmber ? '#1e40af' : '#93c5fd', padding: '1px 7px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                🎯 Curated Portal
+                              </span>
+                            ) : (
+                              <span style={{ background: 'rgba(245, 158, 11, 0.25)', border: '1px solid rgba(245, 158, 11, 0.4)', color: isAmber ? '#92400e' : '#fde68a', padding: '1px 7px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                🌐 Aggregated
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

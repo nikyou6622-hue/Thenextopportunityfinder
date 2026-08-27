@@ -10,8 +10,9 @@ from backend.app.utils.skill_normalizer import normalize_skill, normalize_skill_
 
 logger = logging.getLogger(__name__)
 
-# Configurable minimum relevance threshold constant
+# Configurable minimum relevance threshold constants
 MIN_QUALIFIED_MATCH_THRESHOLD = 50.0
+TIER3_MIN_QUALIFIED_MATCH_THRESHOLD = 65.0
 
 def compute_skill_match(resume_skills: List[str], job_required_skills: List[str]) -> Dict[str, Any]:
     """
@@ -204,7 +205,12 @@ def compute_match(
         0.25 * domain_score +
         0.15 * location_score +
         0.20 * semantic_score
-    )
+    # Sanity check: Non-technical roles (Store Manager, Cleaner, etc.) yield 0 match score
+    is_technical = job.get("is_technical", True)
+    if not is_technical:
+        composite_score = 0.0
+        skill_score = 0.0
+        skill_res = {"matched_skills": [], "missing_skills": [], "matched_count": 0, "required_count": 0, "skill_match_percentage": 0.0}
 
     lang_passed, lang_alert = evaluate_language_gate(profile.get("languages", []), job.get("description", ""))
     deal_passed, deal_issues = evaluate_dealbreakers(profile.get("dealbreakers", {}), job)
@@ -215,7 +221,11 @@ def compute_match(
     if not deal_passed:
         adaptive_feedback.extend(deal_issues)
 
-    is_qualified = (composite_score >= MIN_QUALIFIED_MATCH_THRESHOLD) and lang_passed and deal_passed
+    # Apply Tier-specific minimum qualification thresholds
+    source_trust_tier = job.get("source_trust_tier", "tier1_verified")
+    required_threshold = TIER3_MIN_QUALIFIED_MATCH_THRESHOLD if source_trust_tier == "tier3_aggregator" else MIN_QUALIFIED_MATCH_THRESHOLD
+
+    is_qualified = (composite_score >= required_threshold) and lang_passed and deal_passed and is_technical
 
     return {
         "match_score": composite_score,
