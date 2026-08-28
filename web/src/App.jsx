@@ -95,29 +95,40 @@ const DEFAULT_FALLBACK_PROFILE = {
 export default function App() {
   const getInitialTab = () => {
     try {
-      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
-      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-      const params = new URLSearchParams(window.location.search);
+      const savedToken = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('nof_user') : null;
+      const isAuthenticated = !!(savedToken || savedUser);
+
+      const path = typeof window !== 'undefined' ? window.location.pathname.replace(/^\//, '').toLowerCase() : '';
+      const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#\/?/, '').toLowerCase() : '';
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
       const queryTab = params.get('tab')?.toLowerCase();
       const redirectTab = params.get('redirect')?.toLowerCase();
       
-      // First-time or root domain entry: ALWAYS default to 'home' (HomePage)
-      if (!path || path === '' || path === 'index.html' || path === 'home') {
+      // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public page
+      if (!isAuthenticated) {
+        // Allow explicit public tabs or deep links like ?tab=jobs (which ProtectedRoute handles if protected)
+        if (queryTab && queryTab !== 'auth' && queryTab !== 'home') {
+          return queryTab;
+        }
+        if (path && path !== 'auth' && path !== 'home' && path !== 'index.html') {
+          return path;
+        }
+        
+        // Clean up lingering /auth or ?redirect= URL artifacts left in browser address bar
+        if (typeof window !== 'undefined' && (path === 'auth' || window.location.search.includes('redirect='))) {
+          try {
+            window.history.replaceState(null, '', '/');
+          } catch {}
+        }
         return 'home';
       }
 
-      // If URL is /auth without explicit redirect parameter or saved token, render 'home' on initial load
-      if (path === 'auth' && !redirectTab) {
-        const token = localStorage.getItem('nof_auth_token');
-        const user = localStorage.getItem('nof_user');
-        if (!token && !user) {
-          return 'home';
-        }
-      }
-
+      // Authenticated users:
       const target = queryTab || redirectTab || path || hash;
       if (target === 'admin') return 'admin';
-      if (target && target !== 'index.html') return target;
+      if (target && target !== 'index.html' && target !== 'auth') return target;
+      return 'overview';
     } catch {}
     return 'home';
   };
