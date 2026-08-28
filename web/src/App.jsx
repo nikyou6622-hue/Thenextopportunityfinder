@@ -306,14 +306,16 @@ export default function App() {
         if (profData && (profData.name || profData.skills)) {
           setProfile(profData);
         } else {
-          const cloudProf = await fetchProfileFromSupabase();
-          const localProf = cloudProf || loadProfileFromLocal();
-          setProfile(localProf || DEFAULT_FALLBACK_PROFILE);
+          const userEmail = currentUser?.email;
+          const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
+          const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
+          setProfile(localProf || null);
         }
       } else {
-        const cloudProf = await fetchProfileFromSupabase();
-        const localProf = cloudProf || loadProfileFromLocal();
-        setProfile(localProf || DEFAULT_FALLBACK_PROFILE);
+        const userEmail = currentUser?.email;
+        const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
+        const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
+        setProfile(localProf || null);
       }
 
       // 2. Matches

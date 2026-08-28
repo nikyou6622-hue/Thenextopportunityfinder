@@ -8,15 +8,20 @@
 export const SUPABASE_URL = 'https://hoobggdrjghfqxgjfoqf.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvb2JnZ2RyamdoZnF4Z2pmb3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMzQ5MDQsImV4cCI6MjEwMjkxMDkwNH0.2vnfF5PSQPWEk431uqKGVZjBXmMA_Gf8uasGsW3gwQs';
 
-export async function saveProfileToSupabase(profile) {
+export async function saveProfileToSupabase(profile, userEmail = null) {
   if (!profile) return null;
+  const email = (userEmail || profile.email || '').trim().toLowerCase();
   
-  // Always persist locally first
-  try {
-    localStorage.setItem('nof_user_profile', JSON.stringify(profile));
-  } catch {}
+  // Always persist locally first with user-scoped key
+  if (email) {
+    try {
+      localStorage.setItem(`nof_user_profile_${email}`, JSON.stringify(profile));
+    } catch {}
+  }
 
-  // Push to Supabase Cloud Database
+  if (!email) return profile;
+
+  // Push to Supabase Cloud Database scoped to exact email
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/candidate_profiles`, {
       method: 'POST',
@@ -29,10 +34,10 @@ export async function saveProfileToSupabase(profile) {
       body: JSON.stringify({
         id: profile.id || `usr_${Date.now()}`,
         name: profile.name,
-        email: profile.email,
+        email: email,
         phone: profile.phone,
-        city: profile.city,
-        country: profile.country,
+        city: profile.city || profile.location?.city,
+        country: profile.country || profile.location?.country,
         skills: profile.skills,
         summary: profile.summary,
         experience_list: profile.experience_list,
@@ -52,9 +57,12 @@ export async function saveProfileToSupabase(profile) {
   return profile;
 }
 
-export async function fetchProfileFromSupabase() {
+export async function fetchProfileFromSupabase(userEmail = null) {
+  if (!userEmail) return null;
+  const emailClean = userEmail.trim().toLowerCase();
+
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/candidate_profiles?order=updated_at.desc&limit=1`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/candidate_profiles?email=eq.${encodeURIComponent(emailClean)}&order=updated_at.desc&limit=1`, {
       method: 'GET',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -73,10 +81,13 @@ export async function fetchProfileFromSupabase() {
   return null;
 }
 
-export function loadProfileFromLocal() {
+export function loadProfileFromLocal(userEmail = null) {
+  if (!userEmail) return null;
+  const emailClean = userEmail.trim().toLowerCase();
   try {
-    const raw = localStorage.getItem('nof_user_profile');
+    const raw = localStorage.getItem(`nof_user_profile_${emailClean}`);
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
 }
+

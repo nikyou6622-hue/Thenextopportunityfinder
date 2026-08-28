@@ -178,20 +178,37 @@ export default function OverviewDashboard({
   const candidateEmail = profile?.email || "aditya.tamta@dev.io";
   const candidateRole = profile?.past_roles?.[0]?.title || profile?.experience_list?.[0]?.title || "Full Stack Engineer";
 
-  // Spline Wave Chart Data exactly matching the X-Axis in the image
-  const chartData = [
-    { name: '0', sent: 30, interviews: 40, shortlisted: 20 },
-    { name: 'May 01', sent: 70, interviews: 45, shortlisted: 30 },
-    { name: 'May 05', sent: 88, interviews: 58, shortlisted: 38 },
-    { name: 'May 10', sent: 75, interviews: 50, shortlisted: 32 },
-    { name: 'May 15', sent: 48, interviews: 45, shortlisted: 28 },
-    { name: 'May 20', sent: 62, interviews: 56, shortlisted: 36 },
-    { name: 'May 25', sent: 78, interviews: 48, shortlisted: 34 },
-    { name: 'May 30', sent: 65, interviews: 62, shortlisted: 42 },
-    { name: 'June 05', sent: 48, interviews: 52, shortlisted: 38 },
-    { name: 'June 10', sent: 68, interviews: 32, shortlisted: 26 },
-    { name: 'June 15', sent: 50, interviews: 22, shortlisted: 18 },
-  ];
+  // Dynamic Spline Wave Chart Data computed from real candidate pipeline applications
+  const chartData = useMemo(() => {
+    const dates = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (i * 3));
+      const monthStr = d.toLocaleString('en-US', { month: 'short' });
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      dates.push(`${monthStr} ${dayStr}`);
+    }
+
+    const safeApps = Array.isArray(applications) ? applications : [];
+    if (safeApps.length === 0) {
+      return dates.map(d => ({ name: d, sent: 0, interviews: 0, shortlisted: 0 }));
+    }
+
+    return dates.map((dLabel, idx) => {
+      const stepLimit = Math.ceil(safeApps.length * ((idx + 1) / 7));
+      const windowApps = safeApps.slice(0, stepLimit);
+      const sent = windowApps.filter(a => ['applied', 'interviewing', 'offered'].includes(a.status)).length;
+      const interviews = windowApps.filter(a => ['interviewing', 'offered'].includes(a.status)).length;
+      const shortlisted = windowApps.filter(a => ['shortlisted', 'interviewing', 'offered'].includes(a.status)).length;
+      return {
+        name: dLabel,
+        sent,
+        interviews,
+        shortlisted
+      };
+    });
+  }, [applications]);
 
   // Dynamic Recommended Jobs from real matches (fallback to curated opportunities)
   const displayRecommendedJobs = useMemo(() => {
