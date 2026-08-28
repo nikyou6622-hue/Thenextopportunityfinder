@@ -63,29 +63,18 @@ export default function ProtectedRoute({
 
       // If unauthenticated or failure:
       if (isMounted) {
-        const token = localStorage.getItem('nof_auth_token');
-        const savedUser = localStorage.getItem('nof_user');
-        
-        // If neither token nor saved user exists, gracefully return visitor to public HomePage
-        if (!token && !savedUser && !currentUser) {
-          setAuthenticated(false);
-          setChecking(false);
-          if (setCurrentUser) setCurrentUser(null);
-          try {
-            localStorage.removeItem('nof_auth_token');
-            localStorage.removeItem('nof_user');
-          } catch {}
+        setAuthenticated(false);
+        setChecking(false);
+        if (setCurrentUser) setCurrentUser(null);
+        try {
+          localStorage.removeItem('nof_auth_token');
+          localStorage.removeItem('nof_user');
+        } catch {}
 
-          setActiveTab('home');
-          try {
-            window.history.replaceState(null, '', '/');
-          } catch {}
-          return;
-        } else {
-          // Keep existing local auth if token/saved session exists
-          setAuthenticated(true);
-          setChecking(false);
-        }
+        setActiveTab('home');
+        try {
+          window.history.replaceState(null, '', '/');
+        } catch {}
       }
     };
 

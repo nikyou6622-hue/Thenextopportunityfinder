@@ -105,18 +105,16 @@ export default function App() {
       const queryTab = params.get('tab')?.toLowerCase();
       const redirectTab = params.get('redirect')?.toLowerCase();
       
-      // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public page
+      // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public info page
       if (!isAuthenticated) {
-        // Allow explicit public tabs or deep links like ?tab=jobs (which ProtectedRoute handles if protected)
-        if (queryTab && queryTab !== 'auth' && queryTab !== 'home') {
-          return queryTab;
-        }
-        if (path && path !== 'auth' && path !== 'home' && path !== 'index.html') {
-          return path;
+        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary'];
+        const requested = queryTab || path || hash;
+        if (requested && publicPages.includes(requested)) {
+          return requested;
         }
         
-        // Clean up lingering /auth or ?redirect= URL artifacts left in browser address bar
-        if (typeof window !== 'undefined' && (path === 'auth' || window.location.search.includes('redirect='))) {
+        // Clean up lingering /auth, /overview, or ?redirect= URL artifacts left in browser address bar
+        if (typeof window !== 'undefined' && (path === 'auth' || path === 'overview' || window.location.search.includes('redirect='))) {
           try {
             window.history.replaceState(null, '', '/');
           } catch {}
@@ -202,16 +200,16 @@ export default function App() {
       setMatches([]);
       setApplications([]);
       setMetrics(null);
-      const redirectTab = e.detail?.redirectTab;
+      try {
+        localStorage.removeItem('nof_auth_token');
+        localStorage.removeItem('nof_user');
+      } catch {}
       
-      // Do NOT redirect to auth if user is on home page or public path
-      if (!redirectTab || redirectTab === 'home' || redirectTab === '' || activeTab === 'home') {
-        return;
-      }
-
-      const targetUrl = `/auth?redirect=${encodeURIComponent(redirectTab)}`;
-      window.history.replaceState(null, '', targetUrl);
-      setActiveTabState('auth');
+      // Always return unauthenticated visitor to public HomePage instead of forcing to /auth page
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {}
+      setActiveTabState('home');
     };
 
     window.addEventListener('popstate', handleUrlChange);
@@ -332,6 +330,12 @@ export default function App() {
 
   const loadData = async () => {
     try {
+      const savedToken = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('nof_user') : null;
+      if (!savedToken && !savedUser && !currentUser) {
+        return;
+      }
+
       // 1. Profile
       const profRes = await apiFetch('/api/profile');
       if (profRes && profRes.ok) {
@@ -785,8 +789,8 @@ export default function App() {
     localStorage.removeItem('nof_user');
     setCurrentUser(null);
     setProfile(null);
-    window.history.replaceState(null, '', '/auth');
-    setActiveTab('auth');
+    window.history.replaceState(null, '', '/');
+    setActiveTab('home');
   };
 
   return (
