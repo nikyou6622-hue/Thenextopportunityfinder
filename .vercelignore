@@ -19,9 +19,6 @@ UI/res/
 *.avi
 
 # Local build outputs & caches
-dist/
-web/dist/
-public/assets/
 .vite/
 .next/
 .cache/
