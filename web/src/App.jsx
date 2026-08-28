@@ -99,7 +99,23 @@ export default function App() {
       const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
       const params = new URLSearchParams(window.location.search);
       const queryTab = params.get('tab')?.toLowerCase();
-      const target = path || hash || queryTab;
+      const redirectTab = params.get('redirect')?.toLowerCase();
+      
+      // First-time or root domain entry: ALWAYS default to 'home' (HomePage)
+      if (!path || path === '' || path === 'index.html' || path === 'home') {
+        return 'home';
+      }
+
+      // If URL is /auth without explicit redirect parameter or saved token, render 'home' on initial load
+      if (path === 'auth' && !redirectTab) {
+        const token = localStorage.getItem('nof_auth_token');
+        const user = localStorage.getItem('nof_user');
+        if (!token && !user) {
+          return 'home';
+        }
+      }
+
+      const target = queryTab || redirectTab || path || hash;
       if (target === 'admin') return 'admin';
       if (target && target !== 'index.html') return target;
     } catch {}
