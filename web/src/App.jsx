@@ -328,11 +328,10 @@ export default function App() {
 
 
 
-  const loadData = async () => {
+  const loadData = async (userParam = null) => {
     try {
-      const savedToken = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
-      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('nof_user') : null;
-      if (!savedToken && !savedUser && !currentUser) {
+      const activeUser = userParam || currentUser;
+      if (!activeUser) {
         return;
       }
 
@@ -343,13 +342,13 @@ export default function App() {
         if (profData && (profData.name || profData.skills)) {
           setProfile(profData);
         } else {
-          const userEmail = currentUser?.email;
+          const userEmail = activeUser?.email;
           const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
           const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
           setProfile(localProf || null);
         }
       } else {
-        const userEmail = currentUser?.email;
+        const userEmail = activeUser?.email;
         const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
         const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
         setProfile(localProf || null);
@@ -390,12 +389,14 @@ export default function App() {
   useEffect(() => {
     // Initial fetch without auto-seeding dummy data
     const init = async () => {
-      setLoading(true);
-      await loadData();
-      setLoading(false);
+      if (currentUser) {
+        setLoading(true);
+        await loadData(currentUser);
+        setLoading(false);
+      }
     };
     init();
-  }, []);
+  }, [currentUser]);
 
   const parseResumeFileClient = async (file) => {
     let fileText = '';
