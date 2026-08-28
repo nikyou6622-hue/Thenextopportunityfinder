@@ -34,7 +34,12 @@ import {
   SlidersHorizontal, 
   Flame, 
   Star,
-  CheckSquare
+  CheckSquare,
+  Volume2,
+  VolumeX,
+  Pause,
+  RotateCcw,
+  Film
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import ArchifySystemMap from './ArchifySystemMap';
@@ -167,6 +172,25 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
   const [selectedPersona, setSelectedPersona] = useState('students');
   const [openFaqIdx, setOpenFaqIdx] = useState(0);
 
+  // Intro Video Modal state for first-time or unverified/unregistered visitors
+  const isUnverifiedOrGuest = !currentUser || !currentUser.is_email_verified;
+  const [showIntroModal, setShowIntroModal] = useState(() => {
+    if (!isUnverifiedOrGuest) return false;
+    const watched = localStorage.getItem('nof_intro_watched_v1');
+    return !watched;
+  });
+  const [introIsMuted, setIntroIsMuted] = useState(true);
+  const videoRef = React.useRef(null);
+
+  const handleCloseIntroModal = () => {
+    localStorage.setItem('nof_intro_watched_v1', 'true');
+    setShowIntroModal(false);
+  };
+
+  const handleOpenIntroModal = () => {
+    setShowIntroModal(true);
+  };
+
   // Signature Element State: Interactive ATS Live Benchmark Simulator
   const [simRole, setSimRole] = useState('fullstack');
   const [simSkillsCount, setSimSkillsCount] = useState(8);
@@ -207,6 +231,152 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '36px', maxWidth: '1400px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       
+      {/* 🎬 INTRO VIDEO MODAL FOR FIRST-TIME / UNVERIFIED VISITORS */}
+      {showIntroModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(5, 8, 22, 0.88)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '920px',
+            background: 'linear-gradient(135deg, rgba(20, 26, 48, 0.98), rgba(15, 23, 42, 0.99))',
+            border: '1px solid rgba(99, 102, 241, 0.45)',
+            borderRadius: '24px',
+            boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85), 0 0 40px rgba(99, 102, 241, 0.3)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(255, 255, 255, 0.03)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ background: 'rgba(99, 102, 241, 0.2)', border: '1px solid #6366f1', color: '#818cf8', fontSize: '0.72rem', fontWeight: 900, padding: '3px 10px', borderRadius: '12px', letterSpacing: '0.05em' }}>
+                  PLATFORM INTRO 🎬
+                </span>
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  Welcome to Next Opportunity Finder OS
+                </span>
+              </div>
+
+              <button
+                onClick={handleCloseIntroModal}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#94a3b8',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Video Player Box */}
+            <div style={{ position: 'relative', width: '100%', background: '#000', aspectRatio: '16/9', overflow: 'hidden' }}>
+              <video
+                ref={videoRef}
+                src="/intro.mp4"
+                autoPlay
+                loop
+                muted={introIsMuted}
+                playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+
+              {/* Mute / Unmute Overlay Badge */}
+              <button
+                onClick={() => {
+                  SoundSystem.playPop();
+                  setIntroIsMuted(!introIsMuted);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#FFFFFF',
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 2
+                }}
+              >
+                {introIsMuted ? <VolumeX size={15} color="#ef4444" /> : <Volume2 size={15} color="#34d399" />}
+                <span>{introIsMuted ? 'Unmute Sound 🔊' : 'Mute Sound 🔇'}</span>
+              </button>
+            </div>
+
+            {/* Modal Footer CTA */}
+            <div style={{
+              padding: '18px 24px',
+              background: 'rgba(15, 23, 42, 0.95)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                🚀 Discover 10,000+ verified tech jobs, ATS live resume audit, and AI mock interview coaching.
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    handleCloseIntroModal();
+                    onNavigate('auth');
+                  }}
+                  className="btn-next-primary"
+                  style={{ padding: '10px 20px', fontSize: '0.84rem', fontWeight: 800 }}
+                >
+                  <LogIn size={15} /> Create Free Account →
+                </button>
+
+                <button
+                  onClick={handleCloseIntroModal}
+                  className="btn-tactile btn-tactile-ghost"
+                  style={{ padding: '10px 16px', fontSize: '0.84rem', color: '#cbd5e1' }}
+                >
+                  Explore Catalog
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🌟 1. TOP ANNOUNCEMENT & AUTH QUICK-JUMP BAR */}
       <div className="glass-panel" style={{
         padding: '12px 20px',
@@ -232,6 +402,17 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={() => {
+              SoundSystem.playPop();
+              handleOpenIntroModal();
+            }}
+            className="btn-tactile btn-tactile-ghost"
+            style={{ padding: '7px 13px', fontSize: '0.78rem', fontWeight: 800, color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.4)' }}
+          >
+            <Film size={14} color="#818cf8" /> Watch Intro 🎬
+          </button>
+
           {!isPro && (
             <button
               onClick={() => {
