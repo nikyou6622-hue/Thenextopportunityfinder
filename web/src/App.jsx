@@ -191,7 +191,13 @@ export default function App() {
       setMatches([]);
       setApplications([]);
       setMetrics(null);
-      const redirectTab = e.detail?.redirectTab || 'overview';
+      const redirectTab = e.detail?.redirectTab;
+      
+      // Do NOT redirect to auth if user is on home page or public path
+      if (!redirectTab || redirectTab === 'home' || redirectTab === '' || activeTab === 'home') {
+        return;
+      }
+
       const targetUrl = `/auth?redirect=${encodeURIComponent(redirectTab)}`;
       window.history.replaceState(null, '', targetUrl);
       setActiveTabState('auth');

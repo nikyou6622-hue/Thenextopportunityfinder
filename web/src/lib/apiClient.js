@@ -46,16 +46,21 @@ export async function apiFetch(url, options = {}) {
 
     // 401/403 Interceptor for mid-session expiration
     if ((response.status === 401 || response.status === 403) && !url.includes('/api/auth/')) {
-      const currentPath = window.location.pathname.replace(/^\//, '') || 'overview';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
+      const user = typeof window !== 'undefined' ? localStorage.getItem('nof_user') : null;
+      const currentPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/^\//, '').toLowerCase() || 'home') : 'home';
+
       try {
         localStorage.removeItem('nof_auth_token');
         localStorage.removeItem('nof_user');
       } catch {}
 
-      // Dispatch global event for React app state sync
-      window.dispatchEvent(new CustomEvent('nof_auth_expired', {
-        detail: { redirectTab: currentPath }
-      }));
+      // ONLY dispatch auth expiration redirect if user had an active session AND is on a protected route (not home)
+      if ((token || user) && currentPath !== 'home' && currentPath !== '' && currentPath !== 'privacy' && currentPath !== 'terms' && currentPath !== 'status') {
+        window.dispatchEvent(new CustomEvent('nof_auth_expired', {
+          detail: { redirectTab: currentPath }
+        }));
+      }
     }
 
     return response;
