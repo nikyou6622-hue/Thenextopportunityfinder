@@ -1,0 +1,51 @@
+# Vercel Function Exclusions
+# Exclude heavy local environments, raw assets, test suites, and build artifacts from serverless function bundles
+
+# Python virtual environments & scratch
+scratch/
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Raw media & local video assets
+UI/
+UI/res/
+*.mp4
+*.mov
+*.avi
+
+# Local build outputs & caches
+dist/
+web/dist/
+public/assets/
+.vite/
+.next/
+.cache/
+
+# Local node_modules (Vercel installs dependencies separately during build)
+node_modules/
+web/node_modules/
+
+# Local database & temp files
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.log
+npm-debug.log*
+
+# Unit test files and migration test scripts (not needed in production Vercel function)
+backend/test_*.py
+backend/scripts/
+
+# IDE & system artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
