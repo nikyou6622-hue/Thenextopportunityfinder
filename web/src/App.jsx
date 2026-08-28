@@ -876,7 +876,7 @@ export default function App() {
                 currentUser={currentUser}
                 onTriggerCelebration={handleTriggerCelebration}
                 onOpenPaywall={() => setIsPaywallOpen(true)}
-                isPro={userSubscription.is_pro}
+                isPro={userSubscription?.is_pro || false}
               />
             )}
 
@@ -964,7 +964,7 @@ export default function App() {
                   onOpenFilters={() => setSearchFiltersOpen(true)}
                   onScrapeTriggered={handleScrapeTriggered}
                   onOpenPaywall={() => setIsPaywallOpen(true)}
-                  isPro={userSubscription.is_pro}
+                  isPro={userSubscription?.is_pro || false}
                 />
               </ProtectedRoute>
             )}
@@ -977,7 +977,7 @@ export default function App() {
                   onNavigate={(tab) => setActiveTab(tab)}
                   onScrapeTriggered={handleScrapeTriggered}
                   onOpenPaywall={() => setIsPaywallOpen(true)}
-                  isPro={userSubscription.is_pro}
+                  isPro={userSubscription?.is_pro || false}
                 />
               </ProtectedRoute>
             )}
@@ -990,7 +990,7 @@ export default function App() {
                   loading={loading}
                   onScrapeTriggered={handleScrapeTriggered}
                   onOpenPaywall={() => setIsPaywallOpen(true)}
-                  isPro={userSubscription.is_pro}
+                  isPro={userSubscription?.is_pro || false}
                 />
               </ProtectedRoute>
             )}
