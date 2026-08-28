@@ -1135,6 +1135,7 @@ export default function App() {
       <MobileBottomNav 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
+        currentUser={currentUser}
         onOpenMenu={() => setMobileMenuOpen(true)} 
       />
 

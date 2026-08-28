@@ -66,7 +66,7 @@ export default function ProtectedRoute({
         const token = localStorage.getItem('nof_auth_token');
         const savedUser = localStorage.getItem('nof_user');
         
-        // If neither token nor saved user exists, handle redirect
+        // If neither token nor saved user exists, gracefully return visitor to public HomePage
         if (!token && !savedUser && !currentUser) {
           setAuthenticated(false);
           setChecking(false);
@@ -76,16 +76,11 @@ export default function ProtectedRoute({
             localStorage.removeItem('nof_user');
           } catch {}
 
-          if (!targetTab || targetTab === 'home') {
-            setActiveTab('home');
+          setActiveTab('home');
+          try {
             window.history.replaceState(null, '', '/');
-            return;
-          }
-
-          const redirectPath = targetTab && targetTab !== 'auth' ? targetTab : 'overview';
-          const targetUrl = `/auth?redirect=${encodeURIComponent(redirectPath)}`;
-          window.history.replaceState(null, '', targetUrl);
-          setActiveTab('auth', true);
+          } catch {}
+          return;
         } else {
           // Keep existing local auth if token/saved session exists
           setAuthenticated(true);

@@ -8,9 +8,9 @@ import {
 } from 'lucide-react';
 import SoundSystem from './characters/SoundEffects';
 
-export default function MobileBottomNav({ activeTab, setActiveTab }) {
+export default function MobileBottomNav({ activeTab, setActiveTab, currentUser }) {
   const bottomItems = [
-    { id: 'overview', label: 'Home', icon: Home },
+    { id: currentUser ? 'overview' : 'home', label: 'Home', icon: Home },
     { id: 'jobs', label: 'Discover', icon: Search },
     { id: 'profile', label: 'Resume', icon: FileText },
     { id: 'interview-prep', label: 'Interviews', icon: BrainCircuit },
