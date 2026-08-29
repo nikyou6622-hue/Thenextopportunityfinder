@@ -14,9 +14,10 @@ __pycache__/
 # Raw media & local video assets
 UI/
 UI/res/
-*.mp4
 *.mov
 *.avi
+!web/public/intro.mp4
+!public/intro.mp4
 
 # Local build outputs & caches
 .vite/
