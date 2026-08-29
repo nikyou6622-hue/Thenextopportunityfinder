@@ -23,7 +23,7 @@ import {
   Key,
   RotateCcw
 } from 'lucide-react';
-import { SmokeyBackground } from './ui/login-form';
+import { SmokeyBackground } from './ui/login-form.jsx';
 import SoundSystem from './characters/SoundEffects';
 
 const ROLE_OPTIONS = [
