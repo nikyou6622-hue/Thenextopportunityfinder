@@ -41,7 +41,8 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   Ban,
-  UserPlus
+  UserPlus,
+  Globe
 } from 'lucide-react';
 import SoundSystem from './characters/SoundEffects';
 import UserAvatar from './UserAvatar';
