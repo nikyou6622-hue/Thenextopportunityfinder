@@ -43,7 +43,6 @@ import {
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import ArchifySystemMap from './ArchifySystemMap';
-import { CinematicFooter } from './ui/motion-footer';
 import SoundSystem from './characters/SoundEffects';
 import QuestMap from './characters/QuestMap';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
@@ -1023,8 +1022,6 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
-      {/* Cinematic Motion Footer */}
-      <CinematicFooter />
 
     </div>
   );
