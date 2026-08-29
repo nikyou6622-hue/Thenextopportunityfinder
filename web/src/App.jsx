@@ -107,7 +107,7 @@ export default function App() {
       
       // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public info page
       if (!isAuthenticated) {
-        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary'];
+        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary', 'admin'];
         const requested = queryTab || path || hash;
         if (requested && publicPages.includes(requested)) {
           return requested;
@@ -1124,13 +1124,11 @@ export default function App() {
             )}
 
             {activeTab === 'admin' && (
-              <ProtectedRoute targetTab="admin" activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} setCurrentUser={setCurrentUser}>
-                <AdminDashboard 
-                  currentUser={currentUser}
-                  onAuthSuccess={handleAuthSuccess}
-                  onNavigate={(tab) => setActiveTab(tab)}
-                />
-              </ProtectedRoute>
+              <AdminDashboard 
+                currentUser={currentUser}
+                onAuthSuccess={handleAuthSuccess}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
             )}
           </Suspense>
         </main>
