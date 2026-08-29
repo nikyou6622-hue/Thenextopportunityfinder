@@ -484,8 +484,12 @@ ADMIN_EMAIL = "adityanikt@gmail.com"
 ADMIN_INITIAL_PASSWORD = "753951"
 
 def _build_user_payload(user: UserModel) -> Dict[str, Any]:
-    """Formats user payload with explicit admin privileges and email verification status."""
-    is_admin = (user.email.strip().lower() == ADMIN_EMAIL)
+    """Formats user payload with explicit admin privileges, subscription tier, and suspension status."""
+    email_clean = (user.email or "").strip().lower()
+    is_admin = bool(
+        getattr(user, "is_admin", False) or 
+        email_clean in ["adityanikt622@gmail.com", "adityanikt@gmail.com"]
+    )
     return {
         "id": user.id,
         "full_name": user.full_name,
@@ -494,6 +498,8 @@ def _build_user_payload(user: UserModel) -> Dict[str, Any]:
         "experience_level": user.experience_level,
         "avatar_url": user.avatar_url,
         "is_admin": is_admin,
+        "is_suspended": bool(getattr(user, "is_suspended", False)),
+        "subscription_tier": getattr(user, "subscription_tier", "free") or "free",
         "is_email_verified": getattr(user, "is_email_verified", False),
         "role": "admin" if is_admin else "candidate",
         "created_at": user.created_at.isoformat() if user.created_at else None
