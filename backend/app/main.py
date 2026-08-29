@@ -506,43 +506,51 @@ def _build_user_payload(user: UserModel) -> Dict[str, Any]:
     }
 
 def _ensure_default_admin_account():
-    """Guarantees the system administrator account adityanikt@gmail.com / 753951 is provisioned."""
+    """Guarantees the system administrator accounts adityanikt@gmail.com and adityanikt622@gmail.com are provisioned."""
     db = SessionLocal()
     try:
-        admin_pass_hash = _hash_password(ADMIN_INITIAL_PASSWORD)
-        user = db.query(UserModel).filter(UserModel.email == ADMIN_EMAIL).first()
-        if not user:
-            user = UserModel(
-                full_name="Aditya Nikam (Admin)",
-                email=ADMIN_EMAIL,
-                password_hash=admin_pass_hash,
-                target_role="Lead Architect & System Administrator",
-                experience_level="Senior / Lead (5+ yrs)",
-                avatar_url="https://api.dicebear.com/7.x/bottts/svg?seed=Aditya+Admin",
-                is_active=True,
-                is_email_verified=True
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            logger.info("Master Administrator account provisioned: adityanikt@gmail.com")
-        else:
-            # Synchronize password hash, active state, and verification status
-            user.password_hash = admin_pass_hash
-            user.is_active = True
-            user.is_email_verified = True
-            db.commit()
+        admin_accounts = [
+            ("adityanikt@gmail.com", "753951"),
+            ("adityanikt622@gmail.com", "Nikhiladitya#753951")
+        ]
+        
+        for email, pwd in admin_accounts:
+            admin_pass_hash = _hash_password(pwd)
+            user = db.query(UserModel).filter(UserModel.email == email).first()
+            if not user:
+                user = UserModel(
+                    full_name="Aditya Nikam (Admin)",
+                    email=email,
+                    password_hash=admin_pass_hash,
+                    target_role="Lead Architect & System Administrator",
+                    experience_level="Senior / Lead (5+ yrs)",
+                    avatar_url="https://api.dicebear.com/7.x/bottts/svg?seed=Aditya+Admin",
+                    is_active=True,
+                    is_email_verified=True
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                logger.info(f"Master Administrator account provisioned: {email}")
+            else:
+                user.password_hash = admin_pass_hash
+                user.is_active = True
+                user.is_email_verified = True
+                db.commit()
 
-        # Ensure admin ProfileModel exists
-        profile = db.query(ProfileModel).filter(ProfileModel.email == ADMIN_EMAIL).first()
-        if not profile:
-            profile = ProfileModel(
-                name="Aditya Nikam (Admin)",
-                email=ADMIN_EMAIL,
-                phone="+91 9876543210",
-                location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
-                skills=["Python", "FastAPI", "React", "Next.js", "Docker", "PostgreSQL", "System Design", "Distributed Systems", "AI Agents"],
-                experience_years=6.0,
+            profile = db.query(ProfileModel).filter(ProfileModel.email == email).first()
+            if not profile:
+                profile = ProfileModel(
+                    name="Aditya Nikam (Admin)",
+                    email=email,
+                    phone="+91 9876543210",
+                    location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
+                    skills=["Python", "FastAPI", "React", "Next.js", "Docker", "PostgreSQL", "System Design", "Distributed Systems", "AI Agents"],
+                    experience_years=6.0,
+                    ats_score=98
+                )
+                db.add(profile)
+                db.commit()
                 domains=["full stack", "distributed systems", "ai/ml", "devops"],
                 summary="Lead Architect & System Administrator for Next Opportunity Finder. Monitoring 8 AI micro-agents, verified opportunity streams, and DPDP compliance.",
                 consent_given=True,
