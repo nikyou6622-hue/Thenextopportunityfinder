@@ -547,17 +547,14 @@ def _ensure_default_admin_account():
                     location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
                     skills=["Python", "FastAPI", "React", "Next.js", "Docker", "PostgreSQL", "System Design", "Distributed Systems", "AI Agents"],
                     experience_years=6.0,
-                    ats_score=98
+                    ats_score=98,
+                    domains=["full stack", "distributed systems", "ai/ml", "devops"],
+                    summary="Lead Architect & System Administrator for Next Opportunity Finder. Monitoring 8 AI micro-agents, verified opportunity streams, and DPDP compliance.",
+                    consent_given=True,
+                    consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
                 )
                 db.add(profile)
                 db.commit()
-                domains=["full stack", "distributed systems", "ai/ml", "devops"],
-                summary="Lead Architect & System Administrator for Next Opportunity Finder. Monitoring 8 AI micro-agents, verified opportunity streams, and DPDP compliance.",
-                consent_given=True,
-                consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
-            )
-            db.add(profile)
-            db.commit()
     except Exception as e:
         logger.error(f"Error provisioning default admin account: {e}")
         db.rollback()
