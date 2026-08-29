@@ -2,10 +2,9 @@ name: Frontend Build Check
 
 on:
   pull_request:
-    paths: ['web/**']
+    branches: [main]
   push:
     branches: [main]
-    paths: ['web/**']
 
 jobs:
   build:
