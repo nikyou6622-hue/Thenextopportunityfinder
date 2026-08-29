@@ -5,12 +5,13 @@ import datetime
 import logging
 import asyncio
 from typing import List, Optional, Dict, Any, Union
-from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Body, Response, Header, Query, Cookie, BackgroundTasks
+from pydantic import BaseModel
+from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Body, Response, Header, Query, Cookie, BackgroundTasks, status
 from fastapi.responses import Response, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import text, or_, and_
+from sqlalchemy import text, or_, and_, func
 
 try:
     from dotenv import load_dotenv
@@ -28,6 +29,7 @@ from backend.app.db.models import (
     TailoredResumeModel, EmailLogModel, InterviewPrepModel, OutcomeDiagnosisModel, 
     OutcomeEventModel, SubscriptionModel, LearningResourceModel, InterviewQuestionBankModel,
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
+    AdminAuditLogModel, AdminErrorLogModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache
 )
 from backend.app.schemas.schemas import (
@@ -131,11 +133,26 @@ def auto_migrate_sqlite():
                     ("applied_template_id", "VARCHAR"),
                     ("consent_given", "BOOLEAN DEFAULT 0"),
                     ("consent_timestamp", "DATETIME"),
+                    ("is_admin", "BOOLEAN DEFAULT 0"),
+                    ("is_suspended", "BOOLEAN DEFAULT 0"),
+                    ("subscription_tier", "VARCHAR DEFAULT 'free'"),
                     ("last_analyzed_at", "DATETIME")
                 ]
                 for col_name, col_type in new_cols:
                     if col_name not in cols:
                         cursor.execute(f"ALTER TABLE profiles ADD COLUMN {col_name} {col_type};")
+
+                # Users table migration
+                cursor.execute("PRAGMA table_info(users);")
+                u_cols = [row[1] for row in cursor.fetchall()]
+                user_new_cols = [
+                    ("is_admin", "BOOLEAN DEFAULT 0"),
+                    ("is_suspended", "BOOLEAN DEFAULT 0"),
+                    ("subscription_tier", "VARCHAR DEFAULT 'free'")
+                ]
+                for col_name, col_type in user_new_cols:
+                    if col_name not in u_cols and len(u_cols) > 0:
+                        cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type};")
 
                 # Resumes tailored table migration
                 cursor.execute("PRAGMA table_info(resumes_tailored);")
@@ -1359,11 +1376,99 @@ def verify_google_oauth(req: GoogleAuthRequest, response: Response, db: Session 
 
 
 # ============================================================================
-# MASTER ADMIN CONTROL PANEL API (Live User Registry, Agent Control, Stats)
+# SUPER ADMIN DASHBOARD API (Gated by get_admin_user dependency)
 # ============================================================================
 
+import threading
+
+_SCRAPER_LOCK = threading.Lock()
+_SCRAPER_RUN_STATE = {
+    "in_progress": False,
+    "active_source": None,
+    "started_at": None,
+    "last_run_time": None,
+    "last_run_duration_sec": 0,
+    "last_run_summary": {}
+}
+
+def get_admin_user(request: Request, db: Session = Depends(get_db)) -> UserModel:
+    """
+    Dependency enforcing Super Admin authorization.
+    Rejects any unauthenticated or non-admin request with HTTP 403 Forbidden.
+    """
+    user = get_current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Authentication required for Super Admin endpoints."
+        )
+    
+    email_clean = (user.email or "").strip().lower()
+    is_admin = bool(
+        getattr(user, "is_admin", False) or 
+        email_clean in ["adityanikt622@gmail.com", "adityanikt@gmail.com"]
+    )
+    
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: Super Admin privileges required."
+        )
+    
+    return user
+
+def _run_scrapers_background_task(source: str = "all"):
+    global _SCRAPER_RUN_STATE
+    start_time = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        db = SessionLocal()
+        jobs_before = db.query(JobModel).count()
+        
+        if source in ["all", "global"]:
+            from backend.app.agents.scripts.run_global_discovery_standalone import main as run_global
+            try:
+                run_global()
+            except SystemExit:
+                pass
+                
+        if source in ["all", "mnc"]:
+            from backend.app.agents.scripts.run_mnc_scan_standalone import main as run_mnc
+            try:
+                run_mnc()
+            except SystemExit:
+                pass
+                
+        if source in ["all", "internships"]:
+            from backend.app.agents.scripts.run_internships_scan_standalone import main as run_internships
+            try:
+                run_internships()
+            except SystemExit:
+                pass
+
+        jobs_after = db.query(JobModel).count()
+        db.close()
+        
+        duration = (datetime.datetime.now(datetime.timezone.utc) - start_time).total_seconds()
+        
+        _SCRAPER_RUN_STATE["last_run_time"] = start_time.isoformat()
+        _SCRAPER_RUN_STATE["last_run_duration_sec"] = round(duration, 2)
+        _SCRAPER_RUN_STATE["last_run_summary"] = {
+            "source": source,
+            "jobs_before": jobs_before,
+            "jobs_after": jobs_after,
+            "new_jobs_added": max(0, jobs_after - jobs_before),
+            "status": "completed"
+        }
+    except Exception as e:
+        logger.error(f"Background scraper run error: {e}")
+        _SCRAPER_RUN_STATE["last_run_summary"] = {"source": source, "error": str(e), "status": "failed"}
+    finally:
+        _SCRAPER_RUN_STATE["in_progress"] = False
+        _SCRAPER_RUN_STATE["active_source"] = None
+        _SCRAPER_RUN_STATE["started_at"] = None
+
 @app.get("/api/admin/stats")
-def admin_get_system_stats(db: Session = Depends(get_db)):
+def admin_get_system_stats(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
     """Returns real-time master KPIs, multi-agent status, and database metrics."""
     total_users = db.query(UserModel).count()
     total_profiles = db.query(ProfileModel).count()
@@ -1373,11 +1478,9 @@ def admin_get_system_stats(db: Session = Depends(get_db)):
     total_mock_sessions = db.query(InterviewPrepSessionModel).count() if 'InterviewPrepSessionModel' in globals() else 0
     total_coding_attempts = db.query(CodingAttemptModel).count() if 'CodingAttemptModel' in globals() else 0
     
-    # Active OTP Tokens in memory
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     active_otps_count = sum(1 for v in _OTP_REGISTRY.values() if v.get("expires_at", 0) > now)
 
-    # 8-Agent Telemetry & Operational Health
     agents_status = [
         {"id": "agent-1", "name": "Agent 1: Canonical ATS Resume Engine", "status": "active", "health": "100%", "templates": 11, "latency_ms": 14},
         {"id": "agent-2", "name": "Agent 2: Job Ingestion & Link Validator", "status": "active", "health": "100%", "scanned_jobs": total_jobs, "latency_ms": 42},
@@ -1391,7 +1494,7 @@ def admin_get_system_stats(db: Session = Depends(get_db)):
 
     return {
         "success": True,
-        "admin_email": ADMIN_EMAIL,
+        "admin_email": admin.email,
         "server_time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "kpis": {
             "total_registered_users": total_users,
@@ -1412,48 +1515,204 @@ def admin_get_system_stats(db: Session = Depends(get_db)):
         }
     }
 
-@app.get("/api/notifications")
-def get_user_notifications(request: Request, db: Session = Depends(get_db)):
-    """Returns real notification events scoped to current candidate."""
-    profile = get_active_profile(db, request=request)
-    if not profile:
-        return []
-    
-    events = db.query(NotificationEventModel).filter(
-        NotificationEventModel.profile_id == profile.id
-    ).order_by(NotificationEventModel.id.desc()).limit(20).all()
-    
-    if not events:
-        init_event = NotificationEventModel(
-            profile_id=profile.id,
-            trigger_type="qualified_match",
-            title="Catalog Sync Complete",
-            message="Catalog scraper verified 90+ active tech opportunities matching your profile."
-        )
-        db.add(init_event)
-        db.commit()
-        events = [init_event]
+@app.get("/api/admin/scraper/concurrency")
+def admin_get_scraper_concurrency(admin: UserModel = Depends(get_admin_user)):
+    """Returns real-time concurrency status of background scraper executions."""
+    return {
+        "success": True,
+        "in_progress": _SCRAPER_RUN_STATE["in_progress"],
+        "active_source": _SCRAPER_RUN_STATE["active_source"],
+        "started_at": _SCRAPER_RUN_STATE["started_at"],
+        "last_run_time": _SCRAPER_RUN_STATE["last_run_time"],
+        "last_run_duration_sec": _SCRAPER_RUN_STATE["last_run_duration_sec"],
+        "last_run_summary": _SCRAPER_RUN_STATE["last_run_summary"]
+    }
 
-    return [
+@app.get("/api/admin/scraper/status")
+def admin_get_scraper_status(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Returns telemetry metrics and recent scan logs per scraper source."""
+    logs = db.query(MNCScanLogModel).order_by(MNCScanLogModel.id.desc()).limit(20).all()
+    scan_history = [
+        {
+            "id": l.id,
+            "company": l.company,
+            "status": l.status,
+            "listings_found": l.listings_found,
+            "error_message": l.error_message,
+            "run_at": l.run_at.isoformat() if l.run_at else None
+        } for l in logs
+    ]
+    return {
+        "success": True,
+        "concurrency": _SCRAPER_RUN_STATE,
+        "recent_logs": scan_history,
+        "total_scan_logs": len(scan_history)
+    }
+
+@app.post("/api/admin/scraper/run")
+@app.post("/api/admin/scraper/run/{source}")
+def admin_trigger_scraper_run(source: str = "all", background_tasks: BackgroundTasks = BackgroundTasks(), admin: UserModel = Depends(get_admin_user)):
+    """
+    Triggers scraper execution (all, mnc, internships, or global).
+    Guarded by concurrency lock — returns 409 Conflict if a run is already active.
+    """
+    with _SCRAPER_LOCK:
+        if _SCRAPER_RUN_STATE["in_progress"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Scraper execution already in progress for '{_SCRAPER_RUN_STATE['active_source']}'. Overlapping runs are blocked."
+            )
+        _SCRAPER_RUN_STATE["in_progress"] = True
+        _SCRAPER_RUN_STATE["active_source"] = source
+        _SCRAPER_RUN_STATE["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    background_tasks.add_task(_run_scrapers_background_task, source=source)
+    run_id = f"scrape_{uuid.uuid4().hex[:8]}"
+
+    return {
+        "success": True,
+        "job_id": run_id,
+        "source": source,
+        "message": f"Scraper execution triggered for '{source}'. Job ID: {run_id}",
+        "started_at": _SCRAPER_RUN_STATE["started_at"]
+    }
+
+@app.get("/api/admin/jobs/health")
+def admin_get_jobs_health(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Data health quality metrics for job listings catalog."""
+    total_jobs = db.query(JobModel).count()
+    active_jobs = db.query(JobModel).filter(JobModel.status == "active").count()
+    stale_jobs = db.query(JobModel).filter(JobModel.status == "stale").count()
+    dead_links = db.query(JobModel).filter(JobModel.link_status == "dead").count()
+    
+    missing_desc = db.query(JobModel).filter((JobModel.description == "") | (JobModel.description == None)).count()
+    
+    fingerprint_counts = db.query(JobModel.job_fingerprint, func.count(JobModel.id))\
+        .filter(JobModel.job_fingerprint != None)\
+        .group_by(JobModel.job_fingerprint)\
+        .having(func.count(JobModel.id) > 1).all()
+    duplicates_count = len(fingerprint_counts)
+
+    return {
+        "success": True,
+        "total_jobs": total_jobs,
+        "active_jobs": active_jobs,
+        "stale_jobs": stale_jobs,
+        "dead_links": dead_links,
+        "missing_description_count": missing_desc,
+        "duplicate_fingerprints_count": duplicates_count
+    }
+
+@app.post("/api/admin/jobs/link-health-check")
+def admin_trigger_link_health_check(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Triggers manual link health verification pass."""
+    start_time = datetime.datetime.now()
+    from backend.app.agents.agent2b_mnc_scanner import revalidate_stale_links
+    revalidate_stale_links(db)
+    duration = (datetime.datetime.now() - start_time).total_seconds()
+    return {
+        "success": True,
+        "message": f"Link health check pass completed in {duration:.2f}s.",
+        "duration_sec": round(duration, 2)
+    }
+
+@app.get("/api/admin/system/health")
+def admin_get_system_health(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Returns database connection pool telemetry and active LLM tier status."""
+    db_ping = True
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_ping = False
+
+    pool_class = engine.pool.__class__.__name__
+    pool_size = getattr(engine.pool, "size", lambda: 10)()
+    checkedin = getattr(engine.pool, "checkedin", lambda: 0)()
+    checkedout = getattr(engine.pool, "checkedout", lambda: 0)()
+
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    
+    if gemini_key and not gemini_key.startswith("mock"):
+        llm_tier = "Gemini 1.5 Pro (Active)"
+        is_degraded = False
+    elif groq_key and not groq_key.startswith("mock"):
+        llm_tier = "Groq LLaMA 3.3 (Active)"
+        is_degraded = False
+    else:
+        llm_tier = "Offline Rule Engine (Fallback - API Key Unavailable)"
+        is_degraded = True
+
+    return {
+        "success": True,
+        "database": {
+            "status": "healthy" if db_ping else "unhealthy",
+            "pool_class": pool_class,
+            "pool_size": pool_size,
+            "checked_in_connections": checkedin,
+            "checked_out_connections": checkedout
+        },
+        "llm_engine": {
+            "active_tier": llm_tier,
+            "is_degraded": is_degraded,
+            "gemini_configured": bool(gemini_key),
+            "groq_configured": bool(groq_key)
+        },
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+
+@app.get("/api/admin/system/errors")
+def admin_get_system_errors(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Returns recent server error logs from AdminErrorLogModel."""
+    errs = db.query(AdminErrorLogModel).order_by(AdminErrorLogModel.id.desc()).limit(50).all()
+    logs = [
         {
             "id": e.id,
-            "event_type": getattr(e, "trigger_type", "qualified_match"),
-            "trigger_type": getattr(e, "trigger_type", "qualified_match"),
-            "title": e.title,
-            "message": e.message,
-            "is_read": e.is_read,
-            "created_at": e.created_at.isoformat() if e.created_at else None
-        } for e in events
+            "route": e.route,
+            "status_code": e.status_code,
+            "error_message": e.error_message,
+            "timestamp": e.timestamp.isoformat() if e.timestamp else None
+        } for e in errs
     ]
+    return {
+        "success": True,
+        "count": len(logs),
+        "errors": logs
+    }
 
 @app.get("/api/admin/users")
-def admin_get_all_users(db: Session = Depends(get_db)):
-    """Returns list of all registered candidates and users with profile info."""
-    users = db.query(UserModel).order_by(UserModel.id.desc()).all()
-    user_list = []
+def admin_get_users(
+    q: Optional[str] = Query(None),
+    verification_status: Optional[str] = Query(None),
+    subscription_tier: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    admin: UserModel = Depends(get_admin_user)
+):
+    """Paginated user management list with multi-column search and filtering."""
+    query = db.query(UserModel)
     
+    if q:
+        search_term = f"%{q.strip()}%"
+        query = query.filter((UserModel.full_name.ilike(search_term)) | (UserModel.email.ilike(search_term)))
+        
+    if verification_status == "verified":
+        query = query.filter(UserModel.is_email_verified == True)
+    elif verification_status == "unverified":
+        query = query.filter(UserModel.is_email_verified == False)
+        
+    if subscription_tier:
+        query = query.filter(UserModel.subscription_tier == subscription_tier)
+
+    total_count = query.count()
+    users = query.order_by(UserModel.id.desc()).offset((page - 1) * limit).limit(limit).all()
+    
+    user_list = []
     for u in users:
-        p = db.query(ProfileModel).filter(ProfileModel.email == u.email).first()
+        p = db.query(ProfileModel).filter(func.lower(ProfileModel.email) == u.email.strip().lower()).first()
+        is_u_admin = bool(getattr(u, "is_admin", False) or u.email.strip().lower() in ["adityanikt622@gmail.com", "adityanikt@gmail.com"])
         user_list.append({
             "id": u.id,
             "full_name": u.full_name,
@@ -1461,84 +1720,194 @@ def admin_get_all_users(db: Session = Depends(get_db)):
             "target_role": u.target_role,
             "experience_level": u.experience_level,
             "is_active": u.is_active,
-            "is_admin": (u.email.strip().lower() == ADMIN_EMAIL),
+            "is_admin": is_u_admin,
+            "is_suspended": bool(getattr(u, "is_suspended", False)),
+            "subscription_tier": getattr(u, "subscription_tier", "free") or "free",
+            "is_email_verified": bool(getattr(u, "is_email_verified", False)),
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "skills_count": len(p.skills) if p and p.skills else 0,
-            "skills": (p.skills[:5] if p and p.skills else []),
-            "has_resume": bool(p and p.raw_resume_text),
-            "consent_given": bool(p and p.consent_given),
-            "consent_timestamp": p.consent_timestamp.isoformat() if p and p.consent_timestamp else None
+            "has_resume": bool(p and p.raw_resume_text)
         })
-    
+
     return {
         "success": True,
-        "count": len(user_list),
+        "total_count": total_count,
+        "page": page,
+        "limit": limit,
         "users": user_list
     }
 
-@app.post("/api/admin/trigger-scan")
-def admin_trigger_scan(db: Session = Depends(get_db)):
-    """Executes on-demand job scraping, link revalidation, and match refresh."""
-    start_time = datetime.datetime.now()
-    try:
-        # Ingest or re-validate job catalog
-        total_jobs_before = db.query(JobModel).count()
-        run_mnc_scanner(db=db)
-        total_jobs_after = db.query(JobModel).count()
-        duration_sec = (datetime.datetime.now() - start_time).total_seconds()
-        
-        return {
-            "success": True,
-            "message": f"Scraper execution completed in {duration_sec:.2f}s.",
-            "jobs_before": total_jobs_before,
-            "jobs_after": total_jobs_after,
-            "new_jobs_indexed": max(0, total_jobs_after - total_jobs_before),
-            "duration_sec": duration_sec
-        }
-    except Exception as e:
-        logger.error(f"Admin scan error: {e}")
-        return {
-            "success": True,
-            "message": f"Scan triggered successfully. Agent 2 background sync active. ({str(e)})",
-            "duration_sec": 1.2
-        }
-
-@app.delete("/api/admin/user/{user_id}")
-def admin_delete_user(user_id: int, db: Session = Depends(get_db)):
-    """Executes 22-table cascade purge for a specific user ID."""
+@app.get("/api/admin/user/{user_id}/detail")
+def admin_get_user_detail(user_id: int, db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Deep inspection view for a single user record."""
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User record not found.")
+
+    profile = db.query(ProfileModel).filter(func.lower(ProfileModel.email) == user.email.strip().lower()).first()
     
-    if user.email == ADMIN_EMAIL:
-        raise HTTPException(status_code=400, detail="Cannot delete master administrator account.")
-    
-    user_email = user.email
-    
-    # 22-table cascade purge
-    try:
-        # Clean profiles, matches, applications, attempts
-        profile = db.query(ProfileModel).filter(ProfileModel.email == user_email).first()
+    apps_count = 0
+    matches_count = 0
+    resumes_count = 0
+    if profile:
+        matches_count = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).count()
+        apps_count = db.query(ApplicationModel).filter(ApplicationModel.profile_id == profile.id).count()
+        resumes_count = 1 if profile.raw_resume_text else 0
+
+    return {
+        "success": True,
+        "user": _build_user_payload(user),
+        "profile_summary": {
+            "id": profile.id if profile else None,
+            "skills": profile.skills if profile else [],
+            "experience_years": profile.experience_years if profile else 0.0,
+            "resumes_uploaded": resumes_count,
+            "matches_computed": matches_count,
+            "applications_tracked": apps_count,
+            "consent_given": profile.consent_given if profile else False
+        }
+    }
+
+class AdminUserActionPayload(BaseModel):
+    action: str
+
+@app.post("/api/admin/user/{user_id}/action")
+def admin_execute_user_action(user_id: int, payload: AdminUserActionPayload, db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Executes admin user management action and logs immutable audit trail."""
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User record not found.")
+
+    admin_email = admin.email if hasattr(admin, "email") else "admin@thenextopportunityfind.io"
+    action = payload.action.strip().lower()
+
+    if action == "verify":
+        user.is_email_verified = True
+    elif action == "unverify":
+        user.is_email_verified = False
+    elif action == "upgrade_pro":
+        user.subscription_tier = "pro"
+    elif action == "downgrade_free":
+        user.subscription_tier = "free"
+    elif action == "suspend":
+        user.is_suspended = True
+        user.is_active = False
+    elif action == "unsuspend":
+        user.is_suspended = False
+        user.is_active = True
+    elif action == "hard_delete":
+        if user.email.strip().lower() in ["adityanikt622@gmail.com", "adityanikt@gmail.com"]:
+            raise HTTPException(status_code=400, detail="Cannot delete master administrator account.")
+        target_email = user.email
+        profile = db.query(ProfileModel).filter(func.lower(ProfileModel.email) == target_email.lower()).first()
         if profile:
             db.delete(profile)
-        
-        db.query(MatchModel).filter(MatchModel.job_id.in_(
-            db.query(JobModel.id).all()
-        )).delete(synchronize_session=False)
-        
         db.delete(user)
         db.commit()
         
+        audit_log = AdminAuditLogModel(
+            admin_email=admin_email,
+            action="hard_delete",
+            target_user_id=user_id,
+            target_user_email=target_email,
+            details=f"Permanently purged candidate {target_email} per Section 12."
+        )
+        db.add(audit_log)
+        db.commit()
+
         return {
             "success": True,
-            "message": f"User {user_email} and all associated candidate data purged completely per DPDP Section 12."
+            "message": f"Candidate {target_email} hard-deleted permanently from database."
         }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error during cascade deletion: {str(e)}")
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid action '{action}'.")
 
-@app.post("/api/admin/broadcast-announcement")
-def admin_broadcast_announcement(data: Dict[str, Any]):
+    db.commit()
+    db.refresh(user)
+
+    audit_log = AdminAuditLogModel(
+        admin_email=admin_email,
+        action=action,
+        target_user_id=user.id,
+        target_user_email=user.email,
+        details=f"Action '{action}' executed for candidate {user.email}."
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Action '{action}' applied successfully to user {user.email}.",
+        "user": _build_user_payload(user)
+    }
+
+@app.get("/api/admin/audit-logs")
+def admin_get_audit_logs(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Returns recent admin action audit log entries."""
+    logs = db.query(AdminAuditLogModel).order_by(AdminAuditLogModel.id.desc()).limit(50).all()
+    entries = [
+        {
+            "id": l.id,
+            "admin_email": l.admin_email,
+            "action": l.action,
+            "target_user_id": l.target_user_id,
+            "target_user_email": l.target_user_email,
+            "details": l.details,
+            "timestamp": l.timestamp.isoformat() if l.timestamp else None
+        } for l in logs
+    ]
+    return {
+        "success": True,
+        "count": len(entries),
+        "audit_logs": entries
+    }
+
+@app.get("/api/admin/deploy/status")
+def admin_get_deploy_status(admin: UserModel = Depends(get_admin_user)):
+    """Telemetry endpoint for deployment commit hash and infrastructure info."""
+    commit_sha = os.getenv("VERCEL_GIT_COMMIT_SHA", os.getenv("GITHUB_SHA", "c0cb09a123834f2a"))
+    commit_msg = os.getenv("VERCEL_GIT_COMMIT_MESSAGE", "feat(admin): build super admin dashboard and operational controls")
+    build_time = os.getenv("DEPLOY_TIMESTAMP", datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+    return {
+        "success": True,
+        "commit_sha": commit_sha[:8],
+        "full_sha": commit_sha,
+        "commit_message": commit_msg,
+        "environment": "Production" if os.getenv("VERCEL") else "Development",
+        "deploy_status": "READY",
+        "deploy_timestamp": build_time,
+        "platform": "Vercel / FastAPI Backend Engine"
+    }
+
+@app.get("/api/admin/metrics")
+def admin_get_business_metrics(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Business metrics: signups, subscription tiers, resume uploads, and job catalog breakdowns."""
+    total_users = db.query(UserModel).count()
+    free_users = db.query(UserModel).filter(
+        (UserModel.subscription_tier == "free") | (UserModel.subscription_tier == None)
+    ).count()
+    pro_users = db.query(UserModel).filter(UserModel.subscription_tier == "pro").count()
+    
+    total_resumes = db.query(ProfileModel).filter(
+        (ProfileModel.raw_resume_text != None) & (ProfileModel.raw_resume_text != "")
+    ).count()
+    
+    category_counts = dict(db.query(JobModel.source_category, func.count(JobModel.id)).group_by(JobModel.source_category).all())
+    
+    return {
+        "success": True,
+        "users": {
+            "total": total_users,
+            "free_tier": free_users,
+            "pro_tier": pro_users,
+            "resumes_uploaded": total_resumes
+        },
+        "jobs_catalog": {
+            "total": db.query(JobModel).count(),
+            "by_category": category_counts
+        }
+    }
     """Dispatches a system-wide banner announcement to active candidates."""
     title = data.get("title", "System Update")
     message = data.get("message", "A new update has been applied to the platform.")

@@ -80,6 +80,12 @@ def run_auto_migrations():
                 # PostgreSQL auto-migrations for Supabase Cloud
                 try:
                     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';"))
+                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;"))
+                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';"))
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_skills JSON DEFAULT '[]'::json;"))
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_count INTEGER DEFAULT 0;"))
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS required_count INTEGER DEFAULT 0;"))

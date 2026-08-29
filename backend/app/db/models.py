@@ -15,6 +15,9 @@ class UserModel(Base):
     avatar_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_email_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
+    is_suspended = Column(Boolean, default=False)
+    subscription_tier = Column(String, default="free")
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 class ProfileModel(Base):
@@ -42,6 +45,9 @@ class ProfileModel(Base):
     applied_template_id = Column(String, nullable=True)
     consent_given = Column(Boolean, default=False)
     consent_timestamp = Column(DateTime, nullable=True)
+    is_admin = Column(Boolean, default=False)
+    is_suspended = Column(Boolean, default=False)
+    subscription_tier = Column(String, default="free")
     last_analyzed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
@@ -337,6 +343,29 @@ class StudyMaterialCache(Base):
     cache_key = Column(String, unique=True, index=True, nullable=False)
     payload_json = Column(Text, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
+# --- SUPER ADMIN OPERATIONAL & AUDIT LOGGING MODELS ---
+
+class AdminAuditLogModel(Base):
+    __tablename__ = "admin_audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_email = Column(String, index=True, nullable=False)
+    action = Column(String, index=True, nullable=False) # suspend, unsuspend, verify, unverify, upgrade_pro, downgrade_free, hard_delete, trigger_scan
+    target_user_id = Column(Integer, nullable=True)
+    target_user_email = Column(String, nullable=True)
+    details = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
+class AdminErrorLogModel(Base):
+    __tablename__ = "admin_error_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    route = Column(String, index=True, nullable=False)
+    status_code = Column(Integer, default=500)
+    error_message = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
 
 
 
