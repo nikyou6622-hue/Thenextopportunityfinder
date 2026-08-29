@@ -16,14 +16,27 @@ def get_admin_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 def get_regular_user_headers(client):
-    client.post("/api/auth/register", json={
-        "full_name": "Regular Candidate Test",
-        "email": "regular_candidate_test@example.com",
-        "password": "Password123!",
-        "target_role": "Software Engineer",
-        "experience_level": "Entry Level"
-    })
+    db = SessionLocal()
+    user = db.query(UserModel).filter(UserModel.email == "regular_candidate_test@example.com").first()
+    if not user:
+        from backend.app.main import _hash_password
+        user = UserModel(
+            full_name="Regular Candidate Test",
+            email="regular_candidate_test@example.com",
+            password_hash=_hash_password("Password123!"),
+            target_role="Software Engineer",
+            experience_level="Entry Level",
+            is_active=True,
+            is_email_verified=True,
+            is_admin=False
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    db.close()
+
     res = client.post("/api/auth/login", json={"email": "regular_candidate_test@example.com", "password": "Password123!"})
+    assert res.status_code == 200, f"Login failed for regular test user: {res.text}"
     token = res.json()["token"]
     return {"Authorization": f"Bearer {token}"}
 
