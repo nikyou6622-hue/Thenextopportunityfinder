@@ -20,6 +20,13 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Verify no broken imports on a clean checkout
+        run: |
+          git clone --depth 1 https://github.com/nikyou6622-hue/Thenextopportunityfinder.git /tmp/clean-checkout
+          cd /tmp/clean-checkout/web
+          npm install
+          npm run check:imports
+
       - name: Install dependencies & Build Frontend
         run: |
           cd web
