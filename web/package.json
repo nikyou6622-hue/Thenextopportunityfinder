@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "check:duplicates": "node scripts/check-duplicate-basenames.cjs",
-    "prebuild": "npm run check:duplicates",
+    "check:imports": "node scripts/check-broken-imports.cjs",
+    "prebuild": "npm run check:duplicates && npm run check:imports",
     "build": "vite build",
     "preview": "vite preview"
   },
