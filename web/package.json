@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "check:duplicates": "node scripts/check-duplicate-basenames.cjs",
+    "prebuild": "npm run check:duplicates",
     "build": "vite build",
     "preview": "vite preview"
   },
