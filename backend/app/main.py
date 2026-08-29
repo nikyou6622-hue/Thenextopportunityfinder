@@ -158,6 +158,8 @@ def auto_migrate_sqlite():
                     ("link_checked_at", "DATETIME"),
                     ("source_platform", "VARCHAR DEFAULT 'unknown'"),
                     ("source_posted_at", "TEXT"),
+                    ("source_trust_tier", "VARCHAR DEFAULT 'Tier 3'"),
+                    ("is_technical", "BOOLEAN DEFAULT 1"),
                     ("job_fingerprint", "VARCHAR"),
                     ("authenticity_flags", "TEXT"),
                     ("first_seen_at", "DATETIME"),
