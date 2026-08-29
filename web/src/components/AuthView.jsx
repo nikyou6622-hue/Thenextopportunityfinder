@@ -23,7 +23,6 @@ import {
   Key,
   RotateCcw
 } from 'lucide-react';
-import { SmokeyBackground } from './ui/smokey-background.jsx';
 import SoundSystem from './characters/SoundEffects';
 
 const ROLE_OPTIONS = [
@@ -557,7 +556,6 @@ export default function AuthView({
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: 'calc(100vh - 120px)', borderRadius: '24px', overflow: 'hidden' }}>
-      <SmokeyBackground color="#4338CA" />
       <div style={{
         maxWidth: '1100px',
         margin: '0 auto',
