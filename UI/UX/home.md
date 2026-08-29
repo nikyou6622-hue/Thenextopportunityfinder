@@ -11,7 +11,7 @@ Determine the default path for components and styles.
 If default path for components is not /components/ui, provide instructions on why it's important to create this folder
 Copy-paste this component to /components/ui folder:
 ```tsx
-motion-footer.tsx
+footer.tsx
 "use client";
 
 import * as React from "react";
@@ -233,7 +233,7 @@ const MarqueeItem = () => (
   </div>
 );
 
-export function CinematicFooter() {
+export function Footer() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const giantTextRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -406,7 +406,7 @@ export function CinematicFooter() {
 demo.tsx
 "use client";
 
-import { CinematicFooter } from "@/components/ui/motion-footer";
+import { Footer } from "@/components/ui/footer";
 
 export default function Demo() {
   return (
