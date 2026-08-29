@@ -1,3 +1,4 @@
+// SmokeyBackground UI component
 import React from 'react';
 
 export function SmokeyBackground({ color = '#4338CA', className = '' }) {
