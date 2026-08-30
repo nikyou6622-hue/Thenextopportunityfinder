@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Rocket, 
   Sparkles, 
@@ -41,8 +41,8 @@ import {
   Globe,
   CheckCheck
 } from 'lucide-react';
+import apiFetch from '../lib/apiClient';
 import UserAvatar from './UserAvatar';
-import ArchifySystemMap from './ArchifySystemMap';
 import SoundSystem from './characters/SoundEffects';
 import QuestMap from './characters/QuestMap';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
@@ -63,7 +63,7 @@ const WORKFLOW_STEPS = [
   },
   {
     step: '02',
-    title: 'Discover 10,000+ Verified Openings',
+    title: 'Discover Verified Technical Openings',
     badge: 'Stage 2: Opportunity Matching',
     color: '#38bdf8',
     glowColor: 'rgba(56, 189, 248, 0.3)',
@@ -71,7 +71,7 @@ const WORKFLOW_STEPS = [
     targetTab: 'jobs',
     description: 'Explore live technical opportunities matching your exact skills across Indian product unicorns (Swiggy, Razorpay, CRED), verified internships, and direct MNC portals (Google, Amazon, Meta).',
     actionLabel: 'Search Opportunities →',
-    highlights: ['10,000+ Verified Live Postings', 'Indian Internships Hub 🇮🇳', 'Direct MNC Portals (Google, Amazon, Meta)', 'Zero Middleman Blackholes']
+    highlights: ['Live-Verified Postings', 'Indian Internships Hub 🇮🇳', 'Direct MNC Portals (Google, Amazon, Meta)', 'Zero Middleman Blackholes']
   },
   {
     step: '03',
@@ -189,6 +189,30 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
   const [selectedPersona, setSelectedPersona] = useState('students');
   const [openFaqIdx, setOpenFaqIdx] = useState(0);
 
+  // Single Source of Truth: Live Database Metrics state
+  const [healthData, setHealthData] = useState(null);
+
+  // Fetch live active job count from single source of truth /api/health
+  useEffect(() => {
+    let isMounted = true;
+    const loadHealth = async () => {
+      try {
+        const res = await apiFetch('/api/health');
+        if (res && res.ok) {
+          const data = await res.json();
+          if (isMounted) setHealthData(data);
+        }
+      } catch (err) {
+        console.debug('Health telemetry fetch notice:', err);
+      }
+    };
+    loadHealth();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Compute exact live job count from /api/health with fallback to verified base
+  const liveJobCount = healthData?.database_metrics?.total_jobs || healthData?.database?.total_jobs || 3155;
+
   // Signature Element State: Interactive ATS Live Benchmark Simulator
   const [simRole, setSimRole] = useState('fullstack');
   const [simSkillsCount, setSimSkillsCount] = useState(8);
@@ -206,91 +230,17 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
 
   const activePersonaObj = AUDIENCE_PERSONAS.find(p => p.id === selectedPersona) || AUDIENCE_PERSONAS[0];
 
+  // First-time logged-out visitor stage filter (Stages 1-3 visible + teaser)
+  const isGuestVisitor = !currentUser;
+  const visibleWorkflowSteps = isGuestVisitor ? WORKFLOW_STEPS.slice(0, 3) : WORKFLOW_STEPS;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '36px', maxWidth: '1400px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       
-      {/* 🌟 1. TOP ANNOUNCEMENT & AUTH QUICK-JUMP BAR */}
+      {/* 🌟 1. HERO THESIS BANNER (CLEAN & SINGLE FOCAL CTA ABOVE THE FOLD) */}
       <div className="glass-panel" style={{
-        padding: '12px 20px',
-        background: 'rgba(20, 26, 48, 0.75)',
-        border: '1px solid rgba(99, 102, 241, 0.35)',
-        borderRadius: '16px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img 
-            src="/logo.png" 
-            alt="Next Opportunity Finder" 
-            style={{ width: '26px', height: '26px', objectFit: 'cover', borderRadius: '50%', background: 'transparent' }} 
-          />
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
-          <span style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600 }}>
-            Next Opportunity Finder OS <strong style={{ color: '#fff' }}>v2.14.0 Live</strong> &bull; {isPro ? 'PRO UNLOCKED' : '5 Free Daily Scrapes Active'}
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {!isPro && (
-            <button
-              onClick={() => {
-                SoundSystem.playPop();
-                if (onOpenPaywall) onOpenPaywall();
-              }}
-              className="btn-tactile btn-tactile-emerald"
-              style={{ padding: '7px 14px', fontSize: '0.78rem', fontWeight: 900 }}
-            >
-              <Zap size={13} /> Upgrade to Pro (₹99) →
-            </button>
-          )}
-
-          {currentUser ? (
-            <button
-              onClick={() => {
-                SoundSystem.playPop();
-                onNavigate('overview');
-              }}
-              className="btn-tactile btn-tactile-primary"
-              style={{ padding: '8px 16px', fontSize: '0.8rem' }}
-            >
-              <Rocket size={14} /> Live Dashboard ({currentUser.full_name?.split(' ')[0] || 'User'}) →
-            </button>
-          ) : (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => {
-                  SoundSystem.playPop();
-                  onNavigate('auth');
-                }}
-                className="btn-tactile btn-tactile-primary"
-                style={{ padding: '8px 16px', fontSize: '0.8rem' }}
-              >
-                <LogIn size={14} /> Sign In / Register
-              </button>
-
-              <button
-                onClick={() => {
-                  SoundSystem.playPop();
-                  onNavigate('overview');
-                }}
-                className="btn-tactile btn-tactile-ghost"
-                style={{ padding: '8px 14px', fontSize: '0.8rem' }}
-              >
-                Explore Dashboard →
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 🌟 2. HERO THESIS BANNER WITH DYNAMIC GLOW & STAT BADGES */}
-      <div className="glass-panel" style={{
-        padding: '40px 36px',
-        background: 'radial-gradient(ellipse at 15% 10%, rgba(99, 102, 241, 0.25) 0%, rgba(20, 26, 48, 0.95) 60%, rgba(15, 23, 42, 0.98) 100%)',
+        padding: '44px 36px',
+        background: 'radial-gradient(ellipse at 15% 10%, rgba(99, 102, 241, 0.28) 0%, rgba(20, 26, 48, 0.95) 60%, rgba(15, 23, 42, 0.98) 100%)',
         border: '1px solid rgba(99, 102, 241, 0.45)',
         boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.25)',
         position: 'relative',
@@ -299,82 +249,80 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
       }}>
         <div className="homepage-hero-grid" style={{ display: 'grid', gap: '28px', alignItems: 'center', position: 'relative', zIndex: 2 }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '840px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '6px 16px', borderRadius: '24px', alignSelf: 'flex-start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '840px' }}>
+            
+            {/* Live Telemetry & Freshness Badge */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', background: 'rgba(99, 102, 241, 0.18)', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '6px 16px', borderRadius: '24px', alignSelf: 'flex-start' }}>
               <Sparkles size={15} color="#a5b4fc" />
               <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#A5B4FC', letterSpacing: '0.04em' }}>
                 NEXT OPPORTUNITY FINDER &bull; PRIVACY-FIRST CAREER OPERATING SYSTEM
               </span>
             </div>
 
-            <h1 style={{ fontSize: 'clamp(1.8rem, 4.5vw, 2.8rem)', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.16, letterSpacing: '-0.03em' }}>
+            <h1 style={{ fontSize: 'clamp(2rem, 4.5vw, 3rem)', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.15, letterSpacing: '-0.03em' }}>
               Level Up Your Tech Career — From Zero to <span style={{ background: 'linear-gradient(135deg, #818cf8, #38bdf8, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Dream Offer</span>
             </h1>
 
-            <p style={{ fontSize: 'clamp(0.9rem, 2vw, 1.05rem)', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
-              Optimize your ATS score with live A4 preview (11 certified templates), discover 10,000+ verified Indian & global tech roles, 1-click tailored CVs, voice AI mock interviews, and in-browser DSA coding sandbox.
+            <p style={{ fontSize: 'clamp(0.92rem, 2vw, 1.08rem)', color: '#cbd5e1', lineHeight: 1.6, margin: 0 }}>
+              Optimize your ATS score with live A4 preview (11 certified templates), discover verified tech roles, 1-click tailored CVs, voice AI mock interviews, and in-browser DSA coding sandbox.
             </p>
 
-            {/* Live Key Metric Chips */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#34d399', fontWeight: 800 }}>
-                <CheckCheck size={14} /> 3,155+ Active Verified Jobs
+            {/* User-Facing Benefit Stat Chips (Single Source of Truth) */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '2px' }}>
+              <div style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(52, 211, 153, 0.35)', borderRadius: '12px', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#34d399', fontWeight: 800 }}>
+                <CheckCheck size={15} /> 
+                <span>{liveJobCount.toLocaleString()} Active Verified Jobs</span>
+                <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '8px' }}>Updated every 6 hours</span>
               </div>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#818cf8', fontWeight: 800 }}>
-                <ShieldCheck size={14} /> 100% Zero-Hallucination Engine
+
+              <div style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(129, 140, 248, 0.35)', borderRadius: '12px', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#818cf8', fontWeight: 800 }}>
+                <ShieldCheck size={15} /> 100% Zero-Hallucination Engine
               </div>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(251, 191, 36, 0.3)', borderRadius: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#fbbf24', fontWeight: 800 }}>
-                <Award size={14} /> 11 Certified ATS Templates
+
+              <div style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(251, 191, 36, 0.35)', borderRadius: '12px', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#fbbf24', fontWeight: 800 }}>
+                <Award size={15} /> 11 Certified ATS Templates
               </div>
-              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#38bdf8', fontWeight: 800 }}>
-                <Zap size={14} /> 22ms Decoupled Match Speed
+
+              <div style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(56, 189, 248, 0.35)', borderRadius: '12px', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#38bdf8', fontWeight: 800 }}>
+                <Globe size={15} /> Zero dead links — direct apply only
               </div>
             </div>
 
-            {/* Tactile Quick Action CTAs */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '10px' }}>
+            {/* SINGLE DOMINANT PRIMARY CTA ABOVE THE FOLD */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', marginTop: '10px' }}>
               <button
                 onClick={() => {
                   SoundSystem.playPop();
                   onNavigate('profile');
                 }}
                 className="btn-tactile btn-tactile-primary"
-                style={{ padding: '12px 22px', fontSize: '0.9rem', fontWeight: 800 }}
+                style={{
+                  padding: '14px 28px',
+                  fontSize: '1rem',
+                  fontWeight: 900,
+                  boxShadow: '0 10px 30px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)'
+                }}
               >
-                <FileText size={16} /> Open ATS Resume Studio
+                <FileText size={18} /> Upload your resume — free →
               </button>
 
               <button
                 onClick={() => {
                   SoundSystem.playPop();
-                  onNavigate('jobs');
+                  onNavigate('auth');
                 }}
-                className="btn-tactile btn-tactile-ghost"
-                style={{ padding: '12px 20px', fontSize: '0.9rem', fontWeight: 800 }}
-              >
-                <Search size={16} color="#38bdf8" /> Discover Live Jobs
-              </button>
-
-              <button
-                onClick={() => {
-                  SoundSystem.playPop();
-                  onNavigate('interview-prep');
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '4px'
                 }}
-                className="btn-tactile btn-tactile-emerald"
-                style={{ padding: '12px 20px', fontSize: '0.9rem', fontWeight: 800 }}
               >
-                <BrainCircuit size={16} /> AI Mock Interview
-              </button>
-
-              <button
-                onClick={() => {
-                  SoundSystem.playPop();
-                  onNavigate('coding');
-                }}
-                className="btn-tactile btn-tactile-amber"
-                style={{ padding: '12px 20px', fontSize: '0.9rem', fontWeight: 800 }}
-              >
-                <Code size={16} /> Coding Prep (DSA)
+                Already have an account? Sign in
               </button>
             </div>
           </div>
@@ -398,7 +346,7 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
-      {/* 🌟 2A. CORPORATE & UNICORN TARGET WALL TICKER */}
+      {/* 🌟 2. CORPORATE & UNICORN TARGET WALL TICKER */}
       <div className="glass-panel" style={{
         padding: '16px 24px',
         background: 'rgba(15, 23, 42, 0.6)',
@@ -435,239 +383,7 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
-      {/* 🌟 2B. HIGH-CONVERTING ₹99 PRO ADVERTISEMENT BANNER */}
-      <div className="glass-panel" style={{
-        padding: '24px 28px',
-        background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(99, 102, 241, 0.25), rgba(16, 185, 129, 0.2))',
-        border: '2px solid rgba(236, 72, 153, 0.6)',
-        boxShadow: '0 15px 40px rgba(236, 72, 153, 0.25), 0 0 30px rgba(99, 102, 241, 0.3)',
-        borderRadius: '20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '20px'
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '800px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ec4899', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '3px 12px', borderRadius: '12px', alignSelf: 'flex-start' }}>
-            <Zap size={14} /> ONLY ₹99 ONE-TIME PAYMENT &bull; LIFETIME ACCESS
-          </div>
-
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.25 }}>
-            Secure Your Dream Job — Unlock Thousands of Real MNC Interview Questions & Unlimited Scrapers!
-          </h2>
-
-          <p style={{ fontSize: '0.88rem', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
-            Run live scrapers across Google, Microsoft, Swiggy, Internshala, and 100+ MNC portals. Get instant access to <strong>5,000+ LeetCode company questions & solutions</strong>, 1-click ATS resume tailoring, and voice AI mock interviews for just ₹99.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-          <button
-            onClick={() => {
-              SoundSystem.playPop();
-              if (onOpenPaywall) onOpenPaywall();
-            }}
-            className="btn-tactile btn-tactile-emerald"
-            style={{
-              padding: '14px 28px',
-              fontSize: '1.05rem',
-              fontWeight: 900,
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              boxShadow: '0 8px 25px rgba(16, 185, 129, 0.5)',
-              border: '1px solid #34d399'
-            }}
-          >
-            <Lock size={18} /> Unlock Pro for ₹99 →
-          </button>
-          <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
-            ✓ 0 Monthly Subscriptions &bull; Lifetime Unlimited
-          </span>
-        </div>
-      </div>
-
-      {/* 🌟 3. DUOLINGO-STYLE INTERACTIVE QUEST ROADMAP PATH */}
-      <QuestMap onNavigate={onNavigate} />
-
-      {/* 🌟 4. STEP-BY-STEP WORKFLOW SYSTEM (CLEAR, NUMBERED & ACTIONABLE) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', padding: '4px 12px', borderRadius: '12px', marginBottom: '6px' }}>
-              <Zap size={14} color="#818cf8" />
-              <span style={{ fontSize: '0.74rem', fontWeight: 900, color: '#818cf8', letterSpacing: '0.04em' }}>
-                5-STEP CAREER ACCELERATION PIPELINE
-              </span>
-            </div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
-              How Next Opportunity Finder Works
-            </h2>
-            <p style={{ fontSize: '0.86rem', color: '#94A3B8', margin: '4px 0 0' }}>
-              A proven, sequential workflow that takes you from raw resume to verified applications and interview success.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <span style={{ fontSize: '0.76rem', color: '#cbd5e1', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', fontWeight: 600 }}>
-              5 Sequential Stages &bull; 100% Free
-            </span>
-          </div>
-        </div>
-
-        {/* 5 Distinct Workflow Step Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
-          {WORKFLOW_STEPS.map((step) => {
-            const Icon = step.icon;
-            return (
-              <div 
-                key={step.step}
-                className="glass-panel tactile-card-lift"
-                style={{
-                  padding: '24px',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '14px',
-                  background: 'rgba(19, 20, 36, 0.85)',
-                  border: `1px solid ${step.color}35`,
-                  boxShadow: `0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px ${step.glowColor}`,
-                  position: 'relative'
-                }}
-              >
-                {/* Step Number & Badge */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ 
-                    width: '44px', 
-                    height: '44px', 
-                    borderRadius: '14px', 
-                    background: `${step.color}20`, 
-                    border: `1px solid ${step.color}50`, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center' 
-                  }}>
-                    <Icon size={22} color={step.color} />
-                  </div>
-                  <div style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 900,
-                    color: step.color,
-                    background: `${step.color}15`,
-                    border: `1px solid ${step.color}30`,
-                    padding: '3px 10px',
-                    borderRadius: '20px'
-                  }}>
-                    STAGE {step.step}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.3 }}>
-                    {step.title}
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.55, marginTop: '6px' }}>
-                    {step.description}
-                  </p>
-                </div>
-
-                {/* Highlights List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                  {step.highlights.map((h, hIdx) => (
-                    <div key={hIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#cbd5e1' }}>
-                      <Check size={12} color={step.color} style={{ flexShrink: 0 }} />
-                      <span>{h}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Direct Action Button */}
-                <button
-                  onClick={() => {
-                    SoundSystem.playPop();
-                    onNavigate(step.targetTab);
-                  }}
-                  className="btn-tactile btn-tactile-ghost"
-                  style={{ 
-                    marginTop: '8px', 
-                    padding: '9px 14px', 
-                    fontSize: '0.82rem', 
-                    width: '100%',
-                    justifyContent: 'center',
-                    color: step.color,
-                    borderColor: `${step.color}40`
-                  }}
-                >
-                  <span>{step.actionLabel}</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 🌟 5. MEET YOUR ORIGINAL CAREER CREW */}
-      <div className="glass-panel" style={{
-        padding: '32px 28px',
-        background: 'linear-gradient(135deg, rgba(20, 26, 48, 0.8), rgba(15, 23, 42, 0.95))',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '24px'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Original Character Universe
-          </span>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#FFFFFF', marginTop: '4px' }}>
-            Meet Your AI Career Mentors
-          </h2>
-          <p style={{ fontSize: '0.85rem', color: '#94A3B8', maxWidth: '600px', margin: '4px auto 0' }}>
-            Specialized companions guiding every milestone of your resume audits, job search, coding, and mock interviews.
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px' }}>
-          {/* Nova */}
-          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
-            <NovaCharacter pose="welcome" size={85} />
-            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Nova</h4>
-            <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 800 }}>Astro Career Navigator</div>
-            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
-              Guides your daily preparation quests, application tracking, and verified job matching.
-            </p>
-          </div>
-
-          {/* Lexi */}
-          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.25)' }}>
-            <LexiCharacter pose="writing" size={80} />
-            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Lexi</h4>
-            <div style={{ fontSize: '0.72rem', color: '#F472B6', fontWeight: 800 }}>ATS Wordsmith Lynx</div>
-            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
-              Audits 5-pillar resume scores, highlights action verbs, and generates tailored CVs.
-            </p>
-          </div>
-
-          {/* Zenith */}
-          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-            <ZenithCharacter pose="listening" size={80} />
-            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Zenith</h4>
-            <div style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: 800 }}>Interview Sensei Orb</div>
-            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
-              Simulates high-pressure voice interviews and scores answers with STAR framework.
-            </p>
-          </div>
-
-          {/* Pixel */}
-          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
-            <PixelCharacter pose="coding" size={80} />
-            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Pixel</h4>
-            <div style={{ fontSize: '0.72rem', color: '#22D3EE', fontWeight: 800 }}>DSA & Coding Spark</div>
-            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
-              Runs Python & JavaScript algorithm test cases with instant runtime analytics.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 🌟 6. SIGNATURE WORKBENCH: LIVE ATS BENCHMARK SIMULATOR */}
+      {/* 🌟 3. SIGNATURE WORKBENCH: LIVE ATS BENCHMARK SIMULATOR (PROMINENT EXPERIMENTAL POSITION) */}
       <div id="ats-section" className="glass-panel" style={{
         padding: '28px 32px',
         background: 'linear-gradient(135deg, rgba(16, 22, 38, 0.95), rgba(11, 15, 25, 0.98))',
@@ -842,6 +558,265 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
+      {/* 🌟 4. HIGH-CONVERTING ₹99 PRO ADVERTISEMENT BANNER (RELOCATED AFTER SIMULATOR VALUE PROPOSITION) */}
+      <div className="glass-panel" style={{
+        padding: '26px 30px',
+        background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(99, 102, 241, 0.25), rgba(16, 185, 129, 0.2))',
+        border: '2px solid rgba(236, 72, 153, 0.6)',
+        boxShadow: '0 15px 40px rgba(236, 72, 153, 0.25), 0 0 30px rgba(99, 102, 241, 0.3)',
+        borderRadius: '20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '20px'
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '800px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ec4899', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '3px 12px', borderRadius: '12px', alignSelf: 'flex-start' }}>
+            <Zap size={14} /> ONLY ₹99 ONE-TIME PAYMENT &bull; LIFETIME ACCESS
+          </div>
+
+          <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.25 }}>
+            Secure Your Dream Job — Unlock Real MNC Question Banks & Unlimited Scrapers!
+          </h2>
+
+          <p style={{ fontSize: '0.88rem', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
+            Run live scrapers across Google, Microsoft, Swiggy, Internshala, and 100+ MNC portals. Get instant access to <strong>extensive company-specific question banks & solutions</strong>, 1-click ATS resume tailoring, and voice AI mock interviews for just ₹99.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+          <button
+            onClick={() => {
+              SoundSystem.playPop();
+              if (onOpenPaywall) onOpenPaywall();
+            }}
+            className="btn-tactile btn-tactile-emerald"
+            style={{
+              padding: '14px 28px',
+              fontSize: '1.05rem',
+              fontWeight: 900,
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              boxShadow: '0 8px 25px rgba(16, 185, 129, 0.5)',
+              border: '1px solid #34d399'
+            }}
+          >
+            <Lock size={18} /> Unlock Pro for ₹99 →
+          </button>
+          <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
+            ✓ 0 Monthly Subscriptions &bull; Lifetime Unlimited
+          </span>
+        </div>
+      </div>
+
+      {/* 🌟 5. STEP-BY-STEP WORKFLOW SYSTEM (CONDENSED FOR FIRST-TIME VISITORS) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', padding: '4px 12px', borderRadius: '12px', marginBottom: '6px' }}>
+              <Zap size={14} color="#818cf8" />
+              <span style={{ fontSize: '0.74rem', fontWeight: 900, color: '#818cf8', letterSpacing: '0.04em' }}>
+                5-STEP CAREER ACCELERATION PIPELINE
+              </span>
+            </div>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
+              How Next Opportunity Finder Works
+            </h2>
+            <p style={{ fontSize: '0.86rem', color: '#94A3B8', margin: '4px 0 0' }}>
+              A proven, sequential workflow that takes you from raw resume to verified applications and interview success.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <span style={{ fontSize: '0.76rem', color: '#cbd5e1', background: 'rgba(255, 255, 255, 0.05)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', fontWeight: 600 }}>
+              {isGuestVisitor ? 'Stages 1–3 Preview' : '5 Full Sequential Stages'}
+            </span>
+          </div>
+        </div>
+
+        {/* Workflow Step Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+          {visibleWorkflowSteps.map((step) => {
+            const Icon = step.icon;
+            return (
+              <div 
+                key={step.step}
+                className="glass-panel tactile-card-lift"
+                style={{
+                  padding: '24px',
+                  borderRadius: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  background: 'rgba(19, 20, 36, 0.85)',
+                  border: `1px solid ${step.color}35`,
+                  boxShadow: `0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px ${step.glowColor}`,
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ 
+                    width: '44px', 
+                    height: '44px', 
+                    borderRadius: '14px', 
+                    background: `${step.color}20`, 
+                    border: `1px solid ${step.color}50`, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
+                  }}>
+                    <Icon size={22} color={step.color} />
+                  </div>
+                  <div style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 900,
+                    color: step.color,
+                    background: `${step.color}15`,
+                    border: `1px solid ${step.color}30`,
+                    padding: '3px 10px',
+                    borderRadius: '20px'
+                  }}>
+                    STAGE {step.step}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.3 }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.55, marginTop: '6px' }}>
+                    {step.description}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  {step.highlights.map((h, hIdx) => (
+                    <div key={hIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                      <Check size={12} color={step.color} style={{ flexShrink: 0 }} />
+                      <span>{h}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    SoundSystem.playPop();
+                    onNavigate(step.targetTab);
+                  }}
+                  className="btn-tactile btn-tactile-ghost"
+                  style={{ 
+                    marginTop: '8px', 
+                    padding: '9px 14px', 
+                    fontSize: '0.82rem', 
+                    width: '100%',
+                    justifyContent: 'center',
+                    color: step.color,
+                    borderColor: `${step.color}40`
+                  }}
+                >
+                  <span>{step.actionLabel}</span>
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Guest Teaser Card for Stages 4 & 5 */}
+          {isGuestVisitor && (
+            <div 
+              className="glass-panel tactile-card-lift"
+              style={{
+                padding: '24px',
+                borderRadius: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '14px',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1))',
+                border: '1px dashed rgba(16, 185, 129, 0.4)',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34d399' }}>
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#ffffff' }}>+2 More Stages Unlocked</div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>Stage 4: Voice AI Mock Interview Coach & Stage 5: In-Browser DSA Sandbox</div>
+              </div>
+              <button
+                onClick={() => {
+                  SoundSystem.playPop();
+                  onNavigate('profile');
+                }}
+                className="btn-tactile btn-tactile-emerald"
+                style={{ padding: '9px 16px', fontSize: '0.82rem', width: '100%', justifyContent: 'center' }}
+              >
+                Start Free to Unlock All Stages →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 🌟 6. MEET YOUR ORIGINAL CAREER CREW */}
+      <div className="glass-panel" style={{
+        padding: '32px 28px',
+        background: 'linear-gradient(135deg, rgba(20, 26, 48, 0.8), rgba(15, 23, 42, 0.95))',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '24px'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#818CF8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Original Character Universe
+          </span>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#FFFFFF', marginTop: '4px' }}>
+            Meet Your AI Career Mentors
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: '#94A3B8', maxWidth: '600px', margin: '4px auto 0' }}>
+            Specialized companions guiding every milestone of your resume audits, job search, coding, and mock interviews.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px' }}>
+          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <NovaCharacter pose="welcome" size={85} />
+            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Nova</h4>
+            <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 800 }}>Astro Career Navigator</div>
+            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
+              Guides your daily preparation quests, application tracking, and verified job matching.
+            </p>
+          </div>
+
+          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(236, 72, 153, 0.08)', border: '1px solid rgba(236, 72, 153, 0.25)' }}>
+            <LexiCharacter pose="writing" size={80} />
+            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Lexi</h4>
+            <div style={{ fontSize: '0.72rem', color: '#F472B6', fontWeight: 800 }}>ATS Wordsmith Lynx</div>
+            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
+              Audits 5-pillar resume scores, highlights action verbs, and generates tailored CVs.
+            </p>
+          </div>
+
+          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <ZenithCharacter pose="listening" size={80} />
+            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Zenith</h4>
+            <div style={{ fontSize: '0.72rem', color: '#34D399', fontWeight: 800 }}>Interview Sensei Orb</div>
+            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
+              Simulates high-pressure voice interviews and scores answers with STAR framework.
+            </p>
+          </div>
+
+          <div className="glass-panel tactile-card-lift" style={{ padding: '20px', textAlign: 'center', borderRadius: '18px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
+            <PixelCharacter pose="coding" size={80} />
+            <h4 style={{ fontSize: '1rem', fontWeight: 900, color: '#FFFFFF', marginTop: '12px' }}>Pixel</h4>
+            <div style={{ fontSize: '0.72rem', color: '#22D3EE', fontWeight: 800 }}>DSA & Coding Spark</div>
+            <p style={{ fontSize: '0.76rem', color: '#94A3B8', marginTop: '6px', lineHeight: 1.35 }}>
+              Runs Python & JavaScript algorithm test cases with instant runtime analytics.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 🌟 7. AUDIENCE PERSONAS */}
       <div id="internships-section" className="glass-panel" style={{ padding: '28px', borderRadius: '20px' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
@@ -895,24 +870,35 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
-      {/* 🌟 8. SYSTEM ARCHITECTURE & DPDP SECURITY VAULT */}
-      <div id="security-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', padding: '4px 12px', borderRadius: '12px', marginBottom: '6px' }}>
-            <ShieldCheck size={14} color="#818cf8" />
-            <span style={{ fontSize: '0.74rem', fontWeight: 900, color: '#818cf8', letterSpacing: '0.04em' }}>
-              DPDP ACT 2023 SECURITY & ARCHITECTURE
-            </span>
-          </div>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
-            Candidate Privacy & System Topology
-          </h2>
-          <p style={{ fontSize: '0.86rem', color: '#94A3B8', maxWidth: '640px', margin: '4px auto 0' }}>
-            Explore our interactive end-to-end user journey, multi-agent engine, and 22-table cascade purge pipeline.
-          </p>
+      {/* 🌟 8. SINGLE-LINE DPDP PRIVACY TRUST STATEMENT & ARCHITECTURE RELOCATION LINK */}
+      <div className="glass-panel" style={{
+        padding: '20px 26px',
+        borderRadius: '18px',
+        background: 'rgba(15, 23, 42, 0.75)',
+        border: '1px solid rgba(129, 140, 248, 0.3)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <ShieldCheck size={22} color="#818cf8" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: '0.86rem', color: '#e2e8f0', fontWeight: 600, lineHeight: 1.5 }}>
+            Your candidate data is encrypted at rest and deletable anytime — <strong>DPDP Act 2023 compliant</strong>.
+          </span>
         </div>
 
-        <ArchifySystemMap onLaunchStudio={(tab) => onNavigate(tab)} />
+        <button
+          onClick={() => {
+            SoundSystem.playPop();
+            onNavigate('architecture');
+          }}
+          className="btn-tactile btn-tactile-ghost"
+          style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#818cf8', borderColor: 'rgba(129, 140, 248, 0.4)' }}
+        >
+          View Full System Architecture & Topology →
+        </button>
       </div>
 
       {/* 🌟 9. FREQUENTLY ASKED QUESTIONS */}

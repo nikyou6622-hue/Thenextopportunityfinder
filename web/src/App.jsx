@@ -58,6 +58,7 @@ const SkillAssessmentStudio = lazyWithRetry(() => import('./components/SkillAsse
 const CommunityForumView = lazyWithRetry(() => import('./components/CommunityForumView'));
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
 const SalaryIntelligenceStudio = lazyWithRetry(() => import('./components/SalaryIntelligenceStudio'));
+const ArchifySystemMap = lazyWithRetry(() => import('./components/ArchifySystemMap'));
 
 const DEFAULT_FALLBACK_PROFILE = {
   id: 'usr_sample_01',
@@ -107,7 +108,7 @@ export default function App() {
       
       // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public info page
       if (!isAuthenticated) {
-        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary', 'admin'];
+        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary', 'admin', 'architecture'];
         const requested = queryTab || path || hash;
         if (requested && publicPages.includes(requested)) {
           return requested;
@@ -1098,6 +1099,12 @@ export default function App() {
             {activeTab === 'status' && (
               <SystemStatusPage 
                 onTriggerCelebration={handleTriggerCelebration}
+              />
+            )}
+
+            {activeTab === 'architecture' && (
+              <ArchifySystemMap 
+                onLaunchStudio={(tab) => setActiveTab(tab)}
               />
             )}
 

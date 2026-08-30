@@ -162,114 +162,49 @@ export default function Header({
           </button>
 
           <button 
-            onClick={() => {
-              setActiveTab('home');
-              setTimeout(() => {
-                const el = document.getElementById('internships-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
-            }} 
+            onClick={() => setActiveTab('architecture')} 
             style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer', transition: 'color 0.2s ease' }}
             onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
             onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
           >
-            India Internships
-          </button>
-
-          <button 
-            onClick={() => {
-              setActiveTab('home');
-              setTimeout(() => {
-                const el = document.getElementById('security-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
-            }} 
-            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer', transition: 'color 0.2s ease' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-          >
-            DPDP Security
+            System Architecture
           </button>
         </div>
 
-        {/* Right CTA Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {isPro ? (
-            <div style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#34d399', fontSize: '0.75rem', fontWeight: 900, padding: '4px 10px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Zap size={13} /> PRO LIFETIME
-            </div>
-          ) : (
-            <button
-              onClick={() => {
-                SoundSystem.playPop();
-                if (onOpenPaywall) onOpenPaywall();
-              }}
-              style={{
-                background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(99, 102, 241, 0.2))',
-                border: '1px solid #ec4899',
-                color: '#f472b6',
-                fontSize: '0.76rem',
-                fontWeight: 900,
-                padding: '5px 12px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Zap size={13} color="#ec4899" />
-              <span>Scrapes: {scrapesRemaining}/{freeLimit}</span>
-              <span style={{ color: '#34d399', marginLeft: '4px' }}>Upgrade ₹99</span>
-            </button>
-          )}
-
-          <GamificationBar />
-
+        {/* Right CTA Actions for Guests */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button
             onClick={() => {
               SoundSystem.playPop();
               setActiveTab('auth');
             }}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#f8fafc',
-              padding: '8px 16px',
-              borderRadius: '12px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
+              background: 'none',
+              border: 'none',
+              color: '#cbd5e1',
+              fontSize: '0.84rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
+              textDecoration: 'underline',
+              textUnderlineOffset: '4px'
             }}
           >
-            <LogIn size={15} color="#818cf8" />
-            <span>Sign In</span>
+            Sign In
           </button>
 
           <button
             onClick={() => {
-              SoundSystem.playSuccess();
-              setActiveTab('auth');
+              SoundSystem.playPop();
+              setActiveTab('profile');
             }}
-            className="btn-next-primary"
+            className="btn-tactile btn-tactile-primary"
             style={{
               padding: '8px 18px',
-              borderRadius: '12px',
-              fontSize: '0.82rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)'
+              fontSize: '0.84rem',
+              fontWeight: 800
             }}
           >
-            <Sparkles size={15} />
-            <span>Get Started Free</span>
+            <FileText size={15} /> Upload your resume — free
           </button>
         </div>
       </header>
