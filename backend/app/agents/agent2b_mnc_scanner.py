@@ -1288,6 +1288,11 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
     ).all()
     all_profiles = db.query(ProfileModel).all()
 
+    # Pre-fetch existing (job_id, profile_id) pairs into set to eliminate N*M DB roundtrips
+    existing_match_pairs = set(
+        db.query(MatchModel.job_id, MatchModel.profile_id).all()
+    )
+
     for prof in all_profiles:
         raw_resume = decrypt_field(prof.raw_resume_text) if prof.raw_resume_text else ""
         prof_dict = {
@@ -1301,11 +1306,7 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
             "raw_resume_text": raw_resume
         }
         for job in all_mnc_jobs:
-            existing_match = db.query(MatchModel).filter(
-                MatchModel.job_id == job.id,
-                MatchModel.profile_id == prof.id
-            ).first()
-            if not existing_match:
+            if (job.id, prof.id) not in existing_match_pairs:
                 j_dict = {
                     "company": job.company,
                     "role_title": job.role_title,
@@ -1328,14 +1329,25 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                     missing_skills=match_res["missing_skills"]
                 )
                 db.add(new_match)
+                existing_match_pairs.add((job.id, prof.id))
     db.commit()
 
     return scan_summary
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def _check_job_link(job_tuple: Tuple[int, str]) -> Tuple[int, str, str]:
+    job_id, apply_url = job_tuple
+    try:
+        resolved_url, link_status = resolve_and_validate_apply_url(apply_url, check_live=True, timeout_sec=3.0)
+        return (job_id, resolved_url or apply_url, link_status)
+    except Exception:
+        return (job_id, apply_url, "unchecked")
+
 def revalidate_stale_links(db: Session) -> None:
     """
-    Re-validate apply links with lifecycle management.
+    Re-validate apply links with lifecycle management using parallel worker threads.
     active → stale (1 failed check) → removed (2 consecutive failures)
     """
     cutoff_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=LINK_REVALIDATION_HOURS)
@@ -1346,43 +1358,43 @@ def revalidate_stale_links(db: Session) -> None:
             JobModel.link_checked_at < cutoff_time,
             JobModel.status.in_(["active", "stale"])
         )
-    ).all()
+    ).limit(50).all()
     
-    for job in stale_jobs:
-        try:
-            resolved_url, link_status = resolve_and_validate_apply_url(
-                job.apply_url, 
-                check_live=True
-            )
-            
-            job.apply_url_resolved = resolved_url or job.apply_url
-            job.link_checked_at = datetime.datetime.now(datetime.timezone.utc)
-            job.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
-            
-            if link_status == "dead":
-                # Track consecutive failures
-                if job.status == "active":
-                    # First failure: active → stale
-                    job.status = "stale"
-                    job.link_status = "stale"
-                    logger.info(f"Job {job.external_id} marked as stale (first failed check)")
-                elif job.status == "stale":
-                    # Second failure: stale → removed
-                    job.status = "removed"
-                    job.link_status = "removed"
-                    logger.warning(f"Job {job.external_id} marked as removed (second failed check)")
-            else:
-                # Link is working again
-                if job.status == "stale":
-                    job.status = "active"
-                    job.link_status = "active"
-                    logger.info(f"Job {job.external_id} restored to active")
+    if not stale_jobs:
+        return
+
+    job_map = {job.id: job for job in stale_jobs}
+    job_tuples = [(job.id, job.apply_url) for job in stale_jobs]
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_check_job_link, jt) for jt in job_tuples]
+        for future in as_completed(futures):
+            try:
+                job_id, resolved_url, link_status = future.result()
+                job = job_map.get(job_id)
+                if not job:
+                    continue
+                
+                job.apply_url_resolved = resolved_url
+                job.link_checked_at = datetime.datetime.now(datetime.timezone.utc)
+                job.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
+
+                if link_status == "dead":
+                    if job.status == "active":
+                        job.status = "stale"
+                        job.link_status = "stale"
+                    elif job.status == "stale":
+                        job.status = "removed"
+                        job.link_status = "removed"
                 else:
-                    job.link_status = "active"
-            
-        except Exception as e:
-            logger.error(f"Error re-validating link for job {job.external_id}: {e}")
-    
+                    if job.status == "stale":
+                        job.status = "active"
+                        job.link_status = "active"
+                    else:
+                        job.link_status = "active"
+            except Exception as e:
+                logger.error(f"Error processing link revalidation result: {e}")
+
     db.commit()
 
 
