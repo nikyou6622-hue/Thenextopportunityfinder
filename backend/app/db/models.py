@@ -366,6 +366,35 @@ class AdminErrorLogModel(Base):
     error_message = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
 
+class ErrorLogModel(Base):
+    __tablename__ = "error_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, index=True, nullable=False) # route path or scraper name
+    error_type = Column(String, index=True, default="UnhandledError") # exception class name / error type
+    error_message = Column(Text, nullable=False)
+    stack_trace = Column(Text, nullable=True)
+    request_context = Column(Text, nullable=True) # method, url, client ip
+    occurred_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
+    occurred_count = Column(Integer, default=1)
+    last_alert_sent_at = Column(DateTime, nullable=True)
+    resolved = Column(Boolean, default=False, index=True)
+
+class ScraperRunModel(Base):
+    __tablename__ = "scraper_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    scraper_name = Column(String, index=True, nullable=False) # "MNC Scanner", "India Internship Scraper", "Global Job Discovery Scanner"
+    start_time = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
+    end_time = Column(DateTime, nullable=True)
+    status = Column(String, index=True, default="running") # "running", "success", "failed"
+    jobs_added = Column(Integer, default=0)
+    jobs_updated = Column(Integer, default=0)
+    jobs_skipped = Column(Integer, default=0)
+    duration_seconds = Column(Float, default=0.0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
 
 
 

@@ -29,9 +29,10 @@ from backend.app.db.models import (
     TailoredResumeModel, EmailLogModel, InterviewPrepModel, OutcomeDiagnosisModel, 
     OutcomeEventModel, SubscriptionModel, LearningResourceModel, InterviewQuestionBankModel,
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
-    AdminAuditLogModel, AdminErrorLogModel,
+    AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache
 )
+from backend.app.services.error_notifier import capture_and_alert_error
 from backend.app.schemas.schemas import (
     ProfileSchema, JobSchema, MatchSchema, ApplicationSchema, 
     ApplicationUpdateRequest, DashboardMetrics, InterviewPrepSchema,
@@ -250,6 +251,34 @@ app = FastAPI(
     version="2.0.0",
     redirect_slashes=False
 )
+
+@app.exception_handler(Exception)
+async def global_unhandled_exception_handler(request: Request, exc: Exception):
+    """Global exception handler catching unhandled errors across all API routes."""
+    import traceback
+    stack_trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    req_context = f"{request.method} {request.url.path}"
+    if request.client:
+        req_context += f" (Client: {request.client.host})"
+
+    try:
+        capture_and_alert_error(
+            source=f"HTTP {request.method} {request.url.path}",
+            error=exc,
+            stack_trace=stack_trace,
+            request_context=req_context
+        )
+    except Exception as ex:
+        print(f"Global exception logger warning: {ex}")
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal Server Error. Captured and alerted to engineering.",
+            "error_type": exc.__class__.__name__,
+            "path": request.url.path
+        }
+    )
 
 @app.middleware("http")
 async def debug_path_middleware(request: Request, call_next):
@@ -1573,6 +1602,142 @@ def admin_get_scraper_status(db: Session = Depends(get_db), admin: UserModel = D
         "recent_logs": scan_history,
         "total_scan_logs": len(scan_history)
     }
+
+@app.get("/api/admin/scraper/activity")
+def admin_get_scraper_activity(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """
+    Returns Scraper Activity Panel telemetry per scraper source:
+    - MNC Scanner (Cron: every 6h)
+    - India Internship Scraper (Cron: every 6h)
+    - Global Job Discovery Scanner (Cron: every 12h)
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    scrapers_meta = [
+        {"key": "mnc_scanner", "name": "MNC Scanner", "cron_interval_hours": 6},
+        {"key": "internships_scraper", "name": "India Internship Scraper", "cron_interval_hours": 6},
+        {"key": "global_discovery", "name": "Global Job Discovery Scanner", "cron_interval_hours": 12}
+    ]
+
+    result = {}
+
+    for s in scrapers_meta:
+        name = s["name"]
+        cron_hours = s["cron_interval_hours"]
+
+        runs = db.query(ScraperRunModel).filter(
+            ScraperRunModel.scraper_name == name
+        ).order_by(ScraperRunModel.id.desc()).limit(10).all()
+
+        last_run = None
+        last_successful_run = None
+        recent_metrics = {"jobs_added": 0, "jobs_updated": 0, "jobs_skipped": 0}
+
+        if runs:
+            latest = runs[0]
+            last_run = {
+                "id": latest.id,
+                "timestamp": latest.start_time.isoformat() if latest.start_time else None,
+                "end_time": latest.end_time.isoformat() if latest.end_time else None,
+                "status": latest.status,
+                "duration_seconds": latest.duration_seconds,
+                "error_message": latest.error_message
+            }
+
+            success_run = next((r for r in runs if r.status == "success"), None)
+            if success_run:
+                last_successful_run = {
+                    "id": success_run.id,
+                    "timestamp": success_run.start_time.isoformat() if success_run.start_time else None,
+                    "duration_seconds": success_run.duration_seconds
+                }
+                recent_metrics = {
+                    "jobs_added": success_run.jobs_added,
+                    "jobs_updated": success_run.jobs_updated,
+                    "jobs_skipped": success_run.jobs_skipped
+                }
+
+        next_run_str = f"Scheduled (every {cron_hours}h)"
+        if last_run and last_run.get("timestamp"):
+            try:
+                last_dt = datetime.datetime.fromisoformat(last_run["timestamp"])
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
+                next_dt = last_dt + datetime.timedelta(hours=cron_hours)
+                diff_sec = (next_dt - now).total_seconds()
+                if diff_sec > 0:
+                    hrs = int(diff_sec // 3600)
+                    mins = int((diff_sec % 3600) // 60)
+                    next_run_str = f"In ~{hrs}h {mins}m"
+                else:
+                    next_run_str = "Due shortly"
+            except Exception:
+                pass
+
+        history = [
+            {
+                "id": r.id,
+                "timestamp": r.start_time.isoformat() if r.start_time else None,
+                "duration_seconds": r.duration_seconds,
+                "status": r.status,
+                "jobs_added": r.jobs_added,
+                "jobs_updated": r.jobs_updated,
+                "error_message": r.error_message
+            } for r in runs
+        ]
+
+        result[s["key"]] = {
+            "name": name,
+            "cron_interval_hours": cron_hours,
+            "last_run": last_run,
+            "last_successful_run": last_successful_run,
+            "recent_metrics": recent_metrics,
+            "next_scheduled_run": next_run_str,
+            "history": history
+        }
+
+    return {
+        "success": True,
+        "scrapers": result,
+        "server_time": now.isoformat()
+    }
+
+@app.get("/api/admin/errors")
+def admin_get_error_logs(db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Returns recent system error logs captured in ErrorLogModel."""
+    logs = db.query(ErrorLogModel).order_by(ErrorLogModel.id.desc()).limit(50).all()
+    return {
+        "success": True,
+        "total_errors": len(logs),
+        "errors": [
+            {
+                "id": l.id,
+                "source": l.source,
+                "error_type": l.error_type,
+                "error_message": l.error_message,
+                "stack_trace": l.stack_trace,
+                "request_context": l.request_context,
+                "occurred_at": l.occurred_at.isoformat() if l.occurred_at else None,
+                "occurred_count": l.occurred_count,
+                "last_alert_sent_at": l.last_alert_sent_at.isoformat() if l.last_alert_sent_at else None,
+                "resolved": l.resolved
+            } for l in logs
+        ]
+    }
+
+@app.post("/api/admin/errors/{error_id}/resolve")
+def admin_resolve_error_log(error_id: int, db: Session = Depends(get_db), admin: UserModel = Depends(get_admin_user)):
+    """Toggles resolution status for an ErrorLogModel entry."""
+    err = db.query(ErrorLogModel).filter(ErrorLogModel.id == error_id).first()
+    if not err:
+        raise HTTPException(status_code=404, detail="Error log entry not found.")
+    err.resolved = not err.resolved
+    db.commit()
+    return {"success": True, "error_id": error_id, "resolved": err.resolved}
+
+@app.post("/api/test/trigger-error")
+def test_trigger_unhandled_error():
+    """Diagnostic endpoint to simulate an unhandled server error for Part C verification."""
+    raise RuntimeError("Deliberate Test Exception: Verification of Error Monitoring & Email Alerting Pipeline")
 
 @app.post("/api/admin/scraper/run")
 @app.post("/api/admin/scraper/run/{source}")

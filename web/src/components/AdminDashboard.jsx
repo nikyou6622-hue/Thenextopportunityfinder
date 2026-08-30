@@ -65,6 +65,7 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
 
   // Scraper Operations State
   const [scraperStatus, setScraperStatus] = useState(null);
+  const [scraperActivity, setScraperActivity] = useState(null);
   const [concurrencyState, setConcurrencyState] = useState(null);
   const [jobsHealth, setJobsHealth] = useState(null);
   const [triggeringScraper, setTriggeringScraper] = useState(false);
@@ -73,6 +74,7 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
   // System Health & Error Logs State
   const [systemHealth, setSystemHealth] = useState(null);
   const [serverErrors, setServerErrors] = useState([]);
+  const [capturedErrorLogs, setCapturedErrorLogs] = useState([]);
 
   // Deploy & Audit Logs State
   const [deployStatus, setDeployStatus] = useState(null);
@@ -109,10 +111,12 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
         statsRes,
         usersRes,
         scraperRes,
+        scraperActRes,
         concurrencyRes,
         jobsHealthRes,
         sysHealthRes,
         errsRes,
+        capturedErrsRes,
         deployRes,
         auditRes,
         metricsRes
@@ -120,10 +124,12 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
         apiFetch('/api/admin/stats').catch(() => null),
         apiFetch(`/api/admin/users?q=${encodeURIComponent(searchQuery)}&verification_status=${filterVerification}&subscription_tier=${filterTier}`).catch(() => null),
         apiFetch('/api/admin/scraper/status').catch(() => null),
+        apiFetch('/api/admin/scraper/activity').catch(() => null),
         apiFetch('/api/admin/scraper/concurrency').catch(() => null),
         apiFetch('/api/admin/jobs/health').catch(() => null),
         apiFetch('/api/admin/system/health').catch(() => null),
         apiFetch('/api/admin/system/errors').catch(() => null),
+        apiFetch('/api/admin/errors').catch(() => null),
         apiFetch('/api/admin/deploy/status').catch(() => null),
         apiFetch('/api/admin/audit-logs').catch(() => null),
         apiFetch('/api/admin/metrics').catch(() => null)
@@ -136,10 +142,15 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
         setUserTotal(uData.total_count || 0);
       }
       if (scraperRes?.ok) setScraperStatus(await scraperRes.json());
+      if (scraperActRes?.ok) setScraperActivity(await scraperActRes.json());
       if (concurrencyRes?.ok) setConcurrencyState(await concurrencyRes.json());
       if (jobsHealthRes?.ok) setJobsHealth(await jobsHealthRes.json());
       if (sysHealthRes?.ok) setSystemHealth(await sysHealthRes.json());
       if (errsRes?.ok) setServerErrors((await errsRes.json()).errors || []);
+      if (capturedErrsRes?.ok) {
+        const eData = await capturedErrsRes.json();
+        setCapturedErrorLogs(eData.errors || []);
+      }
       if (deployRes?.ok) setDeployStatus(await deployRes.json());
       if (auditRes?.ok) setAuditLogs((await auditRes.json()).audit_logs || []);
       if (metricsRes?.ok) setMetrics(await metricsRes.json());
@@ -154,6 +165,11 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
   useEffect(() => {
     if (isMasterAdmin) {
       fetchAllAdminData();
+      const interval = setInterval(() => {
+        apiFetch('/api/admin/scraper/activity').then(r => r.ok && r.json()).then(d => d && setScraperActivity(d)).catch(() => null);
+        apiFetch('/api/admin/errors').then(r => r.ok && r.json()).then(d => d && setCapturedErrorLogs(d.errors || [])).catch(() => null);
+      }, 30000);
+      return () => clearInterval(interval);
     }
   }, [isMasterAdmin, searchQuery, filterVerification, filterTier]);
 
@@ -450,6 +466,104 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
             )}
           </div>
 
+          {/* 🌟 SCRAPER SOURCE ACTIVITY & LIFECYCLE PANEL */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '18px', border: '1px solid rgba(129, 140, 248, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Activity size={18} color="#818cf8" />
+                  <span>Scraper Activity & Lifecycle Control Panel</span>
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  Source of truth: ScraperRunModel logs • Automatic 30s telemetry update
+                </div>
+              </div>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '4px 10px', borderRadius: '12px', fontWeight: 800 }}>
+                ● LIVE SYNC
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+              {Object.entries(scraperActivity?.scrapers || {
+                mnc_scanner: { name: 'MNC Scanner', cron_interval_hours: 6, next_scheduled_run: 'Scheduled (every 6h)' },
+                internships_scraper: { name: 'India Internship Scraper', cron_interval_hours: 6, next_scheduled_run: 'Scheduled (every 6h)' },
+                global_discovery: { name: 'Global Job Discovery Scanner', cron_interval_hours: 12, next_scheduled_run: 'Scheduled (every 12h)' }
+              }).map(([key, s]) => {
+                const isSuccess = s.last_run?.status === 'success';
+                const isFailed = s.last_run?.status === 'failed';
+                const isRunning = s.last_run?.status === 'running';
+
+                return (
+                  <div key={key} style={{ background: 'rgba(30, 41, 59, 0.7)', borderRadius: '14px', padding: '18px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem' }}>{s.name}</span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 900,
+                        padding: '3px 8px',
+                        borderRadius: '10px',
+                        background: isSuccess ? 'rgba(52, 211, 153, 0.2)' : isFailed ? 'rgba(248, 113, 113, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                        color: isSuccess ? '#34d399' : isFailed ? '#f87171' : '#fbbf24',
+                        border: `1px solid ${isSuccess ? 'rgba(52, 211, 153, 0.4)' : isFailed ? 'rgba(248, 113, 113, 0.4)' : 'rgba(251, 191, 36, 0.4)'}`
+                      }}>
+                        {isRunning ? '● RUNNING' : isSuccess ? '✓ SUCCESS' : isFailed ? '✕ FAILED' : 'READY'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Last Run:</span>
+                        <span style={{ fontWeight: 700 }}>
+                          {s.last_run?.timestamp ? new Date(s.last_run.timestamp).toLocaleString() : 'No runs yet'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Last Successful Run:</span>
+                        <span style={{ fontWeight: 700, color: '#34d399' }}>
+                          {s.last_successful_run?.timestamp ? new Date(s.last_successful_run.timestamp).toLocaleString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Recent Yield:</span>
+                        <span style={{ fontWeight: 800, color: '#818cf8' }}>
+                          +{s.recent_metrics?.jobs_added || 0} New | {s.recent_metrics?.jobs_updated || 0} Updated
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#94a3b8' }}>Next Scheduled Run:</span>
+                        <span style={{ fontWeight: 800, color: '#fbbf24' }}>{s.next_scheduled_run}</span>
+                      </div>
+
+                      {isFailed && s.last_run?.error_message && (
+                        <div style={{ marginTop: '6px', padding: '8px 10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.74rem' }}>
+                          <strong>Error:</strong> {s.last_run.error_message}
+                        </div>
+                      )}
+                    </div>
+
+                    {s.history && s.history.length > 0 && (
+                      <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Run History (Last 10)</div>
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                          {s.history.map(h => (
+                            <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', padding: '3px 0', borderBottom: '1px dotted rgba(255, 255, 255, 0.05)' }}>
+                              <span style={{ color: h.status === 'success' ? '#34d399' : '#f87171', fontWeight: 800 }}>
+                                {h.status === 'success' ? '✓ Success' : '✕ Failed'}
+                              </span>
+                              <span style={{ color: '#94a3b8' }}>{h.duration_seconds}s</span>
+                              <span style={{ color: '#818cf8', fontWeight: 700 }}>+{h.jobs_added} jobs</span>
+                              <span style={{ color: '#64748b' }}>{h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Job Data Health Widget */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             <div className="glass-panel" style={{ padding: '18px', borderRadius: '16px' }}>
@@ -554,10 +668,88 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
 
           </div>
 
+          {/* 🌟 CAPTURED SYSTEM & SCRAPER ERROR LOGS MONITOR */}
+          <div className="glass-panel" style={{ borderRadius: '18px', padding: '20px', border: '1px solid rgba(244, 63, 94, 0.3)', background: 'rgba(15, 23, 42, 0.6)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 900, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldAlert size={18} color="#f43f5e" />
+                  <span>Real-Time Exception & Error Monitor (ErrorLogModel)</span>
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  Automatic email alerts dispatched to adityanikt622@gmail.com (15-min rate limit window)
+                </div>
+              </div>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '4px 10px', borderRadius: '12px', fontWeight: 800 }}>
+                {capturedErrorLogs.filter(e => !e.resolved).length} Unresolved Alerts
+              </span>
+            </div>
+
+            {capturedErrorLogs.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#34d399', fontSize: '0.84rem' }}>
+                ✅ Zero unhandled exceptions or scraper crashes captured in ErrorLogModel.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '10px 14px' }}>Occurred At</th>
+                      <th style={{ padding: '10px 14px' }}>Source / Endpoint</th>
+                      <th style={{ padding: '10px 14px' }}>Error Type</th>
+                      <th style={{ padding: '10px 14px' }}>Count (15m)</th>
+                      <th style={{ padding: '10px 14px' }}>Error Message</th>
+                      <th style={{ padding: '10px 14px' }}>Email Alerted</th>
+                      <th style={{ padding: '10px 14px' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {capturedErrorLogs.map(err => (
+                      <tr key={err.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', opacity: err.resolved ? 0.5 : 1 }}>
+                        <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{err.occurred_at ? new Date(err.occurred_at).toLocaleString() : 'Recent'}</td>
+                        <td style={{ padding: '10px 14px', color: '#818cf8', fontWeight: 700 }}>{err.source}</td>
+                        <td style={{ padding: '10px 14px', color: '#f87171', fontWeight: 800 }}>{err.error_type}</td>
+                        <td style={{ padding: '10px 14px', color: '#fbbf24', fontWeight: 900 }}>{err.occurred_count}x</td>
+                        <td style={{ padding: '10px 14px', color: '#fca5a5', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {err.error_message}
+                        </td>
+                        <td style={{ padding: '10px 14px', color: err.last_alert_sent_at ? '#34d399' : '#94a3b8', fontSize: '0.74rem' }}>
+                          {err.last_alert_sent_at ? 'Sent to Gmail' : 'Pending'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <button
+                            onClick={async () => {
+                              const res = await apiFetch(`/api/admin/errors/${err.id}/resolve`, { method: 'POST' });
+                              if (res.ok) {
+                                fetchAllAdminData();
+                              }
+                            }}
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              border: err.resolved ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(16,185,129,0.4)',
+                              background: err.resolved ? 'rgba(255,255,255,0.05)' : 'rgba(16,185,129,0.2)',
+                              color: err.resolved ? '#94a3b8' : '#34d399',
+                              cursor: 'pointer',
+                              fontWeight: 800
+                            }}
+                          >
+                            {err.resolved ? 'Resolved' : 'Mark Resolved'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Server Error Logs */}
           <div className="glass-panel" style={{ borderRadius: '18px', padding: '20px' }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', marginBottom: '14px' }}>
-              Recent Server-Side Error Logs (Last 50 500s)
+              Legacy HTTP 500 Endpoint Logs
             </div>
 
             {serverErrors.length === 0 ? (
