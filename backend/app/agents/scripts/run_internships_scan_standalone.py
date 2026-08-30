@@ -12,8 +12,7 @@ import datetime
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from backend.app.db.database import engine, SessionLocal, Base
 from backend.app.agents.agent2c_india_internships_scraper import run_india_internship_scan
 
 logging.basicConfig(
@@ -24,18 +23,8 @@ logger = logging.getLogger("run_internships_scan_standalone")
 
 def main():
     logger.info("Starting Standalone India Internship Scan via GitHub Actions...")
-    
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        from backend.app.db.database import DEFAULT_SUPABASE_URL
-        db_url = DEFAULT_SUPABASE_URL
-        logger.info("DATABASE_URL environment variable not explicitly set; defaulting to production Supabase PostgreSQL.")
-
     try:
-        from backend.app.db.database import Base
-        engine = create_engine(db_url, pool_pre_ping=True)
         Base.metadata.create_all(bind=engine)
-        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = SessionLocal()
         
         logger.info(f"Database session established successfully against host: {engine.url.host}")
