@@ -5,8 +5,40 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#080b14" />
-    <!-- Automatic ServiceWorker & CacheStorage purge for fresh build deployment -->
+    <!-- Automatic Extension Error Suppressor & Cache Storage Purge -->
     <script>
+      (function() {
+        window.addEventListener('error', function(event) {
+          var msg = (event && (event.message || (event.error && event.error.message))) || '';
+          var filename = (event && event.filename) || '';
+          if (
+            msg.indexOf('disconnected port object') !== -1 ||
+            msg.indexOf('Extension context invalidated') !== -1 ||
+            msg.indexOf('Could not establish connection') !== -1 ||
+            filename.indexOf('proxy.js') !== -1 ||
+            filename.indexOf('content-script') !== -1
+          ) {
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            if (event.preventDefault) event.preventDefault();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = (event && event.reason && (event.reason.message || event.reason)) || '';
+          if (
+            typeof reason === 'string' && (
+              reason.indexOf('disconnected port object') !== -1 ||
+              reason.indexOf('Extension context invalidated') !== -1 ||
+              reason.indexOf('Could not establish connection') !== -1
+            )
+          ) {
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            if (event.preventDefault) event.preventDefault();
+          }
+        }, true);
+      })();
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
           for(let registration of registrations) { registration.unregister(); }

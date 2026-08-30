@@ -12,6 +12,16 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    // Ignore browser extension injected proxy.js disconnected port errors
+    const errorMsg = error?.message || error?.toString() || '';
+    if (
+      errorMsg.includes('disconnected port object') ||
+      errorMsg.includes('Extension context invalidated') ||
+      errorMsg.includes('Could not establish connection')
+    ) {
+      return;
+    }
+
     this.setState({ errorInfo });
     console.error("NextOpportunityFind Uncaught Error Boundary:", error, errorInfo);
 
