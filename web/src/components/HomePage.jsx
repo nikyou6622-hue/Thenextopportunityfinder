@@ -37,7 +37,6 @@ import {
   CheckSquare,
   Pause,
   RotateCcw,
-  CheckSquare2,
   TrendingUp,
   Globe,
   CheckCheck
