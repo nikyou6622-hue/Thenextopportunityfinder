@@ -1,95 +1,107 @@
 import os
 import sys
 import datetime
-import sqlite3
 import logging
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+
+# Ensure project root directory is in sys.path when executed directly
+_service_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.abspath(os.path.join(_service_dir, "..", "..", ".."))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(_project_root, ".env"), override=True)
+    load_dotenv(os.path.join(_project_root, "backend", ".env"), override=True)
+except ImportError:
+    pass
+
+from sqlalchemy import text
+from backend.app.db.database import engine
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-DEFAULT_OWNER_EMAIL = "thenextopportunityfinder@gmail.com"
-
-def get_db_connection():
-    db_path = os.getenv("DATABASE_URL", "f:/Thenextopportunityfinder/nextoppr.db")
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path.replace("sqlite:///", "")
-    if not os.path.exists(db_path) and os.path.exists("nextoppr.db"):
-        db_path = "nextoppr.db"
-    return sqlite3.connect(db_path)
+DEFAULT_OWNER_EMAIL = os.getenv("ADMIN_EMAIL", os.getenv("DEFAULT_EMAIL", "adityanikt622@gmail.com"))
 
 def generate_scraper_report(workflow_name: str = "Scraper Workflow Run", window_minutes: int = 360) -> Dict[str, Any]:
     """
     Analyzes recent scraper activity, newly ingested jobs, per-source breakdown,
     anomalies/failures, and active job totals.
+    Supports both PostgreSQL (Supabase) and SQLite seamlessly.
     """
     now = datetime.datetime.now(datetime.timezone.utc)
     cutoff = now - datetime.timedelta(minutes=window_minutes)
-    cutoff_str = cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # 1. Total jobs in DB
-    cursor.execute("SELECT COUNT(*) FROM jobs;")
-    total_jobs = cursor.fetchone()[0]
-
-    # 2. Jobs ingested within the time window
-    cursor.execute(
-        "SELECT id, company, role_title, source, source_category, company_tier, created_at "
-        "FROM jobs WHERE created_at >= ? OR first_seen_at >= ?;",
-        (cutoff_str, cutoff_str)
-    )
-    recent_jobs = cursor.fetchall()
-    new_jobs_count = len(recent_jobs)
-
-    # 3. Per-source breakdown for recent jobs
+    total_jobs = 0
+    recent_jobs = []
     source_counts = {}
     tier_counts = {"Tier 1 (FAANG/MNC)": 0, "Tier 2 (Growth/Mid)": 0, "Tier 3 (General/Startup)": 0}
-    for job in recent_jobs:
-        src = job[3] or "Unknown"
-        tier = job[5] or "Tier 3"
-        source_counts[src] = source_counts.get(src, 0) + 1
-        if "1" in str(tier):
-            tier_counts["Tier 1 (FAANG/MNC)"] += 1
-        elif "2" in str(tier):
-            tier_counts["Tier 2 (Growth/Mid)"] += 1
-        else:
-            tier_counts["Tier 3 (General/Startup)"] += 1
-
-    # 4. Check scan logs for anomalies or failures
     anomalies = []
+    overall_tiers = {}
+
     try:
-        cursor.execute(
-            "SELECT company, status, listings_found, error_message, created_at "
-            "FROM mnc_scan_log WHERE created_at >= ?;",
-            (cutoff_str,)
-        )
-        scan_logs = cursor.fetchall()
-        for log_entry in scan_logs:
-            company, status, found, err, log_time = log_entry
-            if status != "success" or err or found == 0:
-                anomalies.append({
-                    "company": company,
-                    "status": status,
-                    "listings_found": found,
-                    "error": err or "Zero listings returned"
-                })
+        with engine.connect() as conn:
+            # 1. Total jobs in DB
+            res_total = conn.execute(text("SELECT COUNT(*) FROM jobs;")).scalar()
+            total_jobs = res_total or 0
+
+            # 2. Jobs ingested within the time window
+            recent_jobs = conn.execute(
+                text(
+                    "SELECT id, company, role_title, source, source_category, company_tier, created_at "
+                    "FROM jobs WHERE created_at >= :cutoff OR first_seen_at >= :cutoff;"
+                ),
+                {"cutoff": cutoff}
+            ).fetchall()
+
+            # 3. Per-source breakdown for recent jobs
+            for job in recent_jobs:
+                src = job[3] or "Unknown"
+                tier = job[5] or "Tier 3"
+                source_counts[src] = source_counts.get(src, 0) + 1
+                if "1" in str(tier):
+                    tier_counts["Tier 1 (FAANG/MNC)"] += 1
+                elif "2" in str(tier):
+                    tier_counts["Tier 2 (Growth/Mid)"] += 1
+                else:
+                    tier_counts["Tier 3 (General/Startup)"] += 1
+
+            # 4. Check scan logs for anomalies or failures
+            try:
+                scan_logs = conn.execute(
+                    text(
+                        "SELECT company, status, listings_found, error_message, created_at "
+                        "FROM mnc_scan_log WHERE created_at >= :cutoff OR run_at >= :cutoff;"
+                    ),
+                    {"cutoff": cutoff}
+                ).fetchall()
+                for log_entry in scan_logs:
+                    company, status, found, err, log_time = log_entry[0], log_entry[1], log_entry[2], log_entry[3], log_entry[4]
+                    if status != "success" or err or found == 0:
+                        anomalies.append({
+                            "company": company,
+                            "status": status,
+                            "listings_found": found,
+                            "error": err or "Zero listings returned"
+                        })
+            except Exception as e:
+                logger.warning(f"Notice inspecting scan logs: {e}")
+
+            # 5. Overall trust-tier breakdown across entire database
+            overall_rows = conn.execute(text("SELECT company_tier, COUNT(*) FROM jobs GROUP BY company_tier;")).fetchall()
+            overall_tiers = {row[0] or "Unknown": row[1] for row in overall_rows}
+
     except Exception as e:
-        logger.warning(f"Notice inspecting scan logs: {e}")
-
-    # 5. Overall trust-tier breakdown across entire database
-    cursor.execute("SELECT company_tier, COUNT(*) FROM jobs GROUP BY company_tier;")
-    overall_tiers = dict(cursor.fetchall())
-
-    conn.close()
+        logger.error(f"Error querying database for scraper report: {e}")
 
     report = {
         "workflow_name": workflow_name,
         "run_time": now.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "window_minutes": window_minutes,
-        "new_jobs_count": new_jobs_count,
+        "new_jobs_count": len(recent_jobs),
         "total_active_jobs": total_jobs,
         "source_breakdown": source_counts,
         "recent_tier_breakdown": tier_counts,
@@ -98,6 +110,7 @@ def generate_scraper_report(workflow_name: str = "Scraper Workflow Run", window_
     }
 
     return report
+
 
 def build_report_html(report: Dict[str, Any]) -> str:
     """Builds a rich HTML email report matching standard platform aesthetics."""
@@ -242,8 +255,10 @@ def build_report_html(report: Dict[str, Any]) -> str:
 </html>"""
     return html
 
-def send_report_email(report: Dict[str, Any], recipient: str = DEFAULT_OWNER_EMAIL) -> bool:
+def send_report_email(report: Dict[str, Any], recipient: Optional[str] = None) -> bool:
     """Delivers report email via Resend API or SMTP transactional provider."""
+    if not recipient:
+        recipient = os.getenv("ADMIN_EMAIL", os.getenv("DEFAULT_EMAIL", DEFAULT_OWNER_EMAIL))
     subject = f"🤖 [{report['workflow_name']}] +{report['new_jobs_count']} New Jobs | {report['total_active_jobs']} Total Active"
     html_content = build_report_html(report)
     plain_content = (

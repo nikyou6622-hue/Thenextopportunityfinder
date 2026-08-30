@@ -430,6 +430,19 @@ def health_check(db: Session = Depends(get_db)):
         "infosys": {"status": "operational", "portal": "Infosys Career Portal", "rate_limit_sec": 2.0},
         "wipro": {"status": "operational", "portal": "Wipro Global Careers", "rate_limit_sec": 2.0},
     }
+    try:
+        if db_status == "healthy":
+            for comp_key in mnc_adapters.keys():
+                latest_log = db.query(MNCScanLogModel).filter(
+                    func.lower(MNCScanLogModel.company).contains(comp_key)
+                ).order_by(MNCScanLogModel.id.desc()).first()
+                if latest_log:
+                    mnc_adapters[comp_key]["last_run_status"] = latest_log.status
+                    mnc_adapters[comp_key]["last_run_at"] = latest_log.run_at.isoformat() if latest_log.run_at else None
+                    if latest_log.error_message:
+                        mnc_adapters[comp_key]["last_error"] = latest_log.error_message
+    except Exception as log_ex:
+        logger.debug(f"Health check scan log query notice: {log_ex}")
 
     # 3. India Internship Ingestion Adapters Health
     internship_adapters = {
@@ -445,7 +458,8 @@ def health_check(db: Session = Depends(get_db)):
         "primary_provider": "Google Gemini 1.5 Flash",
         "primary_configured": gemini_key_present,
         "fallback_engine": "Deterministic Zero-Network Python Rule Engine (100% Offline Ready)",
-        "active_mode": "Gemini 1.5 Flash" if gemini_key_present else "Deterministic Offline Rule Engine"
+        "active_mode": "Gemini 1.5 Flash" if gemini_key_present else "Deterministic Offline Rule Engine",
+        "config_remediation": None if gemini_key_present else "Set GEMINI_API_KEY environment variable on deployment server/dashboard to enable LLM mode."
     }
 
     # 5. DPDP Act 2023 Compliance Telemetry

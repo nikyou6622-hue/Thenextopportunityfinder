@@ -14,4 +14,6 @@ services:
         value: https://thenextopportunityfinder.vercel.app,http://localhost:5173
       - key: DATABASE_URL
         value: postgresql://postgres:SupabaseSecurePass2026!@db.hoobggdrjghfqxgjfoqf.supabase.co:5432/postgres
+      - key: GEMINI_API_KEY
+        sync: false
     healthCheckPath: /healthz
