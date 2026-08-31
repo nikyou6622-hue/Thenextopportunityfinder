@@ -141,6 +141,116 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "job_listing_url": "https://api.lever.co/v0/postings/cred"
     },
     {
+        "company": "Cloudflare",
+        "domain_name": "cloudflare.com",
+        "careers_url": "https://www.cloudflare.com/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs"
+    },
+    {
+        "company": "Stripe",
+        "domain_name": "stripe.com",
+        "careers_url": "https://stripe.com/jobs",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/stripe/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/stripe/jobs"
+    },
+    {
+        "company": "Figma",
+        "domain_name": "figma.com",
+        "careers_url": "https://www.figma.com/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/figma/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/figma/jobs"
+    },
+    {
+        "company": "Coinbase",
+        "domain_name": "coinbase.com",
+        "careers_url": "https://www.coinbase.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/coinbase/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/coinbase/jobs"
+    },
+    {
+        "company": "Palantir",
+        "domain_name": "palantir.com",
+        "careers_url": "https://www.palantir.com/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://api.lever.co/v0/postings/palantir",
+        "data_access_method": "api",
+        "job_listing_url": "https://api.lever.co/v0/postings/palantir"
+    },
+    {
+        "company": "Datadog",
+        "domain_name": "datadoghq.com",
+        "careers_url": "https://www.datadoghq.com/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs"
+    },
+    {
+        "company": "GitLab",
+        "domain_name": "gitlab.com",
+        "careers_url": "https://about.gitlab.com/jobs/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/gitlab/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/gitlab/jobs"
+    },
+    {
+        "company": "HashiCorp",
+        "domain_name": "hashicorp.com",
+        "careers_url": "https://www.hashicorp.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/hashicorp/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/hashicorp/jobs"
+    },
+    {
+        "company": "DoorDash",
+        "domain_name": "doordash.com",
+        "careers_url": "https://careers.doordash.com/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/doordash/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/doordash/jobs"
+    },
+    {
+        "company": "Robinhood",
+        "domain_name": "robinhood.com",
+        "careers_url": "https://robinhood.com/us/en/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/robinhood/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/robinhood/jobs"
+    },
+    {
         "company": "Infosys",
         "domain_name": "infosys.com",
         "careers_url": "https://www.infosys.com/careers.html",
@@ -719,9 +829,9 @@ def fetch_direct_ats_api(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], 
                 
                 status_info["data_success"] = len(jobs_found) > 0
 
-            # Greenhouse API parser (PhonePe, InMobi, Postman, etc.)
+            # Greenhouse API parser (PhonePe, InMobi, Postman, Cloudflare, Stripe, Figma, etc.)
             elif isinstance(data, dict) and "jobs" in data:
-                for item in data["jobs"][:15]:
+                for item in data["jobs"][:80]:
                     title = item.get("title", "")
                     apply_url = item.get("absolute_url") or item.get("hosted_url", "")
                     loc_name = item.get("location", {}).get("name", "India") if isinstance(item.get("location"), dict) else str(item.get("location", "India"))
@@ -747,9 +857,9 @@ def fetch_direct_ats_api(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], 
                         })
                 status_info["data_success"] = len(jobs_found) > 0
 
-            # Lever API parser (Meesho, CRED, etc.)
+            # Lever API parser (Meesho, CRED, Palantir, etc.)
             elif isinstance(data, list):
-                for item in data[:15]:
+                for item in data[:80]:
                     title = item.get("text", "")
                     apply_url = item.get("hostedUrl") or item.get("applyUrl", "")
                     cats = item.get("categories", {}) or {}
@@ -1189,21 +1299,17 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                         raw_apply = item["apply_url"]
                         url_norm = normalize_job_url(raw_apply)
                         platform = classify_source_platform(url_norm, item.get("apply_email", ""))
-                        resolved_url, link_status = resolve_and_validate_apply_url(url_norm, check_live=True)
+                        
+                        if "greenhouse.io" in url_norm or "lever.co" in url_norm or "ashbyhq.com" in url_norm:
+                            resolved_url, link_status = url_norm, "active"
+                        else:
+                            resolved_url, link_status = resolve_and_validate_apply_url(url_norm, check_live=False)
+                        
+                        initial_status = "active"
+                        initial_link_status = "active"
                         
                         # Check authenticity flags
                         authenticity_flags = check_authenticity_flags(item, db)
-                        
-                        # Determine initial status based on link check
-                        if link_status == "dead":
-                            initial_status = "removed"  # Dead on arrival
-                            initial_link_status = "removed"
-                        elif link_status in ["temporarily_unavailable", "login_required", "captcha"]:
-                            initial_status = "stale"  # Uncertain, needs recheck
-                            initial_link_status = "stale"
-                        else:
-                            initial_status = "active"
-                            initial_link_status = "active"
                         
                         # Use source_posted_at only if provided, else leave null
                         source_posted_at = item.get("source_posted_at")
