@@ -1739,9 +1739,77 @@ def test_trigger_unhandled_error():
     """Diagnostic endpoint to simulate an unhandled server error for Part C verification."""
     raise RuntimeError("Deliberate Test Exception: Verification of Error Monitoring & Email Alerting Pipeline")
 
+def _run_scrapers_background_task(source: str = "all"):
+    """
+    Background worker function for admin scraper triggers.
+    Executes target scrapers in an isolated session and releases the concurrency lock on completion.
+    """
+    db = SessionLocal()
+    start_time = datetime.datetime.now(datetime.timezone.utc)
+    jobs_added = 0
+    jobs_updated = 0
+    status_str = "success"
+    err_msg = None
+
+    try:
+        if source in ["mnc", "all"]:
+            logger.info("Admin Scraper Trigger: Starting MNC Scan...")
+            summary = run_mnc_scan(db, force_scan=True)
+            if isinstance(summary, dict):
+                jobs_added += summary.get("new_jobs_added", 0)
+
+        if source in ["internships", "india", "all"]:
+            logger.info("Admin Scraper Trigger: Starting India Internships Scan...")
+            summary = run_india_internship_scan(db, force_scan=True)
+            if isinstance(summary, dict):
+                jobs_added += summary.get("new_jobs_added", 0)
+
+        if source in ["global", "discovery", "all"]:
+            logger.info("Admin Scraper Trigger: Starting Global Discovery Scan...")
+            summary = discover_all_jobs(db, force_refresh=True)
+            if isinstance(summary, dict):
+                jobs_added += summary.get("new_jobs_added", 0)
+
+        logger.info(f"Admin Scraper Trigger completed successfully for source: '{source}'")
+    except Exception as ex:
+        status_str = "failed"
+        err_msg = str(ex)
+        logger.error(f"Admin Scraper Background Task Failed for source '{source}': {ex}", exc_info=True)
+        capture_and_alert_error(
+            db=db,
+            error=ex,
+            source=f"Admin Scraper Trigger ({source})",
+            context={"source": source, "triggered_by": "admin_panel"}
+        )
+    finally:
+        end_time = datetime.datetime.now(datetime.timezone.utc)
+        duration_sec = (end_time - start_time).total_seconds()
+        
+        try:
+            run_rec = ScraperRunModel(
+                scraper_name=f"Admin Scraper ({source})",
+                start_time=start_time,
+                end_time=end_time,
+                duration_seconds=duration_sec,
+                status=status_str,
+                jobs_added=jobs_added,
+                jobs_updated=jobs_updated,
+                error_message=err_msg
+            )
+            db.add(run_rec)
+            db.commit()
+        except Exception as log_err:
+            logger.warning(f"Could not log ScraperRunModel for admin trigger: {log_err}")
+
+        db.close()
+        with _SCRAPER_LOCK:
+            _SCRAPER_RUN_STATE["in_progress"] = False
+            _SCRAPER_RUN_STATE["active_source"] = None
+
+
 @app.post("/api/admin/scraper/run")
 @app.post("/api/admin/scraper/run/{source}")
-def admin_trigger_scraper_run(source: str = "all", background_tasks: BackgroundTasks = BackgroundTasks(), admin: UserModel = Depends(get_admin_user)):
+def admin_trigger_scraper_run(background_tasks: BackgroundTasks, source: str = "all", admin: UserModel = Depends(get_admin_user)):
     """
     Triggers scraper execution (all, mnc, internships, or global).
     Guarded by concurrency lock — returns 409 Conflict if a run is already active.
