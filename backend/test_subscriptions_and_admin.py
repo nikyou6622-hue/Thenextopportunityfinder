@@ -116,7 +116,7 @@ def test_pro_user_uncapped_results_regression(setup_db):
 
 
 def test_free_user_5_job_limit_and_locked_count(setup_db):
-    """Test Free-tier user receives exactly 5 real matches and accurate locked_count."""
+    """Test Free-tier user receives 5 unlocked matches + remaining items returned as masked teaser cards."""
     db = setup_db
 
     email = "free.candidate@test.com"
@@ -142,14 +142,26 @@ def test_free_user_5_job_limit_and_locked_count(setup_db):
 
     assert "matches" in data
     assert "locked_count" in data
-    assert len(data["matches"]) == 5
-    assert data["locked_count"] == 7  # 12 total - 5 visible = 7 locked
+    assert len(data["matches"]) == 12  # All matches returned (5 unlocked + 7 teasers)
+    assert data["locked_count"] == 7   # 12 total - 5 unlocked = 7 locked
 
-    # All 5 returned matches must be real unlocked data (no masked/truncated data)
-    for idx, item in enumerate(data["matches"]):
+    # Top 5 matches must be fully unlocked
+    for idx in range(5):
+        item = data["matches"][idx]
+        assert item["is_locked"] is False
         assert item["job"]["company"] == f"Company {idx + 1}"
         assert item["job"]["apply_url"] == f"https://company{idx + 1}.com/apply"
         assert item["job"]["description"] == f"Full description {idx + 1}"
+
+    # Matches 6-12 must be masked teasers (is_locked=True, company=None, apply_url=None, description=None)
+    for idx in range(5, 12):
+        item = data["matches"][idx]
+        assert item["is_locked"] is True
+        assert item["job"]["company"] is None
+        assert item["job"]["apply_url"] is None
+        assert item["job"]["description"] is None
+        assert item["job"]["role_title"] is not None
+        assert item["match_score"] > 0
 
 
 def test_mnc_and_internship_5_job_limit_free_vs_pro(setup_db):
@@ -194,26 +206,29 @@ def test_mnc_and_internship_5_job_limit_free_vs_pro(setup_db):
     free_token = f"nof_tok_{hashlib.md5(free_email.encode()).hexdigest()[:8]}_test"
     pro_token = f"nof_tok_{hashlib.md5(pro_email.encode()).hexdigest()[:8]}_test"
 
-    # 1. MNC Hub - Free User (Capped at 5, locked_count accurate)
+    # 1. MNC Hub - Free User (Returns 10 matches: 5 unlocked + 5 teasers, locked_count 5)
     res_free = client.get("/api/jobs/mnc", headers={"Authorization": f"Bearer {free_token}"})
     assert res_free.status_code == 200
     data_free = res_free.json()
-    assert len(data_free["matches"]) == 5
-    assert data_free["locked_count"] == 5  # 10 total - 5 visible = 5
+    assert len(data_free["matches"]) == 10
+    assert data_free["locked_count"] == 5  # 10 total - 5 unlocked = 5
+    assert data_free["matches"][0]["is_locked"] is False
+    assert data_free["matches"][5]["is_locked"] is True
+    assert data_free["matches"][5]["job"]["company"] is None
 
-    # 2. MNC Hub - Pro User (Uncapped 10, locked_count 0)
+    # 2. MNC Hub - Pro User (Uncapped 10, locked_count 0, all is_locked False)
     res_pro = client.get("/api/jobs/mnc", headers={"Authorization": f"Bearer {pro_token}"})
     assert res_pro.status_code == 200
     data_pro = res_pro.json()
     assert len(data_pro["matches"]) == 10
     assert data_pro["locked_count"] == 0
+    assert data_pro["matches"][0]["is_locked"] is False
 
-    # 3. India Internships - Free User
+    # 3. India Internships - Free User (Contains teasers for items > 5)
     res_int_free = client.get("/api/internships/india", headers={"Authorization": f"Bearer {free_token}"})
     assert res_int_free.status_code == 200
     int_free_data = res_int_free.json()
     assert "internships" in int_free_data
-    assert len(int_free_data["internships"]) <= 5
     assert int_free_data["locked_count"] >= 0
 
     # 4. India Internships - Pro User

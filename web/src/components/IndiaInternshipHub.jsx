@@ -819,7 +819,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Sparkles size={20} color="#a7f3d0" />
             <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
-              Showing {filteredList.length} of {filteredList.length + lockedCount} internship opportunities — Upgrade to see all {filteredList.length + lockedCount} →
+              5 India internships unlocked — {lockedCount} more waiting. Unlock Pro to discover them all →
             </span>
           </div>
           <button
@@ -827,7 +827,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
             className="btn-primary"
             style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
           >
-            Unlock All {filteredList.length + lockedCount} Internships (₹99) →
+            Unlock Pro (₹99) →
           </button>
         </div>
       )}
@@ -870,7 +870,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               const matchScore = getDynamicMatchScore(item);
               const comp = item.company || 'TechCorp';
               const cLower = comp.toLowerCase();
-              const isJobLocked = !isPro && (!profile || !profile.email) && idx >= 15;
+              const isJobLocked = !isPro && (Boolean(item.is_locked) || idx >= 5);
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :

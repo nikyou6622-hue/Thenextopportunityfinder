@@ -459,7 +459,7 @@ export default function JobDiscovery({
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Zap size={20} color="#a7f3d0" />
                 <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
-                  Showing {safeMatches.length} of {safeMatches.length + lockedCount} matches — Upgrade to see all {safeMatches.length + lockedCount} →
+                  5 opportunities unlocked — {lockedCount} more waiting. Unlock Pro to discover them all →
                 </span>
               </div>
               <button
@@ -467,7 +467,7 @@ export default function JobDiscovery({
                 className="btn-primary"
                 style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
               >
-                Unlock All {safeMatches.length + lockedCount} Matches (₹99) →
+                Unlock Pro (₹99) →
               </button>
             </div>
           )}
@@ -521,7 +521,7 @@ export default function JobDiscovery({
               const comp = job.company || 'TechCorp';
               const cLower = comp.toLowerCase();
               const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-              const isJobLocked = false;
+              const isJobLocked = !isPro && (Boolean(m.is_locked) || globalIdx >= 5);
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :
@@ -591,7 +591,7 @@ export default function JobDiscovery({
                         🔒 PRO LOCKED OPPORTUNITY #{(globalIdx + 1)}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: '#f472b6', maxWidth: '300px' }}>
-                        Top 3 matched opportunities are unlocked. Upgrade to Pro to unlock full details, direct apply links & tailored exports!
+                        Unlock Pro to see this opportunity, company details & direct apply links!
                       </div>
                       <button
                         onClick={(e) => {
@@ -601,7 +601,7 @@ export default function JobDiscovery({
                         className="btn-tactile btn-tactile-emerald"
                         style={{ padding: '8px 18px', fontSize: '0.8rem', fontWeight: 900, marginTop: '4px' }}
                       >
-                        Unlock Full Access — ₹99 / 6 Months →
+                        Unlock Pro Access — ₹99 →
                       </button>
                     </div>
                   )}

@@ -3569,6 +3569,66 @@ def get_jobs(
     end_idx = start_idx + limit
     return filtered[start_idx:end_idx]
 
+def _format_match_to_dict(m: Any, is_locked: bool = False) -> Dict[str, Any]:
+    if isinstance(m, dict):
+        res = dict(m)
+        job_obj = res.get("job")
+        if isinstance(job_obj, dict):
+            j_copy = dict(job_obj)
+            if is_locked:
+                j_copy["company"] = None
+                j_copy["apply_url"] = None
+                j_copy["description"] = None
+            res["job"] = j_copy
+        elif job_obj is not None:
+            j_copy = {
+                "id": getattr(job_obj, "id", None),
+                "company": None if is_locked else getattr(job_obj, "company", None),
+                "role_title": getattr(job_obj, "role_title", "Software Engineer"),
+                "apply_url": None if is_locked else getattr(job_obj, "apply_url", None),
+                "description": None if is_locked else getattr(job_obj, "description", None),
+                "location": getattr(job_obj, "location", "Remote"),
+                "required_skills": getattr(job_obj, "required_skills", []),
+                "experience_level": getattr(job_obj, "experience_level", "Entry"),
+                "posted_at": None if is_locked else getattr(job_obj, "posted_at", None),
+                "link_status": getattr(job_obj, "link_status", "live")
+            }
+            res["job"] = j_copy
+        res["is_locked"] = is_locked
+        return res
+
+    job_obj = getattr(m, "job", None)
+    job_dict = {
+        "id": getattr(job_obj, "id", None) if job_obj else None,
+        "company": getattr(job_obj, "company", None) if (not is_locked and job_obj) else None,
+        "role_title": getattr(job_obj, "role_title", "Software Engineer") if job_obj else "Software Engineer",
+        "apply_url": getattr(job_obj, "apply_url", None) if (not is_locked and job_obj) else None,
+        "description": getattr(job_obj, "description", None) if (not is_locked and job_obj) else None,
+        "location": getattr(job_obj, "location", "Remote") if job_obj else "Remote",
+        "required_skills": getattr(job_obj, "required_skills", []) if job_obj else [],
+        "experience_level": getattr(job_obj, "experience_level", "Entry") if job_obj else "Entry",
+        "posted_at": getattr(job_obj, "posted_at", None) if (not is_locked and job_obj) else None,
+        "link_status": getattr(job_obj, "link_status", "live") if job_obj else "live"
+    }
+    return {
+        "id": getattr(m, "id", None),
+        "job_id": getattr(m, "job_id", None),
+        "job": job_dict,
+        "profile_id": getattr(m, "profile_id", None),
+        "match_score": getattr(m, "match_score", 75.0),
+        "skill_overlap_score": getattr(m, "skill_overlap_score", 75.0),
+        "domain_score": getattr(m, "domain_score", 75.0),
+        "location_score": getattr(m, "location_score", 75.0),
+        "semantic_score": getattr(m, "semantic_score", 75.0),
+        "matching_skills": getattr(m, "matching_skills", []),
+        "matched_skills": getattr(m, "matched_skills", []),
+        "missing_skills": getattr(m, "missing_skills", []),
+        "matched_count": getattr(m, "matched_count", 0),
+        "required_count": getattr(m, "required_count", 0),
+        "skill_match_percentage": getattr(m, "skill_match_percentage", 75.0),
+        "is_locked": is_locked
+    }
+
 @app.get("/api/matches")
 @app.get("/matches")
 def get_matches(
@@ -3760,15 +3820,22 @@ def get_matches(
         start_idx = (page_val - 1) * limit_val
         end_idx = start_idx + limit_val
         paginated = result[start_idx:end_idx]
+        formatted_pro = [_format_match_to_dict(m, is_locked=False) for m in paginated]
         return {
-            "matches": paginated,
+            "matches": formatted_pro,
             "locked_count": 0
         }
 
-    visible_matches = result[:5]
+    teaser_result = []
+    for i, match in enumerate(result):
+        if i < 5:
+            teaser_result.append(_format_match_to_dict(match, is_locked=False))
+        else:
+            teaser_result.append(_format_match_to_dict(match, is_locked=True))
+
     locked_count = max(0, len(result) - 5)
     return {
-        "matches": visible_matches,
+        "matches": teaser_result,
         "locked_count": locked_count
     }
 
@@ -4766,15 +4833,22 @@ def get_mnc_jobs(request: Request, company: Optional[str] = None, db: Session = 
     
     access_level = get_access_level(profile.id, db)
     if access_level == "pro":
+        formatted_pro = [_format_match_to_dict(m, is_locked=False) for m in matches]
         return {
-            "matches": matches,
+            "matches": formatted_pro,
             "locked_count": 0
         }
 
-    visible = matches[:5]
+    teaser_matches = []
+    for i, m in enumerate(matches):
+        if i < 5:
+            teaser_matches.append(_format_match_to_dict(m, is_locked=False))
+        else:
+            teaser_matches.append(_format_match_to_dict(m, is_locked=True))
+
     locked_count = max(0, len(matches) - 5)
     return {
-        "matches": visible,
+        "matches": teaser_matches,
         "locked_count": locked_count
     }
 
@@ -4873,15 +4947,52 @@ def list_india_internships_endpoint(
     access_level = get_access_level(profile_id, db)
 
     if access_level == "pro":
+        for item in results:
+            if isinstance(item, dict):
+                item["is_locked"] = False
+            elif hasattr(item, "is_locked"):
+                setattr(item, "is_locked", False)
         return {
             "internships": results,
             "locked_count": 0
         }
 
-    visible = results[:5]
+    teaser_internships = []
+    for i, item in enumerate(results):
+        if i < 5:
+            if isinstance(item, dict):
+                item_copy = dict(item)
+                item_copy["is_locked"] = False
+                teaser_internships.append(item_copy)
+            else:
+                setattr(item, "is_locked", False)
+                teaser_internships.append(item)
+        else:
+            role_title = item.get("title") or item.get("role_title") if isinstance(item, dict) else getattr(item, "title", "Software Intern")
+            match_score = item.get("match_score", 75.0) if isinstance(item, dict) else getattr(item, "match_score", 75.0)
+            skills = item.get("skills") or item.get("matched_skills") or [] if isinstance(item, dict) else getattr(item, "skills", [])
+
+            masked_item = {
+                "id": item.get("id", i) if isinstance(item, dict) else getattr(item, "id", i),
+                "title": role_title,
+                "role_title": role_title,
+                "company": None,
+                "apply_url": None,
+                "description": None,
+                "location": item.get("location", "Remote") if isinstance(item, dict) else getattr(item, "location", "Remote"),
+                "stipend_inr_month": item.get("stipend_inr_month", 25000) if isinstance(item, dict) else getattr(item, "stipend_inr_month", 25000),
+                "has_ppo": item.get("has_ppo", False) if isinstance(item, dict) else getattr(item, "has_ppo", False),
+                "duration_months": item.get("duration_months", 3) if isinstance(item, dict) else getattr(item, "duration_months", 3),
+                "match_score": match_score,
+                "skills": skills[:3],
+                "matched_skills": skills[:3],
+                "is_locked": True
+            }
+            teaser_internships.append(masked_item)
+
     locked_count = max(0, len(results) - 5)
     return {
-        "internships": visible,
+        "internships": teaser_internships,
         "locked_count": locked_count
     }
 
@@ -4944,15 +5055,50 @@ def get_global_tech_jobs_endpoint(
     access_level = get_access_level(profile_id, db)
 
     if access_level == "pro":
+        for item in raw_jobs:
+            if isinstance(item, dict):
+                item["is_locked"] = False
+            elif hasattr(item, "is_locked"):
+                setattr(item, "is_locked", False)
         return {
             "jobs": raw_jobs,
             "locked_count": 0
         }
 
-    visible = raw_jobs[:5]
+    teaser_jobs = []
+    for i, item in enumerate(raw_jobs):
+        if i < 5:
+            if isinstance(item, dict):
+                item_copy = dict(item)
+                item_copy["is_locked"] = False
+                teaser_jobs.append(item_copy)
+            else:
+                setattr(item, "is_locked", False)
+                teaser_jobs.append(item)
+        else:
+            role_title = item.get("role_title") or item.get("title") if isinstance(item, dict) else getattr(item, "role_title", "Software Engineer")
+            match_score = item.get("match_score", 75.0) if isinstance(item, dict) else getattr(item, "match_score", 75.0)
+            skills = item.get("required_skills") or item.get("matched_skills") or [] if isinstance(item, dict) else getattr(item, "required_skills", [])
+
+            masked_item = {
+                "id": item.get("id", i) if isinstance(item, dict) else getattr(item, "id", i),
+                "role_title": role_title,
+                "title": role_title,
+                "company": None,
+                "apply_url": None,
+                "description": None,
+                "location": item.get("location", "Remote") if isinstance(item, dict) else getattr(item, "location", "Remote"),
+                "experience_level": item.get("experience_level", "Entry") if isinstance(item, dict) else getattr(item, "experience_level", "Entry"),
+                "match_score": match_score,
+                "required_skills": skills[:3],
+                "matched_skills": skills[:3],
+                "is_locked": True
+            }
+            teaser_jobs.append(masked_item)
+
     locked_count = max(0, len(raw_jobs) - 5)
     return {
-        "jobs": visible,
+        "jobs": teaser_jobs,
         "locked_count": locked_count
     }
 

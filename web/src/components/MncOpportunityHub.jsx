@@ -488,7 +488,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Sparkles size={20} color="#a7f3d0" />
             <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
-              Showing {filteredMatches.length} of {filteredMatches.length + lockedCount} MNC opportunities — Upgrade to see all {filteredMatches.length + lockedCount} →
+              5 MNC opportunities unlocked — {lockedCount} more waiting. Unlock Pro to discover them all →
             </span>
           </div>
           <button
@@ -496,7 +496,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
             className="btn-primary"
             style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
           >
-            Unlock All {filteredMatches.length + lockedCount} MNC Opportunities (₹99) →
+            Unlock Pro (₹99) →
           </button>
         </div>
       )}
@@ -520,7 +520,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
             const comp = job.company || 'MNC Corp';
             const isNewToday = job.posted_date === todayStr;
             const cLower = comp.toLowerCase();
-            const isJobLocked = false;
+            const isJobLocked = !isPro && (Boolean(m.is_locked) || idx >= 5);
 
             const themeType = cLower.includes('spotify') ? 'amber' :
               cLower.includes('airbnb') ? 'coral' :
