@@ -2389,14 +2389,14 @@ def cascade_delete_profile(db: Session, profile_id: int) -> Dict[str, int]:
     return deleted_counts
 
 # Helper function for safe SubscriptionModel retrieval & creation
-def get_or_create_subscription(db: Session, profile_id: Optional[int] = None) -> SubscriptionModel:
+def get_or_create_subscription(db: Session, profile_id: Optional[int] = None, request: Optional[Request] = None) -> SubscriptionModel:
     """
     Safely retrieves or provisions a SubscriptionModel for a candidate profile.
     Guarantees foreign key safety and session isolation.
     """
     target_id = profile_id if isinstance(profile_id, int) and profile_id > 0 else None
     if not target_id:
-        active_p = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+        active_p = get_active_profile(db, request=request)
         target_id = active_p.id if active_p else None
 
     if target_id:
@@ -2437,14 +2437,38 @@ def get_or_create_subscription(db: Session, profile_id: Optional[int] = None) ->
 @app.get("/api/subscription/status", response_model=SubscriptionSchema)
 @app.get("/subscription/status", response_model=SubscriptionSchema)
 def get_subscription_status(
+    request: Request,
     profile_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
     Returns current subscription status, scrapes used, scrapes remaining, and Pro tier status.
     """
-    sub = get_or_create_subscription(db, profile_id)
+    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db, request=request)
+    
+    if profile:
+        access_lvl = get_access_level(profile.id, db)
+        is_pro = (access_lvl == "pro")
+        sub = get_or_create_subscription(db, profile.id, request=request)
+        scrapes_used = getattr(sub, 'scrapes_used', 0) if sub else 0
+        scrapes_used = scrapes_used or 0
+        scrapes_remaining = 999999 if is_pro else max(0, FREE_SCRAPE_LIMIT - scrapes_used)
         
+        return SubscriptionSchema(
+            profile_id=profile.id,
+            tier="pro" if is_pro else "free",
+            status="active",
+            credits_remaining=scrapes_remaining,
+            scrapes_used=scrapes_used,
+            scrapes_remaining=scrapes_remaining,
+            free_limit=FREE_SCRAPE_LIMIT,
+            is_pro=is_pro,
+            price_inr=PRO_PRICE_INR,
+            monetization_enabled=MONETIZATION_ENABLED,
+            is_gated=(not is_pro and scrapes_remaining <= 0)
+        )
+
+    sub = get_or_create_subscription(db, profile_id, request=request)
     tier_val = sub.tier if sub and getattr(sub, 'tier', None) else DEFAULT_SUBSCRIPTION_TIER
     status_val = sub.status if sub and getattr(sub, 'status', None) else "active"
     scrapes_used = getattr(sub, 'scrapes_used', 0) if sub else 0
