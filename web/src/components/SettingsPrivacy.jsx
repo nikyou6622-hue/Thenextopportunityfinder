@@ -4,7 +4,7 @@ import apiFetch from '../lib/apiClient';
 import DataErasureControl from './DataErasureControl';
 import NotificationPreferences from './NotificationPreferences';
 
-export default function SettingsPrivacy({ profile, onProfileReset }) {
+export default function SettingsPrivacy({ profile, onProfileReset, onOpenPaywall }) {
   const [consentData, setConsentData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -16,6 +16,13 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
       return {};
     }
   });
+
+  const isPro = (profile?.subscription_tier === 'pro') || (userState?.access_level === 'pro') || (userState?.subscription_tier === 'pro');
+  const validUntilRaw = profile?.valid_until || userState?.valid_until;
+  const validUntilDate = validUntilRaw ? new Date(validUntilRaw) : null;
+  const daysRemaining = validUntilDate ? Math.max(0, Math.ceil((validUntilDate - new Date()) / (1000 * 60 * 60 * 24))) : 0;
+  const isExpiringSoon = isPro && daysRemaining <= 14;
+
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpToken, setOtpToken] = useState('');
@@ -127,8 +134,64 @@ export default function SettingsPrivacy({ profile, onProfileReset }) {
           Settings, Security & Privacy
         </h2>
         <p style={{ fontSize: '0.88rem', color: '#94a3b8' }}>
-          Manage your DPDP Act data protection consent, notification cadence, email verification, and right to erasure.
+          Manage your subscription plan, DPDP Act data protection consent, notification cadence, email verification, and right to erasure.
         </p>
+      </div>
+
+      {/* My Subscription Section */}
+      <div className="glass-card" style={{ padding: '24px', borderLeft: isPro ? '4px solid #10b981' : '4px solid #6366f1' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={24} color={isPro ? "#34d399" : "#818cf8"} />
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                My Subscription
+              </h3>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                ₹99 / 6 Months Full Platform Access
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className={isPro ? "badge badge-emerald" : "badge"} style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '12px', fontWeight: 800 }}>
+              {isPro ? '★ PRO ACTIVE' : 'FREE TIER'}
+            </span>
+
+            {(!isPro || isExpiringSoon) && onOpenPaywall && (
+              <button
+                onClick={onOpenPaywall}
+                className="btn-primary"
+                style={{ fontSize: '0.82rem', padding: '8px 16px', borderRadius: '10px', fontWeight: 800 }}
+              >
+                {isPro ? 'Renew Subscription (₹99)' : 'Upgrade to Pro — ₹99 →'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Current Plan</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 900, color: isPro ? '#34d399' : '#818cf8', marginTop: '2px' }}>
+              {isPro ? 'Pro (₹99 / 6 Months)' : 'Free Tier'}
+            </div>
+          </div>
+
+          <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Valid Until</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#f8fafc', marginTop: '2px' }}>
+              {isPro && validUntilDate ? validUntilDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+            </div>
+          </div>
+
+          <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Status / Expiry</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 900, color: isExpiringSoon ? '#fbbf24' : (isPro ? '#34d399' : '#94a3b8'), marginTop: '2px' }}>
+              {isPro ? `Expires in ${daysRemaining} days` : '3 Unlocked Match Cards'}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 0. Email Verification Status & Security Hub */}

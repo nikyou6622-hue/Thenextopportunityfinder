@@ -76,6 +76,20 @@ def run_auto_migrations():
                     if "skill_match_percentage" not in columns:
                         conn.execute(text("ALTER TABLE matches ADD COLUMN skill_match_percentage FLOAT DEFAULT 0.0"))
                     conn.commit()
+                if "subscriptions" in tables:
+                    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(subscriptions)")).fetchall()]
+                    sub_cols = [
+                        ("plan_tier", "VARCHAR DEFAULT 'free'"),
+                        ("is_active", "BOOLEAN DEFAULT 1"),
+                        ("started_at", "DATETIME"),
+                        ("valid_until", "DATETIME"),
+                        ("payment_id", "VARCHAR"),
+                        ("amount_paid", "FLOAT DEFAULT 0.0")
+                    ]
+                    for c_name, c_type in sub_cols:
+                        if c_name not in columns:
+                            conn.execute(text(f"ALTER TABLE subscriptions ADD COLUMN {c_name} {c_type}"))
+                    conn.commit()
             else:
                 # PostgreSQL auto-migrations for Supabase Cloud
                 try:
@@ -90,6 +104,12 @@ def run_auto_migrations():
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_count INTEGER DEFAULT 0;"))
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS required_count INTEGER DEFAULT 0;"))
                     conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS skill_match_percentage DOUBLE PRECISION DEFAULT 0.0;"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free';"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP;"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMP;"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_id VARCHAR;"))
+                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount_paid DOUBLE PRECISION DEFAULT 0.0;"))
                     conn.commit()
                 except Exception as ex:
                     print(f"PostgreSQL migration warning: {ex}")

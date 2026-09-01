@@ -14,7 +14,7 @@ import BrandedLoadingState from './components/characters/BrandedLoadingState';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProPaywallModal from './components/ProPaywallModal';
 import apiFetch, { safeJson } from './lib/apiClient';
-import { saveProfileToSupabase, loadProfileFromLocal, fetchProfileFromSupabase } from './lib/supabaseClient';
+import { saveProfileToSupabase, loadProfileFromLocal, fetchProfileFromSupabase, saveProfileToLocal } from './lib/supabaseClient';
 import { extractPdfTextClient } from './utils/pdfExtractor';
 
 function lazyWithRetry(componentImport) {
@@ -57,6 +57,8 @@ const SystemStatusPage = lazyWithRetry(() => import('./components/SystemStatusPa
 const SkillAssessmentStudio = lazyWithRetry(() => import('./components/SkillAssessmentStudio'));
 const CommunityForumView = lazyWithRetry(() => import('./components/CommunityForumView'));
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
+const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel'));
+const RazorpayCheckoutModal = lazyWithRetry(() => import('./components/RazorpayCheckoutModal'));
 const SalaryIntelligenceStudio = lazyWithRetry(() => import('./components/SalaryIntelligenceStudio'));
 const ArchifySystemMap = lazyWithRetry(() => import('./components/ArchifySystemMap'));
 
@@ -146,6 +148,7 @@ export default function App() {
     return loadProfileFromLocal() || DEFAULT_FALLBACK_PROFILE;
   });
   const [matches, setMatches] = useState([]);
+  const [matchesLockedCount, setMatchesLockedCount] = useState(0);
   const [matchesError, setMatchesError] = useState(null);
   const [applications, setApplications] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -360,8 +363,14 @@ export default function App() {
         setMatchesError(null);
         const matchRes = await apiFetch('/api/matches?limit=1000');
         if (matchRes && matchRes.ok) {
-          const matchData = await safeJson(matchRes, []);
-          if (Array.isArray(matchData)) setMatches(matchData);
+          const matchData = await safeJson(matchRes, {});
+          if (Array.isArray(matchData)) {
+            setMatches(matchData);
+            setMatchesLockedCount(0);
+          } else if (matchData && Array.isArray(matchData.matches)) {
+            setMatches(matchData.matches);
+            setMatchesLockedCount(matchData.locked_count || 0);
+          }
         } else {
           setMatchesError('Failed to fetch job matches from server.');
         }
@@ -626,8 +635,14 @@ export default function App() {
       try {
         const matchRes = await apiFetch('/api/matches?limit=1000');
         if (matchRes && matchRes.ok) {
-          const matchData = await safeJson(matchRes, []);
-          if (Array.isArray(matchData)) setMatches(matchData);
+          const matchData = await safeJson(matchRes, {});
+          if (Array.isArray(matchData)) {
+            setMatches(matchData);
+            setMatchesLockedCount(0);
+          } else if (matchData && Array.isArray(matchData.matches)) {
+            setMatches(matchData.matches);
+            setMatchesLockedCount(matchData.locked_count || 0);
+          }
         }
       } catch (e) {
         console.warn("Match refresh notice:", e);
@@ -954,6 +969,7 @@ export default function App() {
               <ProtectedRoute targetTab="jobs" activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} setCurrentUser={setCurrentUser}>
                 <JobDiscovery 
                   matches={matches} 
+                  lockedCount={matchesLockedCount}
                   profile={profile}
                   onTailor={handleTailor}
                   onDiscover={handleDiscover}
@@ -1078,6 +1094,7 @@ export default function App() {
                 <SettingsPrivacy 
                   profile={profile}
                   onProfileReset={handleResetProfile}
+                  onOpenPaywall={() => setIsPaywallOpen(true)}
                 />
               </ProtectedRoute>
             )}
@@ -1131,10 +1148,9 @@ export default function App() {
             )}
 
             {activeTab === 'admin' && (
-              <AdminDashboard 
-                currentUser={currentUser}
-                onAuthSuccess={handleAuthSuccess}
-                onNavigate={(tab) => setActiveTab(tab)}
+              <AdminPanel 
+                user={currentUser}
+                onBackToApp={() => setActiveTab('overview')}
               />
             )}
           </Suspense>
@@ -1200,14 +1216,19 @@ export default function App() {
         }}
       />
 
-      {/* 09. Pro Paywall & Payment Modal (₹99 One-Time Lifetime Upgrade) */}
-      <ProPaywallModal 
+      {/* 09. Razorpay Payment & Checkout Modal (₹99 / 6 Months Upgrade) */}
+      <RazorpayCheckoutModal 
         isOpen={isPaywallOpen}
         onClose={() => setIsPaywallOpen(false)}
-        onUpgradeSuccess={handleUpgradeSuccess}
-        scrapesUsed={userSubscription.scrapes_used}
-        freeLimit={userSubscription.free_limit || 5}
+        user={currentUser}
+        profile={profile}
+        onPaymentSuccess={(data) => {
+          setIsPaywallOpen(false);
+          loadData();
+          handleTriggerCelebration();
+        }}
       />
+
 
       {/* 📱 Locked Mobile Bottom Navigation Bar (Rendered on candidate views) */}
       {activeTab !== 'auth' && (

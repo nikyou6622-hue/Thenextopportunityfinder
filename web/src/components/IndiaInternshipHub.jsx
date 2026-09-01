@@ -67,6 +67,7 @@ const getTrackThumbnail = (domain = '', role = '') => {
 
 export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOpenPaywall, onScrapeTriggered, isPro = false }) {
   const [internships, setInternships] = useState([]);
+  const [lockedCount, setLockedCount] = useState(0);
   const [marketStats, setMarketStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -285,15 +286,22 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setInternships(data);
+          setLockedCount(0);
+        } else if (data && Array.isArray(data.internships)) {
+          setInternships(data.internships.length > 0 ? data.internships : DEFAULT_INTERNSHIPS);
+          setLockedCount(data.locked_count || 0);
         } else {
           setInternships(DEFAULT_INTERNSHIPS);
+          setLockedCount(0);
         }
       } else {
         setInternships(DEFAULT_INTERNSHIPS);
+        setLockedCount(0);
       }
     } catch (e) {
       console.error("Failed to load India internships:", e);
       setInternships(DEFAULT_INTERNSHIPS);
+      setLockedCount(0);
     } finally {
       setLoading(false);
     }
@@ -795,6 +803,35 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
       {/* -------------------------------------------------------------------------- */}
       {/* INTERNSHIP OPPORTUNITIES GRID */}
       {/* -------------------------------------------------------------------------- */}
+      {!isPro && lockedCount > 0 && (
+        <div style={{
+          padding: '16px 22px',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
+          border: '1px solid rgba(129, 140, 248, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={20} color="#a7f3d0" />
+            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+              Showing {filteredList.length} of {filteredList.length + lockedCount} internship opportunities — Upgrade to see all {filteredList.length + lockedCount} →
+            </span>
+          </div>
+          <button
+            onClick={() => { if (onOpenPaywall) onOpenPaywall(); }}
+            className="btn-primary"
+            style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
+          >
+            Unlock All {filteredList.length + lockedCount} Internships (₹99) →
+          </button>
+        </div>
+      )}
+
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>

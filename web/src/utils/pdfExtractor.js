@@ -12,10 +12,16 @@ if (typeof window !== 'undefined' && pdfjsLib) {
 }
 
 export async function extractPdfTextClient(arrayBuffer) {
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) return "";
+
+  // Slice clones of ArrayBuffer so worker transfers don't detach fallback buffers
+  const bufferForWorker = arrayBuffer.slice(0);
+  const bufferForFallback = arrayBuffer.slice(0);
+
   // 1. Primary Engine: Mozilla PDF.js (Handles all font encodings & kerning arrays)
   try {
     if (pdfjsLib && pdfjsLib.getDocument) {
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const loadingTask = pdfjsLib.getDocument({ data: bufferForWorker });
       const pdf = await loadingTask.promise;
       let fullText = '';
       
@@ -51,7 +57,7 @@ export async function extractPdfTextClient(arrayBuffer) {
 
   // 2. Fallback Engine: Clean Stream Decoder
   try {
-    const bytes = new Uint8Array(arrayBuffer);
+    const bytes = new Uint8Array(bufferForFallback);
     const textDecoder = new TextDecoder('latin1');
     const rawString = textDecoder.decode(bytes);
 

@@ -91,3 +91,16 @@ export function loadProfileFromLocal(userEmail = null) {
   return null;
 }
 
+export function saveProfileToLocal(profile, userEmail = null) {
+  if (!profile) return null;
+  const email = (userEmail || profile.email || '').trim().toLowerCase();
+  try {
+    if (email) {
+      localStorage.setItem(`nof_user_profile_${email}`, JSON.stringify(profile));
+    }
+    localStorage.setItem('nof_user_profile', JSON.stringify(profile));
+  } catch {}
+  return profile;
+}
+
+

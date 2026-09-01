@@ -18,6 +18,7 @@ import {
 
 export default function MncOpportunityHub({ profile, onTailor, loading: parentLoading, onOpenPaywall, onScrapeTriggered, isPro = false }) {
   const [mncMatches, setMncMatches] = useState([]);
+  const [lockedCount, setLockedCount] = useState(0);
   const [scanStatus, setScanStatus] = useState(null);
   const [selectedCompany, setSelectedCompany] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,11 +152,17 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
         const data = await jobsRes.json();
         if (Array.isArray(data) && data.length > 0) {
           setMncMatches(data);
+          setLockedCount(0);
+        } else if (data && Array.isArray(data.matches)) {
+          setMncMatches(data.matches.length > 0 ? data.matches : DEFAULT_MNC_JOBS);
+          setLockedCount(data.locked_count || 0);
         } else {
           setMncMatches(DEFAULT_MNC_JOBS);
+          setLockedCount(0);
         }
       } else {
         setMncMatches(DEFAULT_MNC_JOBS);
+        setLockedCount(0);
       }
 
       // 2. Fetch scan status
@@ -465,6 +472,35 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
         </div>
       </div>
 
+      {!isPro && lockedCount > 0 && (
+        <div style={{
+          padding: '16px 22px',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
+          border: '1px solid rgba(129, 140, 248, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Sparkles size={20} color="#a7f3d0" />
+            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+              Showing {filteredMatches.length} of {filteredMatches.length + lockedCount} MNC opportunities — Upgrade to see all {filteredMatches.length + lockedCount} →
+            </span>
+          </div>
+          <button
+            onClick={() => { if (onOpenPaywall) onOpenPaywall(); }}
+            className="btn-primary"
+            style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
+          >
+            Unlock All {filteredMatches.length + lockedCount} MNC Opportunities (₹99) →
+          </button>
+        </div>
+      )}
+
       {/* Job Listings Grid */}
       {loading ? (
         <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
@@ -484,7 +520,7 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
             const comp = job.company || 'MNC Corp';
             const isNewToday = job.posted_date === todayStr;
             const cLower = comp.toLowerCase();
-            const isJobLocked = !isPro && (!profile || !profile.email) && idx >= 15;
+            const isJobLocked = false;
 
             const themeType = cLower.includes('spotify') ? 'amber' :
               cLower.includes('airbnb') ? 'coral' :

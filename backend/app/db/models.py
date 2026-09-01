@@ -210,9 +210,15 @@ class SubscriptionModel(Base):
     id = Column(Integer, primary_key=True, index=True)
     profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False, unique=True)
     tier = Column(String, default="free") # free, pro
+    plan_tier = Column(String, default="free") # free, pro
     status = Column(String, default="active")
+    is_active = Column(Boolean, default=True)
     credits_remaining = Column(Integer, default=5)
     scrapes_used = Column(Integer, default=0)
+    started_at = Column(DateTime, nullable=True)
+    valid_until = Column(DateTime, nullable=True)
+    payment_id = Column(String, index=True, nullable=True)
+    amount_paid = Column(Float, default=0.0)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 # --- NEW MODELS FOR CS/TECH EXTENSIONS ---

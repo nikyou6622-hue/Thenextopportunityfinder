@@ -23,6 +23,7 @@ import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
 
 export default function JobDiscovery({ 
   matches = [], 
+  lockedCount = 0,
   profile,
   onTailor, 
   onImportFile, 
@@ -442,6 +443,35 @@ export default function JobDiscovery({
             </div>
           </div>
 
+          {!isPro && lockedCount > 0 && (
+            <div style={{
+              padding: '16px 22px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)',
+              border: '1px solid rgba(129, 140, 248, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Zap size={20} color="#a7f3d0" />
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+                  Showing {safeMatches.length} of {safeMatches.length + lockedCount} matches — Upgrade to see all {safeMatches.length + lockedCount} →
+                </span>
+              </div>
+              <button
+                onClick={() => { if (onOpenPaywall) onOpenPaywall(); }}
+                className="btn-primary"
+                style={{ fontSize: '0.82rem', padding: '8px 18px', borderRadius: '10px', fontWeight: 800 }}
+              >
+                Unlock All {safeMatches.length + lockedCount} Matches (₹99) →
+              </button>
+            </div>
+          )}
+
           {/* Matches Grid */}
           <div className="job-cards-grid">
             {error ? (
@@ -491,7 +521,7 @@ export default function JobDiscovery({
               const comp = job.company || 'TechCorp';
               const cLower = comp.toLowerCase();
               const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-              const isJobLocked = !isPro && (!profile || !profile.email) && globalIdx >= 15;
+              const isJobLocked = false;
 
               const themeType = cLower.includes('spotify') ? 'amber' :
                 cLower.includes('airbnb') ? 'coral' :
@@ -547,8 +577,8 @@ export default function JobDiscovery({
                       position: 'absolute',
                       inset: 0,
                       zIndex: 20,
-                      background: 'rgba(15, 23, 42, 0.86)',
-                      backdropFilter: 'blur(4px)',
+                      background: 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(6px)',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -558,10 +588,10 @@ export default function JobDiscovery({
                       gap: '10px'
                     }}>
                       <div style={{ fontSize: '1rem', fontWeight: 900, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        🔒 PRO LOCKED JOB #{(idx + 1)}
+                        🔒 PRO LOCKED OPPORTUNITY #{(globalIdx + 1)}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: '#f472b6', maxWidth: '300px' }}>
-                        First 5 scraped jobs are free. Unlock thousands of live MNC jobs & tech postings for ₹99 Lifetime!
+                        Top 3 matched opportunities are unlocked. Upgrade to Pro to unlock full details, direct apply links & tailored exports!
                       </div>
                       <button
                         onClick={(e) => {
@@ -571,7 +601,7 @@ export default function JobDiscovery({
                         className="btn-tactile btn-tactile-emerald"
                         style={{ padding: '8px 18px', fontSize: '0.8rem', fontWeight: 900, marginTop: '4px' }}
                       >
-                        Unlock All Scraped Jobs (₹99) →
+                        Unlock Full Access — ₹99 / 6 Months →
                       </button>
                     </div>
                   )}

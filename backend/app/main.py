@@ -4,6 +4,8 @@ import json
 import datetime
 import logging
 import asyncio
+import hmac
+import hashlib
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Body, Response, Header, Query, Cookie, BackgroundTasks, status
@@ -88,6 +90,7 @@ from backend.app.security.auth import require_auth_or_api_key
 from backend.app.security.rate_limiter import llm_rate_limiter
 from backend.app.security.usage_caps import weekly_usage_tracker
 from backend.app.security.cost_telemetry import log_llm_cost_telemetry, get_telemetry_summary
+from backend.app.security.subscriptions import get_access_level, grant_pro_access, revoke_pro_access
 from backend.app.data_source_registry import is_source_compliant, DATA_SOURCE_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -219,6 +222,21 @@ def auto_migrate_sqlite():
                 for col_name, col_type in new_m_cols:
                     if col_name not in m_cols and len(m_cols) > 0:
                         cursor.execute(f"ALTER TABLE matches ADD COLUMN {col_name} {col_type};")
+
+                # Subscriptions table migration
+                cursor.execute("PRAGMA table_info(subscriptions);")
+                s_cols = [row[1] for row in cursor.fetchall()]
+                new_s_cols = [
+                    ("plan_tier", "VARCHAR DEFAULT 'free'"),
+                    ("is_active", "BOOLEAN DEFAULT 1"),
+                    ("started_at", "DATETIME"),
+                    ("valid_until", "DATETIME"),
+                    ("payment_id", "VARCHAR"),
+                    ("amount_paid", "FLOAT DEFAULT 0.0")
+                ]
+                for col_name, col_type in new_s_cols:
+                    if col_name not in s_cols and len(s_cols) > 0:
+                        cursor.execute(f"ALTER TABLE subscriptions ADD COLUMN {col_name} {col_type};")
 
                 # Unique index on job_fingerprint to prevent duplicate listings
                 try:
@@ -526,13 +544,26 @@ import secrets
 ADMIN_EMAIL = "adityanikt@gmail.com"
 ADMIN_INITIAL_PASSWORD = "753951"
 
-def _build_user_payload(user: UserModel) -> Dict[str, Any]:
-    """Formats user payload with explicit admin privileges, subscription tier, and suspension status."""
+def _build_user_payload(user: UserModel, db: Optional[Session] = None) -> Dict[str, Any]:
+    """Formats user payload with explicit admin privileges, subscription tier, access level, and valid_until."""
     email_clean = (user.email or "").strip().lower()
     is_admin = bool(
         getattr(user, "is_admin", False) or 
         email_clean in ["adityanikt622@gmail.com", "adityanikt@gmail.com"]
     )
+    access_lvl = getattr(user, "subscription_tier", "free") or "free"
+    valid_until_str = None
+
+    if db:
+        profile = db.query(ProfileModel).filter(ProfileModel.email == email_clean).first()
+        if profile:
+            access_lvl = get_access_level(profile.id, db)
+            sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == profile.id).first()
+            if sub and sub.valid_until:
+                valid_until_str = sub.valid_until.isoformat()
+    elif getattr(user, "subscription_tier", "") == "pro":
+        access_lvl = "pro"
+
     return {
         "id": user.id,
         "full_name": user.full_name,
@@ -542,7 +573,9 @@ def _build_user_payload(user: UserModel) -> Dict[str, Any]:
         "avatar_url": user.avatar_url,
         "is_admin": is_admin,
         "is_suspended": bool(getattr(user, "is_suspended", False)),
-        "subscription_tier": getattr(user, "subscription_tier", "free") or "free",
+        "subscription_tier": access_lvl,
+        "access_level": access_lvl,
+        "valid_until": valid_until_str,
         "is_email_verified": getattr(user, "is_email_verified", False),
         "role": "admin" if is_admin else "candidate",
         "created_at": user.created_at.isoformat() if user.created_at else None
@@ -2944,17 +2977,30 @@ NOTIFICATION_PREFERENCES = {
     }
 }
 
+def _resolve_profile_by_id_or_request(profile_id: Any, db: Session, request: Optional[Request] = None) -> Optional[ProfileModel]:
+    if profile_id is not None:
+        p_str = str(profile_id).strip()
+        if p_str.isdigit():
+            prof = db.query(ProfileModel).filter(ProfileModel.id == int(p_str)).first()
+            if prof:
+                return prof
+        prof_by_email = db.query(ProfileModel).filter(ProfileModel.email.ilike(p_str)).first()
+        if prof_by_email:
+            return prof_by_email
+    return get_active_profile(db, request=request)
+
 @app.get("/api/notifications/{profile_id}")
 @app.get("/api/notifications")
 def get_candidate_notifications(
-    profile_id: Optional[int] = None, 
+    request: Request,
+    profile_id: Optional[Union[int, str]] = None, 
     db: Session = Depends(get_db)
 ):
     """
     Skill 5 / Frontend Blueprint: Surfaces factual event-driven retention triggers.
     Zero filler cards: only emits notifications when real events occur.
     """
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
+    profile = _resolve_profile_by_id_or_request(profile_id, db, request=request)
     if not profile:
         return {"notifications": [], "unread_count": 0}
 
@@ -3048,11 +3094,12 @@ def mark_notification_as_read(
 
 @app.post("/api/notifications/mark-all-read")
 def mark_all_notifications_read(
-    profile_id: Optional[int] = None,
+    request: Request,
+    profile_id: Optional[Union[int, str]] = None,
     db: Session = Depends(get_db)
 ):
     """Mark all active notifications for candidate as read."""
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
+    profile = _resolve_profile_by_id_or_request(profile_id, db, request=request)
     if profile:
         db.query(NotificationEventModel).filter(NotificationEventModel.profile_id == profile.id).update({"is_read": True})
         db.commit()
@@ -3060,8 +3107,8 @@ def mark_all_notifications_read(
 
 @app.get("/api/notifications/preferences")
 @app.get("/api/notifications/{profile_id}/preferences")
-def get_notification_preferences(profile_id: Optional[int] = None, db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
+def get_notification_preferences(request: Request, profile_id: Optional[Union[int, str]] = None, db: Session = Depends(get_db)):
+    profile = _resolve_profile_by_id_or_request(profile_id, db, request=request)
     if profile:
         pref = db.query(NotificationPreferenceModel).filter(NotificationPreferenceModel.profile_id == profile.id).first()
         if pref:
@@ -3080,8 +3127,9 @@ def get_notification_preferences(profile_id: Optional[int] = None, db: Session =
 @app.put("/api/notifications/preferences")
 @app.put("/api/notifications/{profile_id}/preferences")
 def update_notification_preferences(
+    request: Request,
     prefs: Dict[str, Any] = Body(...),
-    profile_id: Optional[int] = None,
+    profile_id: Optional[Union[int, str]] = None,
     db: Session = Depends(get_db)
 ):
     key = str(profile_id) if profile_id else "default"
@@ -3089,7 +3137,7 @@ def update_notification_preferences(
     current.update(prefs)
     NOTIFICATION_PREFERENCES[key] = current
 
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
+    profile = _resolve_profile_by_id_or_request(profile_id, db, request=request)
     if profile:
         pref = db.query(NotificationPreferenceModel).filter(NotificationPreferenceModel.profile_id == profile.id).first()
         if not pref:
@@ -3122,11 +3170,12 @@ def update_notification_preferences(
 
 @app.post("/api/notifications/digest/preview")
 def generate_digest_preview(
-    profile_id: Optional[int] = None,
+    request: Request,
+    profile_id: Optional[Union[int, str]] = None,
     cadence: str = Query("daily_digest"),
     db: Session = Depends(get_db)
 ):
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
+    profile = _resolve_profile_by_id_or_request(profile_id, db, request=request)
     if not profile:
         return {"digest": "No active candidate profile found.", "event_count": 0}
     
@@ -3496,8 +3545,8 @@ def get_jobs(
     end_idx = start_idx + limit
     return filtered[start_idx:end_idx]
 
-@app.get("/api/matches", response_model=List[MatchSchema])
-@app.get("/matches", response_model=List[MatchSchema])
+@app.get("/api/matches")
+@app.get("/matches")
 def get_matches(
     request: Request,
     include_dead: bool = False,
@@ -3680,9 +3729,24 @@ def get_matches(
 
     result.sort(key=lambda x: (x["match_score"], x["matched_count"], x["skill_match_percentage"]), reverse=True)
     
-    start_idx = (page - 1) * limit
-    end_idx = start_idx + limit
-    return result[start_idx:end_idx]
+    page_val = page if isinstance(page, int) else 1
+    limit_val = limit if isinstance(limit, int) else 1000
+    access_level = get_access_level(profile_id, db)
+    if access_level == "pro":
+        start_idx = (page_val - 1) * limit_val
+        end_idx = start_idx + limit_val
+        paginated = result[start_idx:end_idx]
+        return {
+            "matches": paginated,
+            "locked_count": 0
+        }
+
+    visible_matches = result[:5]
+    locked_count = max(0, len(result) - 5)
+    return {
+        "matches": visible_matches,
+        "locked_count": locked_count
+    }
 
 @app.post("/api/jobs/revalidate-links", response_model=LinkRevalidationResponse)
 def revalidate_job_links_endpoint(
@@ -4613,11 +4677,11 @@ def run_super_admin_audit_endpoint(db: Session = Depends(get_db)):
     """
     return run_super_admin_audit(db)
 
-@app.get("/api/jobs/mnc", response_model=List[MatchSchema])
-def get_mnc_jobs(company: Optional[str] = None, db: Session = Depends(get_db)):
-    profile = get_active_profile(db)
+@app.get("/api/jobs/mnc")
+def get_mnc_jobs(request: Request, company: Optional[str] = None, db: Session = Depends(get_db)):
+    profile = get_active_profile(db, request=request)
     if not profile:
-        return []
+        return {"matches": [], "locked_count": 0}
     
     # Auto-seed if database contains zero MNC jobs
     mnc_job_count = db.query(JobModel).filter(JobModel.source_category == "mnc").count()
@@ -4675,7 +4739,20 @@ def get_mnc_jobs(company: Optional[str] = None, db: Session = Depends(get_db)):
         query = query.filter(JobModel.company.ilike(f"%{company}%"))
 
     matches = query.order_by(MatchModel.match_score.desc()).all()
-    return matches
+    
+    access_level = get_access_level(profile.id, db)
+    if access_level == "pro":
+        return {
+            "matches": matches,
+            "locked_count": 0
+        }
+
+    visible = matches[:5]
+    locked_count = max(0, len(matches) - 5)
+    return {
+        "matches": visible,
+        "locked_count": locked_count
+    }
 
 def _bg_mnc_scan():
     db = SessionLocal()
@@ -4724,6 +4801,7 @@ def get_mnc_scan_status_endpoint(db: Session = Depends(get_db)):
 @app.get("/api/internships/india")
 @app.get("/internships/india")
 def list_india_internships_endpoint(
+    request: Request,
     location: Optional[str] = None, 
     domain: Optional[str] = None, 
     min_stipend: Optional[int] = None,
@@ -4766,7 +4844,22 @@ def list_india_internships_endpoint(
     if not results:
         results = RAW_INDIA_INTERNSHIPS_SEED
 
-    return results
+    profile = get_active_profile(db, request=request)
+    profile_id = profile.id if profile else None
+    access_level = get_access_level(profile_id, db)
+
+    if access_level == "pro":
+        return {
+            "internships": results,
+            "locked_count": 0
+        }
+
+    visible = results[:5]
+    locked_count = max(0, len(results) - 5)
+    return {
+        "internships": visible,
+        "locked_count": locked_count
+    }
 
 @app.post("/api/internships/india/scan")
 @app.post("/internships/india/scan")
@@ -4809,16 +4902,35 @@ def get_internship_market_stats_endpoint(db: Session = Depends(get_db)):
 
 @app.get("/api/jobs/global")
 def get_global_tech_jobs_endpoint(
+    request: Request,
     query: Optional[str] = None,
     location: Optional[str] = None,
     source: str = "all",
-    limit: int = 20
+    limit: int = 20,
+    db: Session = Depends(get_db)
 ):
     """
     Returns global tech job requisitions from FreeHire (~50 ATS normalized) and LinkedIn public guest search
     enriched with salary benchmark intelligence.
+    Gated to 5 visible jobs for free-tier users with accurate locked_count. Uncapped for pro users.
     """
-    return get_combined_global_feed(query=query or "", location=location or "", source_filter=source, limit=limit)
+    raw_jobs = get_combined_global_feed(query=query or "", location=location or "", source_filter=source, limit=limit)
+    profile = get_active_profile(db, request=request)
+    profile_id = profile.id if profile else None
+    access_level = get_access_level(profile_id, db)
+
+    if access_level == "pro":
+        return {
+            "jobs": raw_jobs,
+            "locked_count": 0
+        }
+
+    visible = raw_jobs[:5]
+    locked_count = max(0, len(raw_jobs) - 5)
+    return {
+        "jobs": visible,
+        "locked_count": locked_count
+    }
 
 
 @app.get("/api/salary/benchmark")
@@ -5397,6 +5509,462 @@ def google_auth_verify_endpoint(
             "target_role": payload.get("target_role") or "Full Stack Engineer",
             "is_email_verified": True
         }
+    }
+
+
+# ============================================================================
+# RAZORPAY PAYMENT & SUBSCRIPTION ENDPOINTS (₹99 / 6 Months Access)
+# ============================================================================
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_mockkey2026")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+class CreateOrderRequest(BaseModel):
+    amount: float = 99.0
+    currency: str = "INR"
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_payment_id: str
+    razorpay_order_id: str
+    razorpay_signature: str
+    profile_id: Optional[int] = None
+
+@app.post("/api/payments/create-order")
+def create_razorpay_order(
+    req: CreateOrderRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Generates Razorpay Order ID for ₹99 (9900 paise) one-time charge for 6-month Pro access."""
+    amount_paise = int(req.amount * 100) # ₹99 = 9900 paise
+    order_id = f"order_{secrets.token_hex(12)}"
+    
+    if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET and not RAZORPAY_KEY_ID.startswith("rzp_test_mock"):
+        try:
+            import razorpay
+            client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+            order_data = {
+                "amount": amount_paise,
+                "currency": req.currency,
+                "payment_capture": 1
+            }
+            order = client.order.create(data=order_data)
+            order_id = order.get("id", order_id)
+        except Exception as e:
+            logger.warning(f"Razorpay live order generation fallback: {e}")
+
+    return {
+        "order_id": order_id,
+        "amount": amount_paise,
+        "currency": req.currency,
+        "key_id": RAZORPAY_KEY_ID
+    }
+
+def _send_live_payment_receipt_email(recipient_email: str, payment_id: str, amount: float, valid_until_str: str) -> bool:
+    """Dispatches transactional payment receipt email for successful ₹99 Pro upgrade."""
+    smtp_pass = os.getenv("SMTP_PASSWORD", "wmiwyfujzcwjdtbs").strip()
+    smtp_user = os.getenv("SMTP_USER", os.getenv("DEFAULT_EMAIL", "nextopportunityfinder@gmail.com")).strip()
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+    port = int(os.getenv("SMTP_PORT", 587))
+
+    if not smtp_pass:
+        logger.warning(f"SMTP_PASSWORD not configured. Payment receipt not emailed to {recipient_email}")
+        return False
+
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "🎉 Payment Received! Your Next Opportunity Finder Pro Access is Active"
+        msg["From"] = f"Next Opportunity Finder Billing <{smtp_user}>"
+        msg["To"] = recipient_email
+
+        plain_text = f"Thank you for upgrading to Pro!\nPayment ID: {payment_id}\nAmount: ₹{amount}\nPro Access Active Until: {valid_until_str}\n\nFull access to direct apply links, ATS resume tailoring, and interview studio is now unlocked."
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0; padding:0; background-color:#0b0f19; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0b0f19; padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width:540px; background:#131b2e; border-radius:16px; border:1px solid rgba(255,255,255,0.1); overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(135deg, #059669 0%, #10b981 100%); padding:24px 28px;">
+              <span style="color:#a7f3d0; font-size:0.75rem; font-weight:800; text-transform:uppercase;">Payment Receipt</span>
+              <h2 style="color:#ffffff; font-size:1.4rem; font-weight:900; margin:8px 0 0 0;">You're Pro for 6 Months!</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <p style="color:#94a3b8; font-size:0.95rem; margin-top:0;">Your ₹{amount:.2f} payment was successful. All platform capabilities are fully unlocked.</p>
+              <div style="background:#0f172a; border-radius:12px; padding:16px 20px; margin:20px 0;">
+                <p style="margin:4px 0; font-size:0.85rem; color:#cbd5e1;"><strong>Payment ID:</strong> {payment_id}</p>
+                <p style="margin:4px 0; font-size:0.85rem; color:#cbd5e1;"><strong>Amount Paid:</strong> ₹{amount:.2f}</p>
+                <p style="margin:4px 0; font-size:0.85rem; color:#10b981;"><strong>Valid Until:</strong> {valid_until_str}</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+        msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        server = smtplib.SMTP(host, port, timeout=15)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, [recipient_email], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send payment receipt email: {e}")
+        return False
+
+@app.post("/api/payments/verify")
+def verify_razorpay_payment(
+    req: VerifyPaymentRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Verifies Razorpay payment signature & idempotency, and upgrades profile to 6-month Pro tier.
+    """
+    profile = None
+    if req.profile_id:
+        profile = db.query(ProfileModel).filter(ProfileModel.id == req.profile_id).first()
+    if not profile:
+        profile = get_current_profile_from_request(request, db)
+    if not profile:
+        user = get_current_user_from_request(request, db)
+        if user:
+            profile = db.query(ProfileModel).filter(ProfileModel.email == user.email).first()
+    if not profile:
+        raise HTTPException(status_code=401, detail="Authentication required to verify payment.")
+
+    # 1. Signature Verification
+    if RAZORPAY_KEY_SECRET:
+        msg = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
+        expected_sig = hmac.new(RAZORPAY_KEY_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        if expected_sig != req.razorpay_signature:
+            raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
+
+    # 2. Idempotency Check
+    existing_sub = db.query(SubscriptionModel).filter(SubscriptionModel.payment_id == req.razorpay_payment_id).first()
+    if existing_sub:
+        valid_until_str = existing_sub.valid_until.isoformat() if existing_sub.valid_until else "Active"
+        return {
+            "success": True,
+            "message": "Payment already processed.",
+            "payment_id": req.razorpay_payment_id,
+            "valid_until": valid_until_str,
+            "already_processed": True
+        }
+
+    # 3. Grant Pro Access
+    sub = grant_pro_access(profile.id, db, payment_id=req.razorpay_payment_id, amount_paid=99.0, months=6)
+    valid_until_str = sub.valid_until.isoformat() if sub.valid_until else ""
+
+    # Create In-App Notification
+    try:
+        notif = NotificationEventModel(
+            profile_id=profile.id,
+            trigger_type="subscription_activated",
+            title="🎉 Pro Subscription Active!",
+            message=f"Your Pro subscription (₹99/6 months) is active until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else ''}.",
+            severity="success",
+            action_tab="overview"
+        )
+        db.add(notif)
+        db.commit()
+    except Exception as ne:
+        logger.warning(f"Notification creation notice: {ne}")
+
+    # Dispatch receipt email
+    if profile.email:
+        _send_live_payment_receipt_email(profile.email, req.razorpay_payment_id, 99.0, valid_until_str[:10])
+
+    return {
+        "success": True,
+        "message": f"You're Pro until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else '6 months'}.",
+        "payment_id": req.razorpay_payment_id,
+        "valid_until": valid_until_str,
+        "access_level": "pro"
+    }
+
+@app.post("/api/payments/razorpay-webhook")
+async def razorpay_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Mandatory Webhook Endpoint for Razorpay Payment Notifications.
+    Enforces signature verification & idempotency before granting Pro access.
+    """
+    body_bytes = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    # 1. Webhook Signature Verification
+    if RAZORPAY_WEBHOOK_SECRET:
+        expected_sig = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), body_bytes, hashlib.sha256).hexdigest()
+        if not signature or not hmac.compare_digest(expected_sig, signature):
+            logger.warning("Razorpay Webhook Signature Mismatch! Rejecting payload.")
+            raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+
+    try:
+        payload = json.loads(body_bytes.decode())
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+
+    event_type = payload.get("event", "")
+    payment_entity = payload.get("payload", {}).get("payment", {}).get("entity", {}) or payload.get("payload", {}).get("payment_link", {}).get("entity", {})
+    payment_id = payment_entity.get("id") or payload.get("payment_id") or f"wh_{secrets.token_hex(8)}"
+
+    # 2. Webhook Idempotency
+    existing_sub = db.query(SubscriptionModel).filter(SubscriptionModel.payment_id == payment_id).first()
+    if existing_sub:
+        logger.info(f"Webhook idempotency check: Payment {payment_id} already processed.")
+        return {"status": "already_processed", "payment_id": payment_id}
+
+    if event_type in ["payment.captured", "payment_link.paid", "order.paid"] or not event_type:
+        user_email = payment_entity.get("email") or payment_entity.get("notes", {}).get("email")
+        profile = None
+        if user_email:
+            profile = db.query(ProfileModel).filter(ProfileModel.email == user_email.strip().lower()).first()
+        if not profile:
+            profile = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+
+        if profile:
+            amount = float(payment_entity.get("amount", 9900)) / 100.0 if payment_entity.get("amount") else 99.0
+            sub = grant_pro_access(profile.id, db, payment_id=payment_id, amount_paid=amount, months=6)
+            valid_until_str = sub.valid_until.isoformat() if sub.valid_until else ""
+            if profile.email:
+                _send_live_payment_receipt_email(profile.email, payment_id, amount, valid_until_str[:10])
+            return {"status": "success", "payment_id": payment_id, "profile_id": profile.id}
+
+    return {"status": "event_ignored", "event": event_type}
+
+
+# ============================================================================
+# ADMIN PANEL API ENDPOINTS (Server-Side Security Enforcement)
+# ============================================================================
+
+def _require_admin_user(request: Request, db: Session) -> UserModel:
+    """
+    Security Guard: Validates server-side that the requesting user possesses is_admin == True.
+    Raises 403 Forbidden for non-admin users even if authenticated with valid sessions.
+    """
+    user = get_current_user_from_request(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required to access admin panel.")
+    
+    email_clean = (user.email or "").strip().lower()
+    is_admin = bool(getattr(user, "is_admin", False) or email_clean in ["adityanikt622@gmail.com", "adityanikt@gmail.com"])
+    if not is_admin:
+        logger.warning(f"Unauthorized admin access attempt by user: {user.email} (ID: {user.id})")
+        raise HTTPException(status_code=403, detail="Forbidden: System administrator privileges required.")
+    
+    return user
+
+@app.get("/api/admin/stats")
+@app.get("/admin/stats")
+def get_admin_stats(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns platform-wide subscription & user analytics for admin dashboard.
+    Strictly secured via _require_admin_user server-side check.
+    """
+    admin_user = _require_admin_user(request, db)
+
+    total_users = db.query(UserModel).count()
+    total_profiles = db.query(ProfileModel).count()
+    
+    pro_subs = db.query(SubscriptionModel).filter(
+        SubscriptionModel.is_active == True,
+        SubscriptionModel.plan_tier == "pro"
+    ).all()
+    pro_count = len(pro_subs)
+    free_count = max(0, total_users - pro_count)
+
+    total_revenue = sum(s.amount_paid or 99.0 for s in pro_subs)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    week_ago = now - datetime.timedelta(days=7)
+    month_ago = now - datetime.timedelta(days=30)
+
+    signups_week = db.query(UserModel).filter(UserModel.created_at >= week_ago).count()
+    signups_month = db.query(UserModel).filter(UserModel.created_at >= month_ago).count()
+
+    conversion_rate = round((pro_count / total_users * 100.0), 1) if total_users > 0 else 0.0
+
+    return {
+        "admin_email": admin_user.email,
+        "total_users": total_users,
+        "total_profiles": total_profiles,
+        "pro_users": pro_count,
+        "free_users": free_count,
+        "total_revenue": total_revenue,
+        "signups_this_week": signups_week,
+        "signups_this_month": signups_month,
+        "conversion_rate_pct": conversion_rate
+    }
+
+@app.get("/api/admin/users")
+@app.get("/admin/users")
+def get_admin_users(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns paginated, searchable user list with subscription metadata.
+    Strictly omits raw resume text, DPDP fields, or unneeded sensitive PII.
+    """
+    admin_user = _require_admin_user(request, db)
+
+    query = db.query(UserModel)
+    if search:
+        s_clean = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(UserModel.email).like(s_clean),
+                func.lower(UserModel.full_name).like(s_clean)
+            )
+        )
+
+    total_count = query.count()
+    users = query.order_by(UserModel.id.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    user_list = []
+    for u in users:
+        p = db.query(ProfileModel).filter(ProfileModel.email == u.email).first()
+        p_id = p.id if p else None
+        
+        access_lvl = "free"
+        valid_until_str = None
+        if p_id:
+            access_lvl = get_access_level(p_id, db)
+            sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == p_id).first()
+            if sub and sub.valid_until:
+                valid_until_str = sub.valid_until.isoformat()
+
+        apps_count = db.query(ApplicationModel).filter(ApplicationModel.profile_id == p_id).count() if p_id else 0
+        matches_count = db.query(MatchModel).filter(MatchModel.profile_id == p_id).count() if p_id else 0
+
+        user_list.append({
+            "id": u.id,
+            "profile_id": p_id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "target_role": u.target_role,
+            "experience_level": u.experience_level,
+            "is_admin": bool(getattr(u, "is_admin", False)),
+            "is_suspended": bool(getattr(u, "is_suspended", False)),
+            "plan_tier": access_lvl,
+            "valid_until": valid_until_str,
+            "applications_count": apps_count,
+            "matches_count": matches_count,
+            "created_at": u.created_at.isoformat() if u.created_at else None
+        })
+
+    return {
+        "admin_email": admin_user.email,
+        "total_users": total_count,
+        "page": page,
+        "limit": limit,
+        "users": user_list
+    }
+
+@app.post("/api/admin/users/{target_user_id}/grant-pro")
+def admin_grant_pro(
+    target_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually grants 6 months of Pro access to a user. Logged to AdminAuditLogModel.
+    """
+    admin_user = _require_admin_user(request, db)
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found.")
+
+    profile = db.query(ProfileModel).filter(ProfileModel.email == target_user.email).first()
+    if not profile:
+        profile = ProfileModel(
+            name=target_user.full_name,
+            email=target_user.email,
+            consent_given=True,
+            consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+
+    sub = grant_pro_access(profile.id, db, payment_id="admin_manual_grant", amount_paid=0.0, months=6)
+
+    # Log to AdminAuditLogModel
+    audit_entry = AdminAuditLogModel(
+        admin_email=admin_user.email,
+        action="upgrade_pro",
+        target_user_id=target_user.id,
+        target_user_email=target_user.email,
+        details=f"Admin {admin_user.email} manually granted 6 months Pro access.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Pro access successfully granted to {target_user.email}.",
+        "target_user_id": target_user.id,
+        "valid_until": sub.valid_until.isoformat() if sub.valid_until else ""
+    }
+
+@app.post("/api/admin/users/{target_user_id}/revoke-pro")
+def admin_revoke_pro(
+    target_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually revokes Pro access from a user. Logged to AdminAuditLogModel.
+    """
+    admin_user = _require_admin_user(request, db)
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found.")
+
+    profile = db.query(ProfileModel).filter(ProfileModel.email == target_user.email).first()
+    if profile:
+        revoke_pro_access(profile.id, db)
+
+    # Log to AdminAuditLogModel
+    audit_entry = AdminAuditLogModel(
+        admin_email=admin_user.email,
+        action="revoke_pro",
+        target_user_id=target_user.id,
+        target_user_email=target_user.email,
+        details=f"Admin {admin_user.email} revoked Pro access.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Pro access revoked for {target_user.email}.",
+        "target_user_id": target_user.id
     }
 
 

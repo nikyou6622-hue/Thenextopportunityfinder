@@ -1291,8 +1291,13 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                     logger.error(f"ANOMALY: {company_name} previously had {previous_job_count} active jobs, now returning zero")
                     error_msg += f" (ANOMALY: previously had {previous_job_count} active jobs)"
             else:
+                seen_ext_ids_in_batch = set()
                 for item in discovered_items:
                     ext_id = item["external_id"]
+                    if ext_id in seen_ext_ids_in_batch:
+                        continue
+                    seen_ext_ids_in_batch.add(ext_id)
+
                     existing = db.query(JobModel).filter(JobModel.external_id == ext_id).first()
 
                     if not existing:
