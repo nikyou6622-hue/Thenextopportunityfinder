@@ -36,6 +36,7 @@ import {
   ChevronRight,
   Filter,
   ArrowRight,
+  ArrowLeft,
   KeyRound,
   LogIn,
   AlertTriangle,
@@ -47,7 +48,7 @@ import {
 import SoundSystem from './characters/SoundEffects';
 import UserAvatar from './UserAvatar';
 
-export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate }) {
+export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate, onBackToApp }) {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [userTotal, setUserTotal] = useState(0);
@@ -374,6 +375,16 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate 
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
+            {(onBackToApp || onNavigate) && (
+              <button 
+                onClick={() => onBackToApp ? onBackToApp() : onNavigate('overview')} 
+                className="btn-tactile btn-tactile-ghost" 
+                style={{ padding: '10px 16px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <ArrowLeft size={15} />
+                <span>Back to Dashboard</span>
+              </button>
+            )}
             <button onClick={fetchAllAdminData} disabled={refreshing} className="btn-tactile btn-tactile-ghost" style={{ padding: '10px 16px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={15} className={refreshing ? 'spin-anim' : ''} />
               <span>{refreshing ? 'Refreshing...' : 'Refresh All Metrics'}</span>

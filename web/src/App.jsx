@@ -1148,9 +1148,11 @@ export default function App() {
             )}
 
             {activeTab === 'admin' && (
-              <AdminPanel 
-                user={currentUser}
+              <AdminDashboard 
+                currentUser={currentUser}
+                onAuthSuccess={(u) => setCurrentUser(u)}
                 onBackToApp={() => setActiveTab('overview')}
+                onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
           </Suspense>
