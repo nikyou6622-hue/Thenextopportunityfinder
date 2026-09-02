@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import json
 import datetime
@@ -344,6 +345,19 @@ async def daily_dpdp_retention_purge_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    # Fail-fast security validation in production environment
+    env = os.getenv("ENVIRONMENT", "development").lower()
+    if env == "production":
+        insecure_defaults = {"nof-dev-key-2026", "secret", "change-me", "your_secret_here", "12345678"}
+        jwt_sec = os.getenv("JWT_SECRET", "").strip()
+        razorpay_sec = os.getenv("RAZORPAY_SECRET_KEY", "").strip()
+        if not jwt_sec or jwt_sec.lower() in insecure_defaults:
+            logger.critical("CRITICAL FATAL SECURITY ERROR: Insecure or missing JWT_SECRET in production mode!")
+            sys.exit(1)
+        if not razorpay_sec or razorpay_sec.lower() in insecure_defaults:
+            logger.critical("CRITICAL FATAL SECURITY ERROR: Insecure or missing RAZORPAY_SECRET_KEY in production mode!")
+            sys.exit(1)
+
     try:
         _ensure_default_admin_account()
     except Exception as e:
