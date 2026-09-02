@@ -86,13 +86,17 @@ def main():
         sys.exit(0)
 
     except Exception as e:
+        db.rollback()
         t1 = time.time()
         duration = round(t1 - t0, 2)
-        scraper_run.status = "failed"
-        scraper_run.end_time = datetime.datetime.now(datetime.timezone.utc)
-        scraper_run.duration_seconds = duration
-        scraper_run.error_message = str(e)
-        db.commit()
+        try:
+            scraper_run.status = "failed"
+            scraper_run.end_time = datetime.datetime.now(datetime.timezone.utc)
+            scraper_run.duration_seconds = duration
+            scraper_run.error_message = str(e)
+            db.commit()
+        except Exception:
+            db.rollback()
         
         logger.critical(f"FATAL: Global Job Discovery Execution Failed with Exception: {e}", exc_info=True)
         try:

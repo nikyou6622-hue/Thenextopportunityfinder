@@ -3717,7 +3717,7 @@ def get_matches(
             continue
 
         # Sanity check: Exclude non-technical roles
-        is_tech = job.is_technical if job.is_technical is not None else is_technical_role(job.role_title, job.description)
+        is_tech = is_technical_role(job.role_title, job.description)
         if not is_tech:
             continue
 
@@ -5557,11 +5557,10 @@ def get_india_internships_endpoint(
     source: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    from backend.app.agents.source_router import is_india_relevant
+    from backend.app.agents.source_router import is_india_relevant, is_technical_role
     
     query = db.query(JobModel).filter(
         JobModel.status == "active",
-        JobModel.is_technical == True,
         or_(
             JobModel.role_title.ilike("%intern%"),
             JobModel.role_type.ilike("%intern%"),
@@ -5575,8 +5574,13 @@ def get_india_internships_endpoint(
     jobs = query.order_by(JobModel.id.desc()).all()
     profile = get_active_profile(db)
     
+    cand_skills_set = set(s.lower().strip() for s in (profile.skills or [])) if profile and profile.skills else set()
+    
     res = []
     for j in jobs:
+        if not is_technical_role(j.role_title, j.description):
+            continue
+
         if not is_india_relevant(j.location, j.description, j.company):
             continue
 
@@ -5584,18 +5588,29 @@ def get_india_internships_endpoint(
             if source.lower() not in (j.source or "").lower():
                 continue
 
-        score = 92
-        if profile and profile.skills and j.required_skills:
-            cand_skills = set(s.lower() for s in profile.skills)
-            req_skills = set(s.lower() for s in j.required_skills)
-            overlap = len(cand_skills.intersection(req_skills))
-            if req_skills:
-                score = min(99, max(70, int(65 + (overlap / len(req_skills)) * 34)))
+        req_skills_list = j.required_skills or []
+        matched_skills = [s for s in req_skills_list if s.lower().strip() in cand_skills_set]
+        missing_skills = [s for s in req_skills_list if s.lower().strip() not in cand_skills_set]
+        matched_count = len(matched_skills)
+        required_count = len(req_skills_list)
+        
+        if required_count > 0:
+            skill_pct = (matched_count / required_count) * 100.0
+            # Weighted formula: 40% skill overlap + 25% domain fit (85) + 15% location fit (85) + 20% semantic fit (80)
+            score = round(0.40 * skill_pct + 0.25 * 85.0 + 0.15 * 85.0 + 0.20 * 80.0, 1)
+            if matched_count == 0:
+                score = min(score, 55.0)  # Capped at max 55% when 0 skills match out of required skills
+        else:
+            skill_pct = 0.0
+            score = 75.0
                 
         res.append({
             "id": f"int-db-{j.id}",
-            "title": j.role_title if "intern" in j.role_title.lower() else f"{j.role_title} Intern",
+            "job_id": j.id,
+            "title": j.role_title if "intern" in (j.role_title or "").lower() else f"{j.role_title} Intern",
+            "role_title": j.role_title,
             "company": j.company,
+            "source": j.source or "Verified Portal",
             "platform": (j.source or "Verified Portal").title(),
             "location": j.location or "Bengaluru, India",
             "stipend": "₹35,000 - ₹60,000 / month",
@@ -5603,9 +5618,18 @@ def get_india_internships_endpoint(
             "ppo_offered": True,
             "tier2_3_friendly": True,
             "posted_date": j.posted_date or "Recently",
-            "skills_required": j.required_skills or ["Python", "JavaScript", "React"],
-            "apply_url": j.apply_url_resolved or j.apply_url,
+            "skills_required": req_skills_list,
+            "required_skills": req_skills_list,
+            "matched_skills": matched_skills,
+            "matching_skills": matched_skills,
+            "missing_skills": missing_skills,
+            "matched_count": matched_count,
+            "required_count": required_count,
+            "skill_match_percentage": round(skill_pct, 1),
+            "skill_overlap_score": round(skill_pct, 1),
+            "match_score": score,
             "authenticity_score": score,
+            "apply_url": j.apply_url_resolved or j.apply_url,
             "verified": True
         })
         

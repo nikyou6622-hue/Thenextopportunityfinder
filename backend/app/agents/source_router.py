@@ -626,23 +626,29 @@ def get_source_trust_tier(source: Optional[str] = "", apply_url: Optional[str] =
 
 NON_TECHNICAL_ROLE_PATTERNS = [
     r"\bstore\s+manager\b", r"\bgeneral\s+cleaner\b", r"\breceptionist\b", r"\bfront\s+office\b",
-    r"\bsales\s+(executive|representative|manager|associate)\b", r"\baccountant\b", r"\bwarehouse\b",
+    r"\bsales\s*(executive|representative|manager|associate|internship)?\b", r"\baccountant\b", r"\bwarehouse\b",
     r"\bdriver\b", r"\bcleaner\b", r"\bsecurity\s+guard\b", r"\bwaiter\b", r"\bbarista\b",
-    r"\bnursery\s+teacher\b", r"\bhousekeeping\b", r"\bcashier\b", r"\bstorekeeper\b"
+    r"\bnursery\s+teacher\b", r"\bhousekeeping\b", r"\bcashier\b", r"\bstorekeeper\b",
+    r"\bhotel(\s+management|\s+manager|\s+staff)?\b",
+    r"\bsocial\s+media(\s+(manager|marketing|management|designer|analyst|executive))?\b",
+    r"\b(digital\s+|content\s+|influencer\s+|affiliate\s+)?marketing(\s+(intern|internship|lead|executive|manager))?\b",
+    r"\bcampus\s+(head|ambassador)\b",
+    r"\bhr(\s+operations|\s+internship|\s+executive)?\b", r"\brecruiter\b",
+    r"\b(content\s+writer|copywriter)\b", r"\bevent\s+manager\b"
 ]
 
 TECHNICAL_CORROBORATING_KEYWORDS = [
-    "software", "developer", "engineer", "coding", "programming", "full stack", "fullstack",
-    "backend", "frontend", "devops", "cloud", "data scientist", "data analyst", "data engineer",
+    "software developer", "software engineer", "coding", "programming", "full stack", "fullstack",
+    "backend", "frontend", "devops", "cloud engineer", "data scientist", "data analyst", "data engineer",
     "python", "react", "java", "golang", "c++", "fastapi", "django", "node.js", "typescript",
-    "postgresql", "mongodb", "docker", "kubernetes", "aws", "machine learning", "ai"
+    "postgresql", "mongodb", "docker", "kubernetes", "aws", "machine learning", "deep learning"
 ]
 
 def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
     """
     Sanity check to confirm if a job posting genuinely represents a technical role.
-    Filters out non-technical job titles (e.g. Store Manager, Cleaner, Receptionist) 
-    that lack corroborating technical requirements.
+    Filters out non-technical job titles (e.g. Store Manager, Cleaner, Receptionist, Social Media Manager, Hotel Management) 
+    that lack corroborating technical engineering requirements.
     """
     if not role_title:
         return False
@@ -651,7 +657,7 @@ def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
     desc_lower = (description or "").lower()
     full_text = f"{title_lower} {desc_lower}"
 
-    # If title matches non-tech pattern and has no strong technical terms, flag False
+    # If title matches non-tech pattern, return False unless there are at least 2 distinct technical terms
     is_non_tech_title = any(re.search(p, title_lower) for p in NON_TECHNICAL_ROLE_PATTERNS)
     if is_non_tech_title:
         # Check if there are at least 2 distinct corroborating tech terms in full text
@@ -659,10 +665,10 @@ def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
         if tech_hits < 2:
             return False
 
-    # Check if title or description has any technical signals
+    # Check if title has explicit technical role titles (note: "intern" removed as it indicates seniority, not domain)
     has_tech_title = any(kw in title_lower for kw in [
         "developer", "engineer", "architect", "programmer", "tech", "data", "software",
-        "backend", "frontend", "full stack", "devops", "qa", "sde", "ai", "ml", "intern"
+        "backend", "frontend", "full stack", "devops", "qa", "sde", "ai", "ml"
     ])
     if has_tech_title:
         return True

@@ -1428,20 +1428,27 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                     "description": job.description
                 }
                 match_res = compute_match(prof_dict, j_dict)
-                new_match = MatchModel(
-                    job_id=job.id,
-                    profile_id=prof.id,
-                    match_score=match_res["match_score"],
-                    skill_overlap_score=match_res["skill_overlap_score"],
-                    domain_score=match_res["domain_score"],
-                    location_score=match_res["location_score"],
-                    semantic_score=match_res["semantic_score"],
-                    matching_skills=match_res["matching_skills"],
-                    missing_skills=match_res["missing_skills"]
-                )
-                db.add(new_match)
+                try:
+                    with db.begin_nested():
+                        new_match = MatchModel(
+                            job_id=job.id,
+                            profile_id=prof.id,
+                            match_score=match_res["match_score"],
+                            skill_overlap_score=match_res["skill_overlap_score"],
+                            domain_score=match_res["domain_score"],
+                            location_score=match_res["location_score"],
+                            semantic_score=match_res["semantic_score"],
+                            matching_skills=match_res["matching_skills"],
+                            missing_skills=match_res["missing_skills"]
+                        )
+                        db.add(new_match)
+                except Exception:
+                    pass
                 existing_match_pairs.add((job.id, prof.id))
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
 
     return scan_summary
 

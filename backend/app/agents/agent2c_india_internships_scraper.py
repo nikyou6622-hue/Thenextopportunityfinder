@@ -750,6 +750,10 @@ def store_jobs_batch(
                         data["apply_url"], data.get("apply_email", "")
                     ).value
                 
+                # Technical role sanity check
+                from backend.app.agents.source_router import is_technical_role
+                model.is_technical = is_technical_role(model.role_title or "", model.description or "")
+                
                 # Default link_status if missing
                 if model.link_status is None:
                     model.link_status = "unverified"
@@ -779,7 +783,8 @@ def store_jobs_batch(
                         "domain": job.domain,
                         "location": job.location,
                         "remote": job.remote,
-                        "description": job.description
+                        "description": job.description,
+                        "is_technical": job.is_technical
                     })
                     match = match_map.get(job.id)
                     

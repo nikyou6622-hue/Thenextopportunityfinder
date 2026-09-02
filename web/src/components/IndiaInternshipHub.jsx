@@ -421,18 +421,19 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
   }, [internships, DEFAULT_INTERNSHIPS, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly]);
 
   const getDynamicMatchScore = useCallback((item) => {
+    if (typeof item.match_score === 'number' && item.match_score > 0) {
+      return item.match_score;
+    }
+
     if (!profile || !profile.skills || profile.skills.length === 0) {
-      return item.match_score || 88;
+      return 75;
     }
 
     const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (item.required_skills || item.skills_required || []).map(s => String(s).toLowerCase().trim());
 
     if (requiredSkills.length === 0) {
-      const userRole = (profile.target_role || profile.name || '').toLowerCase();
-      const jobRole = (item.role_title || item.title || '').toLowerCase();
-      if (userRole && jobRole.includes(userRole)) return 94;
-      return 85;
+      return 75;
     }
 
     const matchingCount = requiredSkills.filter(req => 
@@ -440,7 +441,11 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
     ).length;
 
     const ratio = matchingCount / requiredSkills.length;
-    return Math.min(99, Math.max(68, Math.round(62 + ratio * 37)));
+    let score = Math.round(0.40 * (ratio * 100) + 0.25 * 85 + 0.15 * 85 + 0.20 * 80);
+    if (matchingCount === 0) {
+      score = Math.min(score, 55); // Max 55% when 0 skills match
+    }
+    return score;
   }, [profile]);
 
   const sortedList = useMemo(() => {
@@ -1122,7 +1127,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {reqSkills.slice(0, 5).map((skill, sIdx) => {
-                              const isMatch = matchedSkills.includes(skill);
+                              const isMatch = matchedSkills.some(m => String(m).toLowerCase() === String(skill).toLowerCase());
                               return (
                                 <span 
                                   key={sIdx}
