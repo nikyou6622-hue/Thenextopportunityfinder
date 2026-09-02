@@ -1098,12 +1098,30 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
                     {/* Skill Match Breakdown Bar */}
                     {(() => {
+                      const userSkillsList = (profile?.skills || []).map(s => String(s).toLowerCase().trim());
                       const reqSkills = item.skills_required || item.required_skills || [];
-                      const matchedSkills = item.matched_skills || item.matching_skills || [];
-                      const matchCount = item.matched_count !== undefined && item.matched_count !== null ? item.matched_count : matchedSkills.length;
-                      const totalCount = item.required_count !== undefined && item.required_count !== null && item.required_count > 0 ? item.required_count : (reqSkills.length || 1);
-                      const pct = item.skill_match_percentage !== undefined && item.skill_match_percentage !== null ? item.skill_match_percentage : Math.round((matchCount / totalCount) * 100);
-                      
+                      const matchedSkillsFromItem = item.matched_skills || item.matching_skills || [];
+
+                      let matchedSkills = (Array.isArray(matchedSkillsFromItem) && matchedSkillsFromItem.length > 0)
+                        ? matchedSkillsFromItem
+                        : reqSkills.filter(req => {
+                            const rLower = String(req).toLowerCase().trim();
+                            return userSkillsList.some(usr => 
+                              usr === rLower || usr.includes(rLower) || rLower.includes(usr)
+                            );
+                          });
+
+                      const matchCount = item.matched_count !== undefined && item.matched_count !== null 
+                        ? item.matched_count 
+                        : matchedSkills.length;
+                      const totalCount = item.required_count !== undefined && item.required_count !== null && item.required_count > 0 
+                        ? item.required_count 
+                        : (reqSkills.length || 1);
+                      const pct = item.skill_match_percentage !== undefined && item.skill_match_percentage !== null 
+                        ? item.skill_match_percentage 
+                        : (totalCount > 0 ? Math.round((matchCount / totalCount) * 100) : 0);
+                      const missingCount = Math.max(0, totalCount - matchCount);
+
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
                           <div style={{
@@ -1120,21 +1138,25 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                               <CheckCircle2 size={12} />
                               {matchCount} / {totalCount} Skills Matched ({pct}%)
                             </span>
-                            <span style={{ opacity: 0.85, fontSize: '0.68rem' }}>
-                              {matchCount === totalCount ? '100% Fit' : `${totalCount - matchCount} Gap`}
+                            <span style={{ opacity: 0.85, fontSize: '0.68rem', color: missingCount > 0 ? (isAmber ? '#b91c1c' : '#fca5a5') : (isAmber ? '#047857' : '#4ade80') }}>
+                              {missingCount === 0 ? '100% Fit' : `${missingCount} Gap`}
                             </span>
                           </div>
 
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {reqSkills.slice(0, 5).map((skill, sIdx) => {
-                              const isMatch = matchedSkills.some(m => String(m).toLowerCase() === String(skill).toLowerCase());
+                              const isMatch = matchedSkills.some(ms => {
+                                const mLower = String(ms).toLowerCase().trim();
+                                const sLower = String(skill).toLowerCase().trim();
+                                return mLower === sLower || mLower.includes(sLower) || sLower.includes(mLower);
+                              });
                               return (
                                 <span 
                                   key={sIdx}
                                   style={{
-                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)'),
-                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#0F172A' : '#cbd5e1'),
-                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid transparent',
+                                    background: isMatch ? (isAmber ? 'rgba(4, 120, 87, 0.2)' : 'rgba(34, 197, 94, 0.25)') : (isAmber ? 'rgba(220, 38, 38, 0.1)' : 'rgba(239, 68, 68, 0.2)'),
+                                    color: isMatch ? (isAmber ? '#047857' : '#4ade80') : (isAmber ? '#991b1b' : '#fca5a5'),
+                                    border: isMatch ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)',
                                     borderRadius: '6px',
                                     padding: '2px 7px',
                                     fontSize: '0.68rem',
