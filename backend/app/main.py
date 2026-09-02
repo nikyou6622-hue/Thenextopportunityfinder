@@ -3648,7 +3648,7 @@ def _format_match_to_dict(m: Any, is_locked: bool = False) -> Dict[str, Any]:
 def get_matches(
     request: Request,
     include_dead: bool = False,
-    min_score: float = MIN_QUALIFIED_MATCH_THRESHOLD,
+    min_score: float = Query(0.0, ge=0.0),
     page: int = Query(1, ge=1),
     limit: int = Query(1000, ge=1, le=5000),
     search: Optional[str] = Query(None),
@@ -3667,6 +3667,60 @@ def get_matches(
         raise HTTPException(status_code=401, detail="Authentication required to view matched opportunities.")
         
     profile_id = profile.id
+    from backend.app.agents.source_router import is_india_relevant, is_technical_role
+
+    # Auto-generate matches across active technical catalog if matches are missing for profile
+    existing_match_count = db.query(MatchModel).filter(MatchModel.profile_id == profile_id).count()
+    if existing_match_count < 50:
+        try:
+            from backend.app.agents.agent3_matching import compute_match
+            active_catalog_jobs = db.query(JobModel).filter(JobModel.status == "active").all()
+            prof_dict = {
+                "name": profile.name or "",
+                "email": profile.email or "",
+                "skills": profile.skills or [],
+                "domains": profile.domains or [],
+                "location": profile.location or {},
+                "raw_resume_text": profile.summary or ""
+            }
+            existing_job_ids = set(m[0] for m in db.query(MatchModel.job_id).filter(MatchModel.profile_id == profile_id).all())
+            new_objs = []
+            for j in active_catalog_jobs:
+                if j.id in existing_job_ids:
+                    continue
+                if not is_technical_role(j.role_title or "", j.description or ""):
+                    continue
+                res = compute_match(prof_dict, {
+                    "company": j.company,
+                    "role_title": j.role_title,
+                    "required_skills": j.required_skills or [],
+                    "domain": j.domain,
+                    "location": j.location,
+                    "remote": j.remote,
+                    "description": j.description,
+                    "is_technical": True
+                })
+                matched = res.get("matched_skills", [])
+                new_objs.append(MatchModel(
+                    profile_id=profile_id,
+                    job_id=j.id,
+                    match_score=res.get("match_score", 0),
+                    skill_overlap_score=res.get("skill_overlap_score", 0.0),
+                    domain_score=res.get("domain_score", 0.0),
+                    location_score=res.get("location_score", 0.0),
+                    semantic_score=res.get("semantic_score", 0.0),
+                    matching_skills=matched,
+                    matched_skills=matched,
+                    missing_skills=res.get("missing_skills", []),
+                    matched_count=len(matched),
+                    required_count=res.get("required_count", len(j.required_skills or []))
+                ))
+            if new_objs:
+                db.bulk_save_objects(new_objs)
+                db.commit()
+        except Exception as ex:
+            db.rollback()
+            logger.warning(f"Error auto-populating matches for profile: {ex}")
         
     matches = (
         db.query(MatchModel)
