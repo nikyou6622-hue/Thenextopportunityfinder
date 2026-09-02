@@ -272,18 +272,36 @@ export default function Header({
               SoundSystem.playPop();
               setActiveTab('auth');
             }}
+            className="btn-tactile btn-tactile-ghost"
             style={{
-              background: 'none',
-              border: 'none',
-              color: '#cbd5e1',
+              padding: '8px 16px',
               fontSize: '0.84rem',
-              fontWeight: 600,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#f8fafc',
+              background: 'rgba(30, 41, 59, 0.7)',
+              border: '1px solid rgba(129, 140, 248, 0.35)',
+              borderRadius: '12px',
               cursor: 'pointer',
-              textDecoration: 'underline',
-              textUnderlineOffset: '4px'
+              transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.25)';
+              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.6)';
+              e.currentTarget.style.boxShadow = '0 0 16px rgba(99, 102, 241, 0.4)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(30, 41, 59, 0.7)';
+              e.currentTarget.style.borderColor = 'rgba(129, 140, 248, 0.35)';
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Sign In
+            <LogIn size={15} color="#818cf8" />
+            <span>Sign In</span>
           </button>
 
           <button
