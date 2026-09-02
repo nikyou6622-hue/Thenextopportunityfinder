@@ -3716,8 +3716,14 @@ def get_matches(
                     required_count=res.get("required_count", len(j.required_skills or []))
                 ))
             if new_objs:
-                db.bulk_save_objects(new_objs)
-                db.commit()
+                batch_size = 100
+                for b_i in range(0, len(new_objs), batch_size):
+                    batch = new_objs[b_i : b_i + batch_size]
+                    try:
+                        db.bulk_save_objects(batch)
+                        db.commit()
+                    except Exception:
+                        db.rollback()
         except Exception as ex:
             db.rollback()
             logger.warning(f"Error auto-populating matches for profile: {ex}")
