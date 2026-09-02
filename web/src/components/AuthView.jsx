@@ -555,14 +555,38 @@ export default function AuthView({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: 'calc(100vh - 120px)', borderRadius: '24px', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100%', minHeight: 'calc(100vh - 100px)', borderRadius: '28px', overflow: 'hidden', padding: '10px 0' }}>
+      {/* Ambient Radial Lighting Mesh */}
       <div style={{
-        maxWidth: '1100px',
+        position: 'absolute',
+        top: '-10%',
+        left: '10%',
+        width: '500px',
+        height: '500px',
+        background: 'radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0) 70%)',
+        filter: 'blur(60px)',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: '0',
+        right: '10%',
+        width: '500px',
+        height: '500px',
+        background: 'radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0) 70%)',
+        filter: 'blur(60px)',
+        pointerEvents: 'none',
+        zIndex: 0
+      }} />
+
+      <div style={{
+        maxWidth: '1140px',
         margin: '0 auto',
         width: '100%',
         boxSizing: 'border-box',
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
         gap: '32px',
         alignItems: 'start',
         padding: '24px 16px 48px',
@@ -572,14 +596,14 @@ export default function AuthView({
       
       {/* 🌟 LEFT COLUMN: AUTHENTICATION FORM CARD */}
       <div style={{
-        background: 'rgba(15, 23, 42, 0.75)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.75))',
+        border: '1px solid rgba(129, 140, 248, 0.25)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         borderRadius: '24px',
-        padding: '32px 28px',
+        padding: '36px 30px',
         boxSizing: 'border-box',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)'
+        boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
       }}>
         {/* Brand Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '22px' }}>
@@ -587,22 +611,24 @@ export default function AuthView({
             src="/logo.png" 
             alt="Next Opportunity Finder" 
             style={{
-              width: '48px',
-              height: '48px',
+              width: '50px',
+              height: '50px',
               objectFit: 'cover',
               borderRadius: '50%',
               background: 'transparent',
               padding: '0',
-              boxShadow: '0 6px 20px rgba(99, 102, 241, 0.4)',
-              flexShrink: 0
+              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.45)',
+              flexShrink: 0,
+              border: '2px solid rgba(99, 102, 241, 0.5)'
             }} 
           />
           <div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
               Next Opportunity Finder
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', marginTop: '2px' }}>
-              Candidate Authentication Hub
+            <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', display: 'inline-block', boxShadow: '0 0 8px #34d399' }} />
+              Candidate Authentication Portal
             </div>
           </div>
         </div>
@@ -1744,88 +1770,128 @@ export default function AuthView({
 
       {/* 🌟 RIGHT COLUMN: PLATFORM HIGHLIGHTS & ARCHITECTURE BANNER */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(30, 41, 75, 0.85), rgba(15, 23, 42, 0.95))',
-        border: '1px solid rgba(99, 102, 241, 0.3)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        background: 'linear-gradient(145deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95))',
+        border: '1px solid rgba(129, 140, 248, 0.3)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         borderRadius: '24px',
-        padding: '32px 28px',
+        padding: '36px 30px',
         boxSizing: 'border-box',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)'
+        boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
       }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '4px 12px', borderRadius: '14px', marginBottom: '14px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '5px 14px', borderRadius: '16px', marginBottom: '16px' }}>
           <ShieldCheck size={14} color="#818cf8" />
-          <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#818cf8', letterSpacing: '0.04em' }}>
-            ENTERPRISE GRADE DATA PROTECTION
+          <span style={{ fontSize: '0.74rem', fontWeight: 900, color: '#c7d2fe', letterSpacing: '0.05em' }}>
+            ENTERPRISE GRADE & DPDP 2023 COMPLIANT
           </span>
         </div>
 
-        <h3 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
-          Accelerate Your Tech Placement Journey
+        <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 10px', letterSpacing: '-0.02em', lineHeight: 1.25 }}>
+          Accelerate Your Software Engineer Career Journey
         </h3>
 
-        <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.5, margin: '0 0 24px' }}>
-          Built specifically for Indian & global software engineers. Direct links, verifiable company question banks, and automated zero-hallucination resume tailoring.
+        <p style={{ fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.55, margin: '0 0 24px' }}>
+          Purpose-built for Indian & global developers. Direct MNC application links, company interview debriefs, and zero-hallucination ATS resume tailoring.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* 🌟 STATS METRIC GRID */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '10px',
+          marginBottom: '26px',
+          background: 'rgba(15, 23, 42, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '16px',
+          padding: '14px 12px'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#818cf8' }}>10,000+</div>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, marginTop: '2px' }}>Verified Jobs</div>
+          </div>
+          <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255, 255, 255, 0.08)', borderRight: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#34d399' }}>98.4%</div>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, marginTop: '2px' }}>ATS Match</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fbbf24' }}>100+</div>
+            <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, marginTop: '2px' }}>Company Debriefs</div>
+          </div>
+        </div>
+
+        {/* FEATURE HIGHLIGHT CARDS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>
-              <FileCheck size={18} />
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>
+              <FileCheck size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
                 11 Professional ATS Templates & 5-Pillar Score
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                Instant real-time A4 overflow measurement (~1123px standard A4) with metrics benchmarking and LaTeX export.
+              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                Real-time A4 overflow measurement (~1123px standard A4), benchmarking, and LaTeX/PDF export.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
-              <Building2 size={18} />
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
+              <Building2 size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
                 Company-Wise LeetCode & Oral Prep
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.4 }}>
+              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.45 }}>
                 100+ real interview debriefs from Google, Microsoft, Swiggy, TCS, Infosys, and CRED with video solutions.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.2)', border: '1px solid rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flexShrink: 0 }}>
-              <Target size={18} />
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.2)', border: '1px solid rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flexShrink: 0 }}>
+              <Target size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
-                10,000+ Verified Jobs & Indian Internships
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
+                Verified Jobs & Indian Internships
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                Curated feeds from Unstop, Cuvette, Internshala, and Wellfound with dead-link revalidation and stipend filters.
+              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                Direct apply feeds from Unstop, Cuvette, Internshala, and Wellfound with dead-link revalidation and stipend filters.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.2)', border: '1px solid rgba(236, 72, 153, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ec4899', flexShrink: 0 }}>
-              <ShieldCheck size={18} />
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', background: 'rgba(30, 41, 59, 0.5)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(236, 72, 153, 0.2)', border: '1px solid rgba(236, 72, 153, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ec4899', flexShrink: 0 }}>
+              <ShieldCheck size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', marginBottom: '2px' }}>
                 DPDP Act 2023 & 22-Table Cascade Wipe
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.4 }}>
+              <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.45 }}>
                 Full candidate data fiduciary controls: field-level AES-256 GCM encryption, 90-day auto-purge, and 1-click Right to Erasure.
               </div>
             </div>
           </div>
 
+        </div>
+
+        {/* TARGET COMPANIES TRUST BAR */}
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '10px' }}>
+            Targeted Opportunities Across Tech Leaders
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {['Google', 'Microsoft', 'Razorpay', 'Swiggy', 'CRED', 'TCS', 'Infosys', 'Wipro'].map(company => (
+              <span key={company} style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#cbd5e1', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>
+                {company}
+              </span>
+            ))}
+          </div>
         </div>
 
       </div>

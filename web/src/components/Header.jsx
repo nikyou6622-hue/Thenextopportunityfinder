@@ -15,11 +15,75 @@ import {
   ShieldAlert,
   LogIn,
   Zap,
-  Activity
+  Activity,
+  Check,
+  CheckCircle2,
+  Trash2,
+  Briefcase,
+  GraduationCap,
+  FileCheck
 } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import GamificationBar from './characters/GamificationBar';
 import SoundSystem from './characters/SoundEffects';
+
+const INITIAL_NOTIFICATIONS = [
+  {
+    id: 'n1',
+    type: 'system',
+    icon: Sparkles,
+    iconColor: '#818cf8',
+    title: 'Welcome to Next Opportunity Finder! 🚀',
+    message: 'Your AI Candidate Engine is active. Upload your resume to unlock 5-pillar ATS scoring.',
+    timestamp: 'Just now',
+    read: false,
+    actionTab: 'profile'
+  },
+  {
+    id: 'n2',
+    type: 'jobs',
+    icon: Briefcase,
+    iconColor: '#34d399',
+    title: '45+ New Tech Jobs Scanned Today',
+    message: 'Fresh engineering openings scraped from Razorpay, Swiggy, and Google career portals.',
+    timestamp: '2h ago',
+    read: false,
+    actionTab: 'jobs'
+  },
+  {
+    id: 'n3',
+    type: 'jobs',
+    icon: GraduationCap,
+    iconColor: '#fbbf24',
+    title: 'India Internship Alert 🇮🇳',
+    message: '12 new stipended software development internships added from Cuvette & Unstop.',
+    timestamp: '4h ago',
+    read: false,
+    actionTab: 'internships'
+  },
+  {
+    id: 'n4',
+    type: 'system',
+    icon: FileCheck,
+    iconColor: '#38bdf8',
+    title: 'Zero-Hallucination ATS Resume Tailoring',
+    message: 'Role-based resume optimizer ready. Benchmark your resume against target MNC requirements.',
+    timestamp: '1d ago',
+    read: true,
+    actionTab: 'tailor'
+  },
+  {
+    id: 'n5',
+    type: 'pro',
+    icon: Zap,
+    iconColor: '#a78bfa',
+    title: 'Unlock Pro Subscription Power',
+    message: 'Get unlimited AI resume rewrites and cold recruiter email sequence exports.',
+    timestamp: '2d ago',
+    read: true,
+    actionTab: 'overview'
+  }
+];
 
 export default function Header({ 
   activeTab, 
@@ -37,17 +101,47 @@ export default function Header({
 }) {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifFilter, setNotifFilter] = useState('all'); // 'all' | 'unread' | 'jobs'
+  
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
 
   const candidateName = currentUser?.full_name || profile?.name || "Aditya Tamta";
   const candidateEmail = currentUser?.email || profile?.email || "aditya.tamta@dev.io";
   const candidateRole = currentUser?.target_role || profile?.past_roles?.[0]?.title || "Full Stack Engineer";
 
-  // Close dropdown on outside click
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    SoundSystem.playSuccess();
+  };
+
+  const handleDismissNotif = (id, e) => {
+    e.stopPropagation();
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    SoundSystem.playPop();
+  };
+
+  const handleSelectNotif = (notif) => {
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+    setNotificationDropdownOpen(false);
+    SoundSystem.playPop();
+    if (notif.actionTab) {
+      setActiveTab(notif.actionTab);
+    }
+  };
+
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setUserDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotificationDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -325,47 +419,195 @@ export default function Header({
           {mobileSearchOpen ? <X size={16} /> : <Search size={16} />}
         </button>
 
-        {/* Notification Bell */}
-        <div style={{ position: 'relative' }}>
+        {/* Notification Bell & Interactive Dropdown */}
+        <div ref={notifRef} style={{ position: 'relative' }}>
           <button 
             onClick={() => {
               SoundSystem.playPop();
-              setActiveTab('overview');
+              setNotificationDropdownOpen(!notificationDropdownOpen);
             }}
-            title="Notifications"
+            title="Notifications & Updates"
             style={{
               width: '36px',
               height: '36px',
               borderRadius: '50%',
-              background: 'rgba(21, 28, 46, 0.7)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: notificationDropdownOpen ? 'rgba(99, 102, 241, 0.25)' : 'rgba(21, 28, 46, 0.7)',
+              border: notificationDropdownOpen ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#94a3b8',
-              cursor: 'pointer'
+              color: notificationDropdownOpen ? '#ffffff' : '#94a3b8',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
             }}
           >
             <Bell size={16} />
           </button>
-          <span style={{
-            position: 'absolute',
-            top: '-2px',
-            right: '-2px',
-            background: '#3b82f6',
-            color: '#ffffff',
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            width: '15px',
-            height: '15px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 8px rgba(59, 130, 246, 0.6)'
-          }}>
-            6
-          </span>
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+              color: '#ffffff',
+              fontSize: '0.6rem',
+              fontWeight: 900,
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 10px rgba(99, 102, 241, 0.8)',
+              border: '1.5px solid #0f172a'
+            }}>
+              {unreadCount}
+            </span>
+          )}
+
+          {/* Interactive Notification Popover */}
+          {notificationDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 10px)',
+              right: '-40px',
+              width: '340px',
+              maxWidth: '90vw',
+              background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.96))',
+              border: '1px solid rgba(129, 140, 248, 0.3)',
+              borderRadius: '18px',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.2)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              zIndex: 150,
+              padding: '16px',
+              boxSizing: 'border-box'
+            }}>
+              {/* Popover Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ fontSize: '0.92rem', fontWeight: 900, color: '#FFFFFF', margin: 0 }}>
+                    Notifications
+                  </h4>
+                  {unreadCount > 0 && (
+                    <span style={{ fontSize: '0.65rem', background: 'rgba(99, 102, 241, 0.25)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.4)', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                      {unreadCount} New
+                    </span>
+                  )}
+                </div>
+
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Check size={12} />
+                    <span>Mark all read</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Notification Filter Tabs */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+                {['all', 'unread', 'jobs'].map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setNotifFilter(f)}
+                    style={{
+                      background: notifFilter === f ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                      border: notifFilter === f ? '1px solid rgba(99, 102, 241, 0.4)' : 'none',
+                      color: notifFilter === f ? '#ffffff' : '#94a3b8',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      padding: '3px 10px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              {/* Notification Items List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
+                {notifications
+                  .filter(n => {
+                    if (notifFilter === 'unread') return !n.read;
+                    if (notifFilter === 'jobs') return n.type === 'jobs';
+                    return true;
+                  })
+                  .map(n => {
+                    const IconComp = n.icon || Sparkles;
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleSelectNotif(n)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          background: n.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(99, 102, 241, 0.12)',
+                          border: n.read ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(99, 102, 241, 0.3)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        <div style={{
+                          width: '30px',
+                          height: '30px',
+                          borderRadius: '8px',
+                          background: `${n.iconColor}20`,
+                          border: `1px solid ${n.iconColor}40`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: n.iconColor,
+                          flexShrink: 0,
+                          marginTop: '2px'
+                        }}>
+                          <IconComp size={15} />
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {n.title}
+                            </span>
+                            <span style={{ fontSize: '0.62rem', color: '#64748b', whiteSpace: 'nowrap', marginLeft: '6px' }}>
+                              {n.timestamp}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {n.message}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDismissNotif(n.id, e)}
+                          title="Dismiss notification"
+                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, marginLeft: '2px' }}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                {notifications.length === 0 && (
+                  <div style={{ padding: '20px 0', textAlign: 'center', color: '#64748b', fontSize: '0.78rem' }}>
+                    No notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tailor / Quick AI Studio Button */}
