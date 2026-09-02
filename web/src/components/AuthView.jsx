@@ -911,8 +911,8 @@ export default function AuthView({
               </div>
             </div>
 
-            {/* OTP Login Toggle Option */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px' }}>
+            {/* OTP Login Option Banner */}
+            <div style={{ marginTop: '2px', marginBottom: '2px' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -921,9 +921,43 @@ export default function AuthView({
                   setErrorMessage('');
                   setSuccessMessage('');
                 }}
-                style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.76rem', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1px dashed rgba(56, 189, 248, 0.4)',
+                  background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(99, 102, 241, 0.12))',
+                  color: '#38bdf8',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.border = '1px solid rgba(56, 189, 248, 0.7)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.22))';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(56, 189, 248, 0.25)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.border = '1px dashed rgba(56, 189, 248, 0.4)';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(99, 102, 241, 0.12))';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.15)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
-                Log in using 6-Digit Email OTP instead
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <KeyRound size={15} color="#38bdf8" />
+                  <span>Passwordless Login via 6-Digit Email OTP</span>
+                </div>
+                <span style={{ fontSize: '0.66rem', background: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.4)', padding: '2px 7px', borderRadius: '8px', fontWeight: 900, letterSpacing: '0.03em' }}>
+                  FAST & SECURE
+                </span>
               </button>
             </div>
 
