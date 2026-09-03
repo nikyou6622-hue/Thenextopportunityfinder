@@ -6165,6 +6165,23 @@ def get_payment_order_status(
                 elif cf_order_status in ["EXPIRED", "TERMINATED"]:
                     order.status = "failed"
                     db.commit()
+
+            # Additional check: query payments list endpoint for the order
+            if order.status == "created":
+                pay_url = f"{get_cashfree_base_url()}/orders/{order_id}/payments"
+                p_req = urllib.request.Request(pay_url, headers=headers, method="GET")
+                with urllib.request.urlopen(p_req, timeout=8) as p_res:
+                    p_list = json.loads(p_res.read().decode('utf-8'))
+                    if isinstance(p_list, list):
+                        for p_item in p_list:
+                            p_status = p_item.get("payment_status")
+                            cf_p_id = str(p_item.get("cf_payment_id") or order_id)
+                            if p_status == "SUCCESS":
+                                order.status = "paid"
+                                order.cf_payment_id = cf_p_id
+                                db.commit()
+                                grant_pro_access(order.profile_id, db, payment_id=cf_p_id, amount_paid=order.amount, months=6)
+                                break
         except Exception as err:
             logger.warning(f"Cashfree status fallback check notice for {order_id}: {err}")
 

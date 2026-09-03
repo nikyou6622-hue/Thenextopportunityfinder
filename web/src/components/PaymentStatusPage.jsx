@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import apiFetch from '../lib/apiClient';
-import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import SoundSystem from './characters/SoundEffects';
 
 export default function PaymentStatusPage({ onNavigateHome }) {
-  const [statusState, setStatusState] = useState('loading'); // 'loading' | 'paid' | 'failed' | 'pending'
+  const [statusState, setStatusState] = useState('loading'); // 'loading' | 'paid' | 'failed' | 'pending' | 'incomplete'
   const [orderDetails, setOrderDetails] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [pollCount, setPollCount] = useState(0);
@@ -37,14 +37,15 @@ export default function PaymentStatusPage({ onNavigateHome }) {
         setStatusState('failed');
         setErrorMsg('Payment was declined or cancelled by bank.');
       } else {
-        // Pending status — poll
-        if (pollCount < 10) {
+        // Pending status — poll up to 5 times (10s total)
+        if (pollCount < 5) {
           setStatusState('pending');
           setTimeout(() => {
             setPollCount(prev => prev + 1);
           }, 2000);
         } else {
-          setStatusState('pending');
+          // Reached timeout threshold without 'paid' signal — present clean actionable state
+          setStatusState('incomplete');
         }
       }
     } catch (err) {
@@ -62,8 +63,12 @@ export default function PaymentStatusPage({ onNavigateHome }) {
           valid_until: new Date(Date.now() + 180 * 86400000).toISOString()
         });
       } else {
-        setStatusState('failed');
-        setErrorMsg(err.message || 'Unable to reconcile payment status.');
+        if (pollCount < 5) {
+          setStatusState('pending');
+          setTimeout(() => setPollCount(prev => prev + 1), 2000);
+        } else {
+          setStatusState('incomplete');
+        }
       }
     }
   };
@@ -71,6 +76,11 @@ export default function PaymentStatusPage({ onNavigateHome }) {
   useEffect(() => {
     checkStatus();
   }, [pollCount]);
+
+  const handleRecheck = () => {
+    setPollCount(0);
+    setStatusState('loading');
+  };
 
   const handleReturnHome = () => {
     if (onNavigateHome) {
@@ -120,10 +130,10 @@ export default function PaymentStatusPage({ onNavigateHome }) {
               Verifying Cashfree Payment...
             </h2>
             <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '20px' }}>
-              Reconciling payment status with Cashfree servers. Please do not close this browser window.
+              Reconciling payment status with Cashfree servers. Please wait a moment.
             </p>
             <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Attempting verification ({pollCount}/10)...
+              Checking status ({pollCount + 1}/5)...
             </div>
           </div>
         ) : statusState === 'paid' ? (
@@ -217,6 +227,71 @@ export default function PaymentStatusPage({ onNavigateHome }) {
               <span>Return to Platform</span>
               <ArrowRight size={18} />
             </button>
+          </div>
+        ) : statusState === 'incomplete' ? (
+          <div>
+            <div style={{
+              width: '76px',
+              height: '76px',
+              margin: '0 auto 20px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '2px solid #f59e0b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fbbf24'
+            }}>
+              <Clock size={40} />
+            </div>
+
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 900, marginBottom: '10px' }}>
+              Payment Verification Pending
+            </h2>
+            <p style={{ fontSize: '0.88rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '24px' }}>
+              If you completed your payment via Cashfree, your 6-month Pro access will be automatically unlocked within 1-2 minutes.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={handleRecheck}
+                className="btn-primary"
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '14px',
+                  fontSize: '0.95rem',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <RefreshCw size={16} />
+                <span>Re-check Payment Status</span>
+              </button>
+
+              <button
+                onClick={handleReturnHome}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '14px',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#f8fafc',
+                  cursor: 'pointer'
+                }}
+              >
+                Return to Dashboard
+              </button>
+            </div>
           </div>
         ) : (
           <div>
