@@ -37,7 +37,7 @@ from backend.app.db.models import (
     OutcomeEventModel, SubscriptionModel, PaymentOrderModel, LearningResourceModel, InterviewQuestionBankModel,
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
     AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel,
-    NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache
+    NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache, SupportQueryModel
 )
 from backend.app.services.error_notifier import capture_and_alert_error
 from backend.app.schemas.schemas import (
@@ -143,6 +143,7 @@ def auto_migrate_sqlite():
                     ("consent_given", "BOOLEAN DEFAULT 0"),
                     ("consent_timestamp", "DATETIME"),
                     ("is_admin", "BOOLEAN DEFAULT 0"),
+                    ("admin_level", "VARCHAR DEFAULT 'commander'"),
                     ("is_suspended", "BOOLEAN DEFAULT 0"),
                     ("subscription_tier", "VARCHAR DEFAULT 'free'"),
                     ("last_analyzed_at", "DATETIME")
@@ -156,6 +157,7 @@ def auto_migrate_sqlite():
                 u_cols = [row[1] for row in cursor.fetchall()]
                 user_new_cols = [
                     ("is_admin", "BOOLEAN DEFAULT 0"),
+                    ("admin_level", "VARCHAR DEFAULT 'commander'"),
                     ("is_suspended", "BOOLEAN DEFAULT 0"),
                     ("subscription_tier", "VARCHAR DEFAULT 'free'")
                 ]
@@ -243,18 +245,63 @@ def auto_migrate_sqlite():
                     if col_name not in s_cols and len(s_cols) > 0:
                         cursor.execute(f"ALTER TABLE subscriptions ADD COLUMN {col_name} {col_type};")
 
-                # Unique index on job_fingerprint to prevent duplicate listings
-                try:
-                    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_fingerprint ON jobs(job_fingerprint) WHERE job_fingerprint IS NOT NULL AND job_fingerprint != '';")
-                except Exception as e:
-                    print(f"Unique index migration notice: {e}")
-
                 conn.commit()
                 conn.close()
     except Exception as e:
         print(f"Auto-migration info: {e}")
 
-# Run SQLite auto-migrations locally only
+def auto_migrate_db(engine_obj):
+    """
+    Executes safe DDL ALTER TABLE statements for PostgreSQL and SQLite to ensure
+    all database schemas have newly added columns without requiring manual migrations.
+    """
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_level VARCHAR DEFAULT 'commander';",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';",
+        
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS admin_level VARCHAR DEFAULT 'commander';",
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';",
+
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_trust_tier VARCHAR DEFAULT 'Tier 3';",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS is_technical BOOLEAN DEFAULT TRUE;",
+
+        """
+        CREATE TABLE IF NOT EXISTS support_queries (
+            id SERIAL PRIMARY KEY,
+            user_email VARCHAR NOT NULL,
+            user_name VARCHAR,
+            subject VARCHAR NOT NULL,
+            message TEXT NOT NULL,
+            status VARCHAR DEFAULT 'open',
+            admin_response TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP
+        );
+        """
+    ]
+
+    for stmt in statements:
+        try:
+            with engine_obj.begin() as conn:
+                conn.execute(text(stmt))
+        except Exception:
+            # Fallback for SQLite which doesn't support 'IF NOT EXISTS' in ALTER TABLE
+            if "IF NOT EXISTS" in stmt:
+                fallback_stmt = stmt.replace(" IF NOT EXISTS", "")
+                try:
+                    with engine_obj.begin() as conn:
+                        conn.execute(text(fallback_stmt))
+                except Exception:
+                    pass
+
+# Always run database DDL auto-migrators at engine initialization
+auto_migrate_db(engine)
 if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
     auto_migrate_sqlite()
 
@@ -6293,6 +6340,12 @@ ADMIN_TIER_ACCOUNTS = [
         "email": ADMIN_EMAIL,
         "password": ADMIN_INITIAL_PASSWORD,
         "full_name": "Super Admin (All Tiers)",
+        "admin_level": "superadmin"
+    },
+    {
+        "email": "adityanikt622@gmail.com",
+        "password": "Nikhiladitya#753951",
+        "full_name": "Super Admin Legacy",
         "admin_level": "superadmin"
     }
 ]
