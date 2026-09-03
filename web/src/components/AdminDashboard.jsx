@@ -50,6 +50,7 @@ import UserAvatar from './UserAvatar';
 import CommanderDashboard from './admin/CommanderDashboard';
 import RightHandDashboard from './admin/RightHandDashboard';
 import MasterAdminDashboard from './admin/MasterAdminDashboard';
+import SuperAdminDashboard from './admin/SuperAdminDashboard';
 
 export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate, onBackToApp }) {
   const [stats, setStats] = useState(null);
@@ -493,12 +494,13 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
         )}
       </div>
 
-      {/* 🌟 2. THREE-TIER TABBED NAVIGATION */}
+      {/* 🌟 2. THREE-TIER & SUPER ADMIN TABBED NAVIGATION */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px', overflowX: 'auto' }}>
         {[
           { id: 'tier1', label: '🛡️ Tier 1 — The Commander', badge: 'OPERATIONAL CONTROL' },
           { id: 'tier2', label: '⚙️ Tier 2 — Right Hand', badge: 'DATA & CONTENT' },
           { id: 'tier3', label: '👑 Tier 3 — Master Admin', badge: masterReconciliation?.illegitimate_accounts_count > 0 ? 'ALERT' : 'RECONCILIATION' },
+          { id: 'super', label: '⚡ Super Admin Hub', badge: 'MASTER CONTROL' },
           { id: 'scraper', label: '🛠️ Scraper Fleet', badge: concurrencyState?.in_progress ? 'RUNNING' : 'READY' },
           { id: 'users', label: '👥 User Accounts', count: userTotal || users.length }
         ].map(tab => (
@@ -522,6 +524,20 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
           </button>
         ))}
       </div>
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* SUPER ADMIN CONTROL PANEL */}
+      {/* ---------------------------------------------------------------------- */}
+      {(activeTab === 'super' || activeTab === 'superadmin') && (
+        <SuperAdminDashboard
+          currentUser={currentUser}
+          commanderData={commanderData}
+          rightHandJobs={rightHandJobs}
+          rightHandJobsTotal={rightHandJobsTotal}
+          masterReconciliation={masterReconciliation}
+          onRefresh={fetchAllAdminData}
+        />
+      )}
 
       {/* ---------------------------------------------------------------------- */}
       {/* TIER 1 — THE COMMANDER PANEL */}

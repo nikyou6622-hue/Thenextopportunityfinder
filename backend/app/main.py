@@ -6823,6 +6823,100 @@ def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Dep
         }
     }
 
+
+# --- SUPER ADMIN ROLE MANAGEMENT ENDPOINTS ---
+
+@app.get("/api/admin/super/staff")
+def get_super_admin_staff_endpoint(request: Request, db: Session = Depends(get_db)):
+    """
+    Super Admin Exclusive Endpoint: Lists all administrative staff, their role levels,
+    and account authorization metadata.
+    """
+    super_admin = _require_admin_user(request, db, required_tier="superadmin")
+
+    admin_users = db.query(UserModel).filter(
+        or_(
+            UserModel.is_admin == True,
+            UserModel.admin_level.in_(["commander", "righthand", "master", "superadmin"])
+        )
+    ).all()
+
+    staff_list = []
+    for u in admin_users:
+        staff_list.append({
+            "id": u.id,
+            "email": u.email,
+            "full_name": u.full_name or u.email.split("@")[0],
+            "admin_level": getattr(u, "admin_level", "commander") or "commander",
+            "is_admin": bool(u.is_admin),
+            "subscription_tier": u.subscription_tier or "free",
+            "is_active": u.is_active
+        })
+
+    return {
+        "success": True,
+        "total_admin_staff": len(staff_list),
+        "staff": staff_list
+    }
+
+@app.post("/api/admin/super/role-change")
+def update_admin_staff_role_endpoint(
+    payload: Dict[str, Any] = Body(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Exclusive Endpoint: Promotes or demotes an admin staff member's admin_level.
+    Valid new_admin_level values: 'commander', 'righthand', 'master', 'superadmin'.
+    """
+    super_admin = _require_admin_user(request, db, required_tier="superadmin")
+
+    target_email = (payload.get("target_user_email") or "").strip().lower()
+    new_level = (payload.get("new_admin_level") or "").strip().lower()
+
+    if not target_email:
+        raise HTTPException(status_code=400, detail="Target user email is required.")
+    
+    if new_level not in ["commander", "righthand", "master", "superadmin"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid admin_level. Must be one of: 'commander', 'righthand', 'master', 'superadmin'."
+        )
+
+    user = db.query(UserModel).filter(func.lower(UserModel.email) == target_email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User with email '{target_email}' not found.")
+
+    old_level = getattr(user, "admin_level", "commander") or "commander"
+    user.admin_level = new_level
+    user.is_admin = True
+
+    # Also sync to ProfileModel
+    profile = db.query(ProfileModel).filter(func.lower(ProfileModel.email) == target_email).first()
+    if profile:
+        profile.admin_level = new_level
+        profile.is_admin = True
+
+    # Record sensitive audit log
+    audit_entry = AdminAuditLogModel(
+        admin_id=super_admin.id,
+        admin_email=super_admin.email,
+        action="update_admin_role",
+        target_user_id=user.id,
+        details=f"Super Admin changed role level for {target_email} from '{old_level}' to '{new_level}'."
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Successfully updated admin role for {target_email} to '{new_level}'.",
+        "user_id": user.id,
+        "email": user.email,
+        "previous_role": old_level,
+        "new_role": new_level
+    }
+
 @app.get("/api/admin/stats")
 @app.get("/admin/stats")
 def get_admin_stats(
