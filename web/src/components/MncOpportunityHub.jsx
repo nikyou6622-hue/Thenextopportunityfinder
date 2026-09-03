@@ -14,6 +14,7 @@ import {
   Filter, 
   Award,
   Calendar
+} from 'lucide-react';
 import ApplyButton from './ApplyButton';
 
 export default function MncOpportunityHub({ profile, onTailor, loading: parentLoading, onOpenPaywall, onScrapeTriggered, isPro = false }) {
@@ -808,7 +809,6 @@ export default function MncOpportunityHub({ profile, onTailor, loading: parentLo
                   </div>
                 </div>
               </div>
-            </div>
           );
           })}
         </div>

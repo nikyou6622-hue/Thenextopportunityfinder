@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Star
+} from 'lucide-react';
 import ApplyButton from './ApplyButton';
 
 const CITY_OPTIONS = [
