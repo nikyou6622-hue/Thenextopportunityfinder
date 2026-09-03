@@ -28,7 +28,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
     setError('');
 
     try {
-      // 1. Call backend endpoint to create Cashfree Order
+      // 1. Call backend endpoint to create a unique Cashfree Payment Order
       const res = await apiFetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,26 +51,37 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
         throw new Error('Payment Session ID not returned by server.');
       }
 
-      // 2. Load Cashfree Checkout JS SDK v3
-      const sdkLoaded = await loadCashfreeScript();
-
-      if (!sdkLoaded || !window.Cashfree || sessionData.startsWith('session_mock_')) {
-        // Test / Sandbox Fallback Simulation Mode
+      // Mock test order fallback
+      if (sessionData.startsWith('session_mock_')) {
         const mockOrderId = orderData.order_id || `order_mock_${Date.now()}`;
         window.location.href = `/payment/status?order_id=${mockOrderId}`;
         return;
       }
 
-      // 3. Initialize Cashfree SDK & Launch Hosted Checkout Page / Modal
-      const mode = orderData.cashfree_env === 'sandbox' ? 'sandbox' : 'production';
-      const cashfree = window.Cashfree({ mode });
+      // 2. Build Cashfree Official Hosted Payment Gateway URL
+      const isSandbox = orderData.cashfree_env === 'sandbox' || orderData.mode === 'sandbox';
+      const hostedCheckoutUrl = isSandbox
+        ? `https://sandbox.cashfree.com/order/#${sessionData}`
+        : `https://payments.cashfree.com/order/#${sessionData}`;
 
-      const checkoutOptions = {
-        paymentSessionId: sessionData,
-        redirectTarget: '_self'
-      };
+      // 3. Attempt Cashfree JS SDK V3 Checkout Modal / Redirection
+      const sdkLoaded = await loadCashfreeScript();
 
-      cashfree.checkout(checkoutOptions);
+      if (sdkLoaded && window.Cashfree) {
+        try {
+          const cashfree = window.Cashfree({ mode: isSandbox ? 'sandbox' : 'production' });
+          cashfree.checkout({
+            paymentSessionId: sessionData,
+            redirectTarget: '_self'
+          });
+          return;
+        } catch (sdkErr) {
+          console.warn('Cashfree SDK initialization fallback to hosted payment page:', sdkErr);
+        }
+      }
+
+      // Direct fallback to Cashfree Hosted Payment Gateway Interface
+      window.location.href = hostedCheckoutUrl;
     } catch (err) {
       console.error('Cashfree payment initiation error:', err);
       setError(err.message || 'An unexpected error occurred during checkout.');
@@ -228,7 +239,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
                 {loading ? (
                   <>
                     <RefreshCw className="animate-spin" size={18} />
-                    <span>Connecting to Cashfree...</span>
+                    <span>Opening Cashfree Gateway...</span>
                   </>
                 ) : (
                   <>
