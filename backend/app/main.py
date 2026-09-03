@@ -329,22 +329,31 @@ async def daily_mnc_scanner_loop():
             print(f"Daily MNC scanner background loop exception: {e}")
             await asyncio.sleep(3600)
 
-async def daily_dpdp_retention_purge_loop():
-    """Daily automated background purge enforcing 90-day DPDP Act data minimization."""
+async def daily_expired_job_cleanup_loop():
+    """Daily automated background purge marking expired jobs as removed."""
     while True:
         try:
             await asyncio.sleep(86400)
             db = SessionLocal()
             try:
-                purged = purge_expired_profiles(db, retention_days=90)
-                if purged > 0:
-                    logger.info(f"Automated DPDP Retention Purge: Cleaned {purged} expired profile records.")
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                # Purge jobs past explicit deadline or older than 45 days
+                expired_count = db.query(JobModel).filter(
+                    JobModel.status == "active",
+                    or_(
+                        JobModel.expires_at <= now_utc,
+                        JobModel.created_at <= (now_utc - datetime.timedelta(days=45))
+                    )
+                ).update({"status": "removed"}, synchronize_session=False)
+                db.commit()
+                if expired_count > 0:
+                    logger.info(f"Automated Job Expiration Purge: Marked {expired_count} expired postings as removed.")
             finally:
                 db.close()
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Automated DPDP retention purge exception: {e}")
+            logger.error(f"Automated job expiration purge exception: {e}")
             await asyncio.sleep(3600)
 
 @app.on_event("startup")
@@ -377,6 +386,7 @@ async def startup_event():
         try:
             asyncio.create_task(daily_mnc_scanner_loop())
             asyncio.create_task(daily_dpdp_retention_purge_loop())
+            asyncio.create_task(daily_expired_job_cleanup_loop())
         except Exception as e:
             logger.warning(f"Background task startup notice: {e}")
 
@@ -6257,26 +6267,507 @@ def verify_payment_legacy(
     return {"success": True, "message": "Payment recorded"}
 
 
-# ============================================================================
-# ADMIN PANEL API ENDPOINTS (Server-Side Security Enforcement)
-# ============================================================================
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@thenextopportunityfinder.com")
+ADMIN_INITIAL_PASSWORD = os.getenv("ADMIN_PASSWORD", "AdminCommander2026!")
 
-def _require_admin_user(request: Request, db: Session) -> UserModel:
+ADMIN_TIER_ACCOUNTS = [
+    {
+        "email": "commander.admin@thenextopportunityfinder.com",
+        "password": "CommanderPass2026!",
+        "full_name": "Commander Admin (Tier 1)",
+        "admin_level": "commander"
+    },
+    {
+        "email": "righthand.admin@thenextopportunityfinder.com",
+        "password": "RightHandPass2026!",
+        "full_name": "Right Hand Admin (Tier 2)",
+        "admin_level": "righthand"
+    },
+    {
+        "email": "master.admin@thenextopportunityfinder.com",
+        "password": "MasterAdminPass2026!",
+        "full_name": "Master Admin (Tier 3)",
+        "admin_level": "master"
+    },
+    {
+        "email": ADMIN_EMAIL,
+        "password": ADMIN_INITIAL_PASSWORD,
+        "full_name": "Super Admin (All Tiers)",
+        "admin_level": "superadmin"
+    }
+]
+
+def _ensure_default_admin_account():
     """
-    Security Guard: Validates server-side that the requesting user possesses is_admin == True.
-    Raises 403 Forbidden for non-admin users even if authenticated with valid sessions.
+    Ensures default admin accounts exist with proper passwords and admin_level assignments.
+    """
+    try:
+        db = SessionLocal()
+        try:
+            for acc in ADMIN_TIER_ACCOUNTS:
+                user = db.query(UserModel).filter(UserModel.email == acc["email"]).first()
+                if not user:
+                    user = UserModel(
+                        email=acc["email"],
+                        full_name=acc["full_name"],
+                        password_hash=_hash_password(acc["password"]),
+                        target_role="System Administrator",
+                        is_active=True,
+                        is_email_verified=True,
+                        is_admin=True,
+                        admin_level=acc["admin_level"],
+                        subscription_tier="pro"
+                    )
+                    db.add(user)
+                    db.commit()
+                else:
+                    user.is_admin = True
+                    user.admin_level = acc["admin_level"]
+                    db.commit()
+
+                profile = db.query(ProfileModel).filter(ProfileModel.email == acc["email"]).first()
+                if not profile:
+                    profile = ProfileModel(
+                        name=acc["full_name"],
+                        email=acc["email"],
+                        consent_given=True,
+                        consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
+                        is_admin=True,
+                        admin_level=acc["admin_level"],
+                        subscription_tier="pro"
+                    )
+                    db.add(profile)
+                    db.commit()
+        finally:
+            db.close()
+    except Exception as ex:
+        logger.warning(f"Default admin accounts provisioning notice: {ex}")
+
+def _require_admin_user(request: Request, db: Session, required_tier: Optional[str] = None) -> UserModel:
+    """
+    Security Guard: Validates server-side that the requesting user possesses is_admin == True
+    and optionally meets required admin_level scoping.
+    Raises 403 Forbidden for non-admin users or users lacking the requested tier access.
     """
     user = get_current_user_from_request(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required to access admin panel.")
     
     email_clean = (user.email or "").strip().lower()
-    is_admin = bool(getattr(user, "is_admin", False) or email_clean in ["adityanikt622@gmail.com", "adityanikt@gmail.com"])
+    is_admin = bool(getattr(user, "is_admin", False) or email_clean in [ADMIN_EMAIL.lower(), "adityanikt622@gmail.com", "adityanikt@gmail.com", "commander.admin@thenextopportunityfinder.com", "righthand.admin@thenextopportunityfinder.com", "master.admin@thenextopportunityfinder.com"])
     if not is_admin:
         logger.warning(f"Unauthorized admin access attempt by user: {user.email} (ID: {user.id})")
         raise HTTPException(status_code=403, detail="Forbidden: System administrator privileges required.")
     
+    user_level = getattr(user, "admin_level", "commander") or "commander"
+    if email_clean in [ADMIN_EMAIL.lower(), "adityanikt622@gmail.com", "adityanikt@gmail.com"]:
+        user_level = "superadmin"
+
+    if required_tier and user_level != "superadmin":
+        if required_tier == "commander" and user_level not in ["commander", "superadmin"]:
+            raise HTTPException(status_code=403, detail="Forbidden: Commander (Tier 1) access level required.")
+        elif required_tier == "righthand" and user_level not in ["righthand", "superadmin"]:
+            raise HTTPException(status_code=403, detail="Forbidden: Right Hand (Tier 2) access level required.")
+        elif required_tier == "master" and user_level not in ["master", "superadmin"]:
+            raise HTTPException(status_code=403, detail="Forbidden: Master Admin (Tier 3) access level required.")
+            
     return user
+
+# --- TIER 1: THE COMMANDER ENDPOINTS ---
+
+@app.get("/api/admin/tier1/commander-summary")
+def get_commander_summary_endpoint(request: Request, db: Session = Depends(get_db)):
+    """
+    Tier 1 Commander Dashboard Summary: Scraper Controls, Live Error Feed, GitHub Actions link correlation,
+    User Support Inbox, and Collected Online Payments (Cashfree revenue, transaction list, running balance).
+    """
+    admin_user = _require_admin_user(request, db, required_tier="commander")
+
+    # 1. Collected Online Payments (Cashfree)
+    paid_orders = db.query(PaymentOrderModel).filter(PaymentOrderModel.status == "paid").order_by(PaymentOrderModel.updated_at.desc()).all()
+    total_revenue_collected = sum(o.amount for o in paid_orders)
+    
+    payment_records = []
+    for o in paid_orders:
+        u = db.query(UserModel).filter(UserModel.id == o.profile_id).first()
+        u_email = u.email if u else f"user_{o.profile_id}@dev.io"
+        payment_records.append({
+            "order_id": o.order_id,
+            "cf_payment_id": o.cf_payment_id or o.order_id,
+            "user_email": u_email,
+            "amount": o.amount,
+            "currency": o.currency,
+            "payment_method": o.payment_method or "UPI / Card",
+            "timestamp": o.updated_at.isoformat() if o.updated_at else o.created_at.isoformat()
+        })
+
+    # 2. Live Error Feed (ErrorLogModel)
+    recent_errors = db.query(ErrorLogModel).order_by(ErrorLogModel.occurred_at.desc()).limit(15).all()
+    error_feed = []
+    for err in recent_errors:
+        error_feed.append({
+            "id": err.id,
+            "source": err.source,
+            "error_type": err.error_type,
+            "error_message": err.error_message,
+            "occurred_at": err.occurred_at.isoformat() if err.occurred_at else None,
+            "occurred_count": err.occurred_count,
+            "resolved": err.resolved,
+            "github_actions_url": "https://github.com/nikyou6622-hue/Thenextopportunityfinder/actions"
+        })
+
+    # 3. User Support Queries Inbox (SupportQueryModel)
+    queries = db.query(SupportQueryModel).order_by(SupportQueryModel.created_at.desc()).limit(20).all()
+    support_inbox = []
+    for q in queries:
+        support_inbox.append({
+            "id": q.id,
+            "user_email": q.user_email,
+            "user_name": q.user_name,
+            "subject": q.subject,
+            "message": q.message,
+            "status": q.status,
+            "admin_response": q.admin_response,
+            "created_at": q.created_at.isoformat() if q.created_at else None
+        })
+
+    # 4. Scraper On-time Overdue Monitor
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    scrapers_status = []
+    for key, config in DATA_SOURCE_REGISTRY.items():
+        last_run = db.query(ScraperRunModel).filter(ScraperRunModel.scraper_name.like(f"%{key}%")).order_by(ScraperRunModel.start_time.desc()).first()
+        last_run_at = last_run.start_time.isoformat() if last_run else "Never"
+        is_overdue = False
+        if last_run and last_run.start_time:
+            hours_since = (now_utc - last_run.start_time.replace(tzinfo=datetime.timezone.utc if last_run.start_time.tzinfo is None else None)).total_seconds() / 3600.0
+            if hours_since > 24.0:
+                is_overdue = True
+
+        scrapers_status.append({
+            "key": key,
+            "name": config["name"],
+            "access_method": config["access_method"],
+            "last_run": last_run_at,
+            "is_overdue": is_overdue,
+            "status": "active" if not is_overdue else "overdue"
+        })
+
+    return {
+        "admin_level": getattr(admin_user, "admin_level", "commander"),
+        "total_revenue_collected": total_revenue_collected,
+        "running_balance_total": total_revenue_collected,
+        "payment_records_count": len(payment_records),
+        "payment_records": payment_records,
+        "live_error_feed": error_feed,
+        "support_inbox": support_inbox,
+        "scrapers_status": scrapers_status
+    }
+
+# Public endpoint for candidates to submit support query
+@app.post("/api/support/queries")
+def submit_support_query_endpoint(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    user_email = str(payload.get("user_email", "")).strip().lower()
+    subject = str(payload.get("subject", "General Inquiry")).strip()
+    message = str(payload.get("message", "")).strip()
+
+    if not user_email or not message:
+        raise HTTPException(status_code=400, detail="User email and message are required.")
+
+    query = SupportQueryModel(
+        user_email=user_email,
+        user_name=payload.get("user_name") or user_email.split("@")[0],
+        subject=subject,
+        message=message,
+        status="open"
+    )
+    db.add(query)
+    db.commit()
+    db.refresh(query)
+    return {"success": True, "message": "Support query submitted successfully.", "query_id": query.id}
+
+@app.post("/api/admin/tier1/support/{query_id}/respond")
+def respond_support_query_endpoint(query_id: int, payload: Dict[str, Any] = Body(...), request: Request = None, db: Session = Depends(get_db)):
+    _require_admin_user(request, db, required_tier="commander")
+    query = db.query(SupportQueryModel).filter(SupportQueryModel.id == query_id).first()
+    if not query:
+        raise HTTPException(status_code=404, detail="Support query not found.")
+    
+    response_text = payload.get("response", "")
+    query.admin_response = response_text
+    query.status = "resolved"
+    db.commit()
+    return {"success": True, "message": "Support query resolved and response logged."}
+
+
+# --- TIER 2: RIGHT HAND ENDPOINTS ---
+
+@app.post("/api/admin/tier2/users/create")
+def admin_create_user_support_endpoint(payload: Dict[str, Any] = Body(...), request: Request = None, db: Session = Depends(get_db)):
+    """
+    Tier 2 Right Hand Endpoint: Manual user account creation for support cases needing provisioned accounts.
+    Strictly defaults to 'free' tier.
+    """
+    _require_admin_user(request, db, required_tier="righthand")
+    
+    email = str(payload.get("email", "")).strip().lower()
+    full_name = str(payload.get("full_name", "Provisioned Candidate User")).strip()
+    raw_password = payload.get("password") or "SupportProvision2026!"
+
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Valid email address is required.")
+
+    existing = db.query(UserModel).filter(UserModel.email == email).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"User with email '{email}' already exists.")
+
+    user = UserModel(
+        email=email,
+        full_name=full_name,
+        password_hash=_hash_password(raw_password),
+        target_role=payload.get("target_role") or "Software Engineer",
+        is_active=True,
+        is_email_verified=True,
+        subscription_tier="free"
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    profile = ProfileModel(
+        name=full_name,
+        email=email,
+        consent_given=True,
+        consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
+        subscription_tier="free"
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+
+    sub = SubscriptionModel(
+        profile_id=profile.id,
+        tier="free",
+        plan_tier="free",
+        status="active",
+        is_active=False,
+        credits_remaining=5,
+        amount_paid=0.0
+    )
+    db.add(sub)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Successfully created support-provisioned candidate account for {email}.",
+        "user_id": user.id,
+        "email": email,
+        "subscription_tier": "free"
+    }
+
+@app.get("/api/admin/tier2/jobs")
+def get_admin_tier2_jobs_endpoint(
+    request: Request,
+    source: Optional[str] = Query(None),
+    company: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """
+    Tier 2 Right Hand Endpoint: Deep database job view with rich filters and search.
+    """
+    _require_admin_user(request, db, required_tier="righthand")
+
+    query = db.query(JobModel)
+    if source:
+        query = query.filter(JobModel.source == source)
+    if company:
+        query = query.filter(JobModel.company.ilike(f"%{company}%"))
+    if status:
+        query = query.filter(JobModel.status == status)
+    if search:
+        s_clean = f"%{search.strip().lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(JobModel.role_title).like(s_clean),
+                func.lower(JobModel.company).like(s_clean),
+                func.lower(JobModel.description).like(s_clean)
+            )
+        )
+
+    total_count = query.count()
+    jobs = query.order_by(JobModel.id.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    job_list = []
+    for j in jobs:
+        job_list.append({
+            "id": j.id,
+            "company": j.company,
+            "role_title": j.role_title,
+            "location": j.location,
+            "source": j.source,
+            "source_trust_tier": j.source_trust_tier,
+            "link_status": j.link_status,
+            "status": j.status,
+            "apply_url": j.apply_url,
+            "posted_date": j.posted_date,
+            "created_at": j.created_at.isoformat() if j.created_at else None
+        })
+
+    return {
+        "total_jobs": total_count,
+        "page": page,
+        "limit": limit,
+        "jobs": job_list
+    }
+
+@app.delete("/api/admin/tier2/jobs/{job_id}")
+def delete_admin_job_endpoint(job_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Tier 2 Right Hand Endpoint: Manual job removal.
+    """
+    _require_admin_user(request, db, required_tier="righthand")
+    job = db.query(JobModel).filter(JobModel.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job posting not found.")
+    
+    job.status = "removed"
+    db.commit()
+    return {"success": True, "message": f"Job #{job_id} ({job.company} - {job.role_title}) removed."}
+
+@app.post("/api/admin/tier2/jobs/cleanup-expired")
+def trigger_expired_jobs_cleanup_endpoint(request: Request, db: Session = Depends(get_db)):
+    """
+    Tier 2 Right Hand Endpoint: Manual trigger for automated expired-job cleanup pass.
+    """
+    _require_admin_user(request, db, required_tier="righthand")
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    expired_count = db.query(JobModel).filter(
+        JobModel.status == "active",
+        or_(
+            JobModel.expires_at <= now_utc,
+            JobModel.created_at <= (now_utc - datetime.timedelta(days=45))
+        )
+    ).update({"status": "removed"}, synchronize_session=False)
+    db.commit()
+    return {"success": True, "expired_jobs_removed": expired_count}
+
+@app.post("/api/admin/tier2/email/announcement")
+def send_tier2_announcement_email_endpoint(payload: Dict[str, Any] = Body(...), request: Request = None, db: Session = Depends(get_db)):
+    """
+    Tier 2 Right Hand Endpoint: Batch email sender for legitimate platform announcements.
+    Includes explicit compliant [Unsubscribe] link mechanism.
+    """
+    _require_admin_user(request, db, required_tier="righthand")
+    
+    subject = payload.get("subject", "Platform Opportunity Digest & Update")
+    body = payload.get("body", "")
+
+    if not body:
+        raise HTTPException(status_code=400, detail="Announcement email body is required.")
+
+    # Compliant unsubscribe footer appending
+    footer = "\n\n---\nTo unsubscribe from Next Opportunity Finder platform digests, click here: https://thenextopportunityfinder.vercel.app/unsubscribe"
+    full_body = body + footer
+
+    users = db.query(UserModel).filter(UserModel.is_active == True).all()
+    logged_count = 0
+    batch_id = f"batch_{int(datetime.datetime.now(datetime.timezone.utc).timestamp())}"
+
+    for u in users:
+        email_entry = EmailLogModel(
+            recipient=u.email,
+            subject=subject,
+            body_preview=full_body[:200],
+            batch_id=batch_id,
+            status="queued"
+        )
+        db.add(email_entry)
+        logged_count += 1
+
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Successfully queued platform announcement email to {logged_count} active candidates.",
+        "batch_id": batch_id,
+        "recipient_count": logged_count
+    }
+
+
+# --- TIER 3: MASTER ADMIN RECONCILIATION ENDPOINTS ---
+
+@app.get("/api/admin/tier3/reconciliation")
+def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Depends(get_db)):
+    """
+    Tier 3 Master Admin Endpoint: Automated ongoing reconciliation engine.
+    Surfaces Bug 1 cross-checks (flagging any 'pro'/'lifetime' account missing a paid PaymentOrderModel or AdminAuditLogModel entry),
+    data freshness metrics, and scraper fleet health.
+    """
+    admin_user = _require_admin_user(request, db, required_tier="master")
+
+    # 1. Automated Continuous Bug 1 Reconciliation Check
+    pro_profiles = db.query(ProfileModel).filter(
+        ProfileModel.subscription_tier.in_(["pro", "lifetime"])
+    ).all()
+
+    paid_orders = db.query(PaymentOrderModel).filter(PaymentOrderModel.status == "paid").all()
+    verified_paid_profile_ids = {o.profile_id for o in paid_orders}
+
+    admin_grants = db.query(AdminAuditLogModel).filter(AdminAuditLogModel.action == "upgrade_pro").all()
+    admin_granted_user_ids = {g.target_user_id for g in admin_grants if g.target_user_id}
+
+    discrepancies = []
+    for p in pro_profiles:
+        u = db.query(UserModel).filter(UserModel.email == p.email).first()
+        u_id = u.id if u else None
+        
+        is_paid = p.id in verified_paid_profile_ids
+        is_admin_granted = (u_id in admin_granted_user_ids) if u_id else False
+        is_staff_admin = bool(getattr(u, "is_admin", False) or getattr(p, "is_admin", False))
+
+        if not (is_paid or is_admin_granted or is_staff_admin):
+            discrepancies.append({
+                "profile_id": p.id,
+                "user_id": u_id,
+                "email": p.email,
+                "name": p.name,
+                "current_tier": p.subscription_tier,
+                "issue": "Illegitimate Pro tier without matching Cashfree payment or admin grant audit log."
+            })
+
+    # 2. Job Catalog Data Freshness Gauge
+    total_active_jobs = db.query(JobModel).filter(JobModel.status == "active").count()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    fresh_72h = db.query(JobModel).filter(
+        JobModel.status == "active",
+        JobModel.first_seen_at >= (now_utc - datetime.timedelta(hours=72))
+    ).count()
+
+    freshness_pct = round((fresh_72h / total_active_jobs * 100.0), 1) if total_active_jobs > 0 else 100.0
+
+    # 3. Scraper Fleet Operational Health Summary
+    total_sources = len(DATA_SOURCE_REGISTRY)
+    runs = db.query(ScraperRunModel).order_by(ScraperRunModel.start_time.desc()).limit(50).all()
+    failed_runs_count = sum(1 for r in runs if r.status == "failed")
+
+    return {
+        "reconciliation_status": "clean" if len(discrepancies) == 0 else "discrepancies_detected",
+        "illegitimate_accounts_count": len(discrepancies),
+        "discrepancies": discrepancies,
+        "data_freshness": {
+            "total_active_jobs": total_active_jobs,
+            "fresh_jobs_72h": fresh_72h,
+            "freshness_percentage": freshness_pct
+        },
+        "scraper_fleet_health": {
+            "total_registered_sources": total_sources,
+            "recent_runs_evaluated": len(runs),
+            "failed_runs_count": failed_runs_count,
+            "fleet_status": "healthy" if failed_runs_count == 0 else "degraded"
+        }
+    }
 
 @app.get("/api/admin/stats")
 @app.get("/admin/stats")

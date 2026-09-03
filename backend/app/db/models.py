@@ -16,6 +16,7 @@ class UserModel(Base):
     is_active = Column(Boolean, default=True)
     is_email_verified = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
+    admin_level = Column(String, default="commander") # commander (Tier 1), righthand (Tier 2), master (Tier 3), superadmin (All)
     is_suspended = Column(Boolean, default=False)
     subscription_tier = Column(String, default="free")
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -46,6 +47,7 @@ class ProfileModel(Base):
     consent_given = Column(Boolean, default=False)
     consent_timestamp = Column(DateTime, nullable=True)
     is_admin = Column(Boolean, default=False)
+    admin_level = Column(String, default="commander")
     is_suspended = Column(Boolean, default=False)
     subscription_tier = Column(String, default="free")
     last_analyzed_at = Column(DateTime, nullable=True)
@@ -72,6 +74,7 @@ class JobModel(Base):
     source_platform = Column(String, default="unknown", index=True) # greenhouse, lever, ashby, company_direct, email_only, internshala_discovery_only, etc.
     apply_email = Column(String, default="", nullable=True) # Direct recruiter email for email outreach
     posted_date = Column(String, default="")
+    expires_at = Column(DateTime, nullable=True)
     source = Column(String, index=True, default="manual") # internshala, naukri, instahyre, cutshort, wellfound, linkedin, etc.
     source_category = Column(String, index=True, default="startup") # startup vs mnc
     source_trust_tier = Column(String, index=True, default="tier1_verified") # tier1_verified, tier2_curated, tier3_aggregator
@@ -416,6 +419,14 @@ class ScraperRunModel(Base):
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
 
+class SupportQueryModel(Base):
+    __tablename__ = "support_queries"
 
-
-
+    id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, index=True, nullable=False)
+    user_name = Column(String, nullable=True)
+    subject = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String, default="open", index=True) # open, in_progress, resolved
+    admin_response = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)

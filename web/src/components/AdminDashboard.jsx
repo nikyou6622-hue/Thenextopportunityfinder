@@ -54,8 +54,24 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
   const [userTotal, setUserTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('scraper'); // 'scraper' | 'system' | 'users' | 'deploy' | 'metrics' | 'audit'
+  const [activeTab, setActiveTab] = useState('tier1'); // 'tier1' | 'tier2' | 'tier3' | 'scraper' | 'users'
   
+  // 3-Tier Admin State
+  const [commanderData, setCommanderData] = useState(null);
+  const [rightHandJobs, setRightHandJobs] = useState([]);
+  const [rightHandJobsTotal, setRightHandJobsTotal] = useState(0);
+  const [masterReconciliation, setMasterReconciliation] = useState(null);
+
+  // Forms state
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserMsg, setNewUserMsg] = useState('');
+  const [announcementSubject, setAnnouncementSubject] = useState('New Opportunites Digest');
+  const [announcementBody, setAnnouncementBody] = useState('Here is your daily update of new verified technical openings on Next Opportunity Finder!');
+  const [announcementMsg, setAnnouncementMsg] = useState('');
+  const [respondingQueryId, setRespondingQueryId] = useState(null);
+  const [responseText, setResponseText] = useState('');
+
   // Search & Filter State for Users
   const [searchQuery, setSearchQuery] = useState('');
   const [filterVerification, setFilterVerification] = useState('all');
@@ -87,15 +103,15 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
   const [auditing, setAuditing] = useState(false);
 
   // Gate Login State
-  const [gateEmail, setGateEmail] = useState('adityanikt622@gmail.com');
-  const [gatePassword, setGatePassword] = useState('Nikhiladitya#753951');
+  const [gateEmail, setGateEmail] = useState('admin@thenextopportunityfinder.com');
+  const [gatePassword, setGatePassword] = useState('AdminCommander2026!');
   const [gateLoading, setGateLoading] = useState(false);
   const [gateError, setGateError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
   const isMasterAdmin = Boolean(
     currentUser?.is_admin || 
-    ['adityanikt622@gmail.com', 'adityanikt@gmail.com'].includes(currentUser?.email?.toLowerCase())
+    ['admin@thenextopportunityfinder.com', 'commander.admin@thenextopportunityfinder.com', 'righthand.admin@thenextopportunityfinder.com', 'master.admin@thenextopportunityfinder.com', 'adityanikt622@gmail.com', 'adityanikt@gmail.com'].includes(currentUser?.email?.toLowerCase())
   );
 
   // Clock
@@ -109,52 +125,56 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
     setRefreshing(true);
     try {
       const [
+        cmdRes,
+        rhJobsRes,
+        reconRes,
         statsRes,
         usersRes,
         scraperRes,
         scraperActRes,
         concurrencyRes,
-        jobsHealthRes,
         sysHealthRes,
         errsRes,
         capturedErrsRes,
-        deployRes,
-        auditRes,
-        metricsRes
+        auditRes
       ] = await Promise.all([
+        apiFetch('/api/admin/tier1/commander-summary').catch(() => null),
+        apiFetch('/api/admin/tier2/jobs').catch(() => null),
+        apiFetch('/api/admin/tier3/reconciliation').catch(() => null),
         apiFetch('/api/admin/stats').catch(() => null),
-        apiFetch(`/api/admin/users?q=${encodeURIComponent(searchQuery)}&verification_status=${filterVerification}&subscription_tier=${filterTier}`).catch(() => null),
+        apiFetch(`/api/admin/users?q=${encodeURIComponent(searchQuery)}`).catch(() => null),
         apiFetch('/api/admin/scraper/status').catch(() => null),
         apiFetch('/api/admin/scraper/activity').catch(() => null),
         apiFetch('/api/admin/scraper/concurrency').catch(() => null),
-        apiFetch('/api/admin/jobs/health').catch(() => null),
         apiFetch('/api/admin/system/health').catch(() => null),
         apiFetch('/api/admin/system/errors').catch(() => null),
         apiFetch('/api/admin/errors').catch(() => null),
-        apiFetch('/api/admin/deploy/status').catch(() => null),
-        apiFetch('/api/admin/audit-logs').catch(() => null),
-        apiFetch('/api/admin/metrics').catch(() => null)
+        apiFetch('/api/admin/audit-logs').catch(() => null)
       ]);
 
+      if (cmdRes?.ok) setCommanderData(await cmdRes.json());
+      if (rhJobsRes?.ok) {
+        const jData = await rhJobsRes.json();
+        setRightHandJobs(jData.jobs || []);
+        setRightHandJobsTotal(jData.total_jobs || 0);
+      }
+      if (reconRes?.ok) setMasterReconciliation(await reconRes.json());
       if (statsRes?.ok) setStats(await statsRes.json());
       if (usersRes?.ok) {
         const uData = await usersRes.json();
         setUsers(uData.users || []);
-        setUserTotal(uData.total_count || 0);
+        setUserTotal(uData.total_users || uData.total_count || 0);
       }
       if (scraperRes?.ok) setScraperStatus(await scraperRes.json());
       if (scraperActRes?.ok) setScraperActivity(await scraperActRes.json());
       if (concurrencyRes?.ok) setConcurrencyState(await concurrencyRes.json());
-      if (jobsHealthRes?.ok) setJobsHealth(await jobsHealthRes.json());
       if (sysHealthRes?.ok) setSystemHealth(await sysHealthRes.json());
       if (errsRes?.ok) setServerErrors((await errsRes.json()).errors || []);
       if (capturedErrsRes?.ok) {
         const eData = await capturedErrsRes.json();
         setCapturedErrorLogs(eData.errors || []);
       }
-      if (deployRes?.ok) setDeployStatus(await deployRes.json());
       if (auditRes?.ok) setAuditLogs((await auditRes.json()).audit_logs || []);
-      if (metricsRes?.ok) setMetrics(await metricsRes.json());
     } catch (err) {
       console.error('Error loading admin dashboard metrics:', err);
     } finally {
@@ -241,25 +261,95 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
     }
   };
 
-  // User Actions
-  const handleUserAction = async (userId, action) => {
+  // Tier 2: Create Support User
+  const handleCreateSupportUser = async (e) => {
+    e.preventDefault();
+    if (!newUserEmail) return;
     try {
-      const res = await apiFetch(`/api/admin/user/${userId}/action`, {
+      const res = await apiFetch('/api/admin/tier2/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ email: newUserEmail, full_name: newUserName || 'Candidate User' })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'User action failed.');
-
-      setActionSuccessMsg(`Success: Action '${action}' applied to user.`);
+      if (!res.ok) throw new Error(data.detail || 'Failed to create user');
+      setNewUserMsg(`✅ ${data.message}`);
+      setNewUserEmail('');
+      setNewUserName('');
       SoundSystem.playSuccess();
-      if (deleteConfirmUser?.id === userId) setDeleteConfirmUser(null);
       fetchAllAdminData();
-      setTimeout(() => setActionSuccessMsg(''), 4000);
     } catch (err) {
-      alert(`Action Error: ${err.message}`);
+      setNewUserMsg(`⚠️ ${err.message}`);
       SoundSystem.playError();
+    }
+  };
+
+  // Tier 2: Send Announcement Email
+  const handleSendAnnouncementEmail = async (e) => {
+    e.preventDefault();
+    if (!announcementBody) return;
+    try {
+      const res = await apiFetch('/api/admin/tier2/email/announcement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: announcementSubject, body: announcementBody })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to send announcement');
+      setAnnouncementMsg(`✅ ${data.message}`);
+      SoundSystem.playSuccess();
+      fetchAllAdminData();
+    } catch (err) {
+      setAnnouncementMsg(`⚠️ ${err.message}`);
+      SoundSystem.playError();
+    }
+  };
+
+  // Tier 2: Delete Job
+  const handleDeleteJob = async (jobId) => {
+    try {
+      const res = await apiFetch(`/api/admin/tier2/jobs/${jobId}`, { method: 'DELETE' });
+      if (res.ok) {
+        SoundSystem.playPop();
+        fetchAllAdminData();
+      }
+    } catch (err) {
+      console.error('Job removal error:', err);
+    }
+  };
+
+  // Tier 2: Trigger Expired Cleanup
+  const handleTriggerExpiredCleanup = async () => {
+    try {
+      const res = await apiFetch('/api/admin/tier2/jobs/cleanup-expired', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setActionSuccessMsg(`Purged ${data.expired_jobs_removed} expired jobs.`);
+        SoundSystem.playSuccess();
+        fetchAllAdminData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Tier 1: Respond Support Query
+  const handleRespondSupportQuery = async (queryId) => {
+    if (!responseText) return;
+    try {
+      const res = await apiFetch(`/api/admin/tier1/support/${queryId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: responseText })
+      });
+      if (res.ok) {
+        setRespondingQueryId(null);
+        setResponseText('');
+        SoundSystem.playSuccess();
+        fetchAllAdminData();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -400,25 +490,24 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
         )}
       </div>
 
-      {/* 🌟 2. TABBED NAVIGATION */}
+      {/* 🌟 2. THREE-TIER TABBED NAVIGATION */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px', overflowX: 'auto' }}>
         {[
-          { id: 'scraper', label: '🛠️ Scraper Operations', badge: concurrencyState?.in_progress ? 'RUNNING' : 'READY' },
-          { id: 'system', label: '🖥️ System Health & Errors', badge: systemHealth?.llm_engine?.is_degraded ? 'DEGRADED' : 'HEALTHY' },
-          { id: 'users', label: '👥 User & Access Management', count: userTotal || users.length },
-          { id: 'deploy', label: '🚀 Deploy & Infra Telemetry', badge: deployStatus?.commit_sha ? `#${deployStatus.commit_sha}` : '' },
-          { id: 'metrics', label: '📊 Business Metrics' },
-          { id: 'audit', label: '📜 Admin Audit Trail', count: auditLogs.length }
+          { id: 'tier1', label: '🛡️ Tier 1 — The Commander', badge: 'OPERATIONAL CONTROL' },
+          { id: 'tier2', label: '⚙️ Tier 2 — Right Hand', badge: 'DATA & CONTENT' },
+          { id: 'tier3', label: '👑 Tier 3 — Master Admin', badge: masterReconciliation?.illegitimate_accounts_count > 0 ? 'ALERT' : 'RECONCILIATION' },
+          { id: 'scraper', label: '🛠️ Scraper Fleet', badge: concurrencyState?.in_progress ? 'RUNNING' : 'READY' },
+          { id: 'users', label: '👥 User Accounts', count: userTotal || users.length }
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => { SoundSystem.playPop(); setActiveTab(tab.id); }}
             className={`btn-tactile ${activeTab === tab.id ? 'btn-tactile-primary' : 'btn-tactile-ghost'}`}
-            style={{ padding: '9px 16px', fontSize: '0.82rem', fontWeight: 800, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '10px 18px', fontSize: '0.84rem', fontWeight: 800, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             <span>{tab.label}</span>
             {tab.badge && (
-              <span style={{ fontSize: '0.68rem', background: tab.badge === 'RUNNING' || tab.badge === 'DEGRADED' ? 'rgba(244, 63, 94, 0.25)' : 'rgba(255, 255, 255, 0.15)', color: tab.badge === 'RUNNING' || tab.badge === 'DEGRADED' ? '#fca5a5' : '#fff', padding: '2px 6px', borderRadius: '10px', fontWeight: 900 }}>
+              <span style={{ fontSize: '0.68rem', background: tab.badge === 'ALERT' ? 'rgba(244, 63, 94, 0.3)' : 'rgba(255, 255, 255, 0.15)', color: tab.badge === 'ALERT' ? '#fca5a5' : '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 900 }}>
                 {tab.badge}
               </span>
             )}
@@ -430,6 +519,466 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
           </button>
         ))}
       </div>
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* TIER 1 — THE COMMANDER PANEL */}
+      {/* ---------------------------------------------------------------------- */}
+      {activeTab === 'tier1' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* 💰 COLLECTED ONLINE PAYMENTS SECTION (CASHFREE REVENUE) */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.8))', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontSize: '0.72rem', fontWeight: 900, padding: '3px 10px', borderRadius: '10px', textTransform: 'uppercase' }}>
+                  CASHFREE PAYMENT GATEWAY TELEMETRY
+                </span>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ffffff', margin: '4px 0 0' }}>
+                  Collected Online Payments & Running Revenue Balance
+                </h3>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div style={{ textAlignment: 'right' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>Total Revenue</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#34d399' }}>₹{commanderData?.total_revenue_collected || 0} INR</div>
+                </div>
+                <div style={{ textAlignment: 'right' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>Successful Payments</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#6366f1' }}>{commanderData?.payment_records_count || 0}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Records Table */}
+            <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left', color: '#f8fafc' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                    <th style={{ padding: '12px 16px' }}>User Email</th>
+                    <th style={{ padding: '12px 16px' }}>Amount</th>
+                    <th style={{ padding: '12px 16px' }}>Cashfree Order / Payment ID</th>
+                    <th style={{ padding: '12px 16px' }}>Payment Method</th>
+                    <th style={{ padding: '12px 16px' }}>Timestamp</th>
+                    <th style={{ padding: '12px 16px' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(commanderData?.payment_records || []).length > 0 ? (
+                    commanderData.payment_records.map((rec, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', background: idx % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'transparent' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: '#6366f1' }}>{rec.user_email}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 900, color: '#34d399' }}>₹{rec.amount} {rec.currency}</td>
+                        <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '0.78rem', color: '#cbd5e1' }}>{rec.cf_payment_id}</td>
+                        <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{rec.payment_method}</td>
+                        <td style={{ padding: '12px 16px', color: '#94a3b8' }}>{new Date(rec.timestamp).toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '3px 8px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800 }}>SUCCESSFUL</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                        No Cashfree online payments recorded yet. Test transactions will appear here automatically upon completion.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ⚡ SCRAPER CONTROL & OVERDUE MONITOR */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: 0 }}>
+                  Scraper Fleet Command & Overdue Monitoring
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  Track 50+ registered data sources, execution timestamps, and trigger manual passes.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleRunScraper('all')} disabled={triggeringScraper} className="btn-tactile btn-tactile-amber" style={{ padding: '9px 14px', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Zap size={15} />
+                  <span>Run All Scrapers</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Overdue Monitoring Table */}
+            <div style={{ overflowX: 'auto', maxHeight: '320px', overflowY: 'auto', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left', color: '#f8fafc' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <th style={{ padding: '10px 14px' }}>Source Name</th>
+                    <th style={{ padding: '10px 14px' }}>Access Method</th>
+                    <th style={{ padding: '10px 14px' }}>Last Execution</th>
+                    <th style={{ padding: '10px 14px' }}>Status</th>
+                    <th style={{ padding: '10px 14px' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(commanderData?.scrapers_status || []).slice(0, 15).map((sc, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#f8fafc' }}>{sc.name}</td>
+                      <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{sc.access_method}</td>
+                      <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>{sc.last_run === 'Never' ? 'Never' : new Date(sc.last_run).toLocaleString()}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        {sc.is_overdue ? (
+                          <span style={{ background: 'rgba(244, 63, 94, 0.2)', color: '#fca5a5', padding: '2px 6px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800 }}>OVERDUE (&gt;24h)</span>
+                        ) : (
+                          <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 6px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800 }}>ON SCHEDULE</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <button onClick={() => handleRunScraper(sc.key)} disabled={triggeringScraper} className="btn-tactile btn-tactile-ghost" style={{ padding: '4px 10px', fontSize: '0.72rem' }}>
+                          Run Now
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 🐛 LIVE PRODUCTION ERROR FEED & GITHUB ACTIONS CORRELATION */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertTriangle size={18} color="#f43f5e" />
+                  <span>Live Production Error Diagnostics Feed</span>
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  Correlated with ErrorLogModel backend traces & GitHub Actions workflows
+                </div>
+              </div>
+              <a href="https://github.com/nikyou6622-hue/Thenextopportunityfinder/actions" target="_blank" rel="noreferrer" className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+                <ExternalLink size={14} />
+                <span>GitHub Actions Status</span>
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(commanderData?.live_error_feed || []).length > 0 ? (
+                commanderData.live_error_feed.map((err) => (
+                  <div key={err.id} style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(244, 63, 94, 0.25)', borderRadius: '12px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fca5a5', textTransform: 'uppercase' }}>
+                        [{err.error_type}] &bull; {err.source}
+                      </div>
+                      <div style={{ fontSize: '0.84rem', color: '#f8fafc', marginTop: '2px', fontWeight: 600 }}>
+                        {err.error_message}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '4px' }}>
+                        Occurrences: {err.occurred_count} &bull; Time: {err.occurred_at ? new Date(err.occurred_at).toLocaleString() : 'Recent'}
+                      </div>
+                    </div>
+                    <a href={err.github_actions_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.74rem', color: '#38bdf8', textDecoration: 'underline' }}>
+                      Inspect Workflow Run &rarr;
+                    </a>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px' }}>
+                  ✅ Zero live production errors recorded. All backend routes & scrapers operating clean.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 📬 USER SUPPORT INBOX */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 14px' }}>
+              User Support Queries & Help Inbox
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {(commanderData?.support_inbox || []).length > 0 ? (
+                commanderData.support_inbox.map((q) => (
+                  <div key={q.id} style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px 18px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ fontWeight: 800, color: '#c084fc', fontSize: '0.86rem' }}>
+                        {q.user_name} &lt;{q.user_email}&gt;
+                      </div>
+                      <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '8px', background: q.status === 'resolved' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)', color: q.status === 'resolved' ? '#34d399' : '#fbbf24', fontWeight: 800 }}>
+                        {q.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.84rem', marginBottom: '4px' }}>{q.subject}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: 1.4 }}>{q.message}</div>
+
+                    {q.admin_response ? (
+                      <div style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(168, 85, 247, 0.12)', borderLeft: '3px solid #c084fc', fontSize: '0.78rem', color: '#e9d5ff' }}>
+                        <strong>Admin Response:</strong> {q.admin_response}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          placeholder="Type resolution reply..."
+                          value={respondingQueryId === q.id ? responseText : ''}
+                          onChange={(e) => { setRespondingQueryId(q.id); setResponseText(e.target.value); }}
+                          style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.78rem' }}
+                        />
+                        <button onClick={() => handleRespondSupportQuery(q.id)} className="btn-tactile btn-tactile-primary" style={{ padding: '6px 12px', fontSize: '0.76rem' }}>
+                          Reply & Resolve
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '0.84rem' }}>
+                  No open candidate support tickets in the inbox.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* TIER 2 — RIGHT HAND PANEL */}
+      {/* ---------------------------------------------------------------------- */}
+      {activeTab === 'tier2' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* 👤 MANUAL USER ACCOUNT CREATION FORM */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 12px' }}>
+              👤 Manual Support Account Creation (Default Free Tier)
+            </h3>
+            
+            <form onSubmit={handleCreateSupportUser} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1, minWidth: '220px' }}>
+                <label style={{ display: 'block', fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '4px' }}>Candidate Email</label>
+                <input
+                  type="email"
+                  placeholder="candidate.support@dev.io"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ flex: 1, minWidth: '220px' }}>
+                <label style={{ display: 'block', fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '4px' }}>Full Name</label>
+                <input
+                  type="text"
+                  placeholder="Candidate User"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button type="submit" className="btn-tactile btn-tactile-primary" style={{ padding: '10px 18px', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <UserPlus size={16} />
+                <span>Provision Account</span>
+              </button>
+            </form>
+
+            {newUserMsg && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.15)', fontSize: '0.8rem', color: '#38bdf8' }}>
+                {newUserMsg}
+              </div>
+            )}
+          </div>
+
+          {/* 🗄️ DEEP DATABASE JOB CATALOG & AUTOMATED CLEANUP */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: 0 }}>
+                  Deep Database Job Catalog Explorer ({rightHandJobsTotal} Postings)
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  Filterable by source, company, status, date & full-text search.
+                </div>
+              </div>
+
+              <button onClick={handleTriggerExpiredCleanup} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 14px', fontSize: '0.78rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Trash2 size={14} />
+                <span>Run Expired-Job Purge Pass</span>
+              </button>
+            </div>
+
+            {/* Jobs Table */}
+            <div style={{ overflowX: 'auto', maxHeight: '360px', overflowY: 'auto', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left', color: '#f8fafc' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(15, 23, 42, 0.9)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <th style={{ padding: '10px 14px' }}>ID</th>
+                    <th style={{ padding: '10px 14px' }}>Company</th>
+                    <th style={{ padding: '10px 14px' }}>Role Title</th>
+                    <th style={{ padding: '10px 14px' }}>Location</th>
+                    <th style={{ padding: '10px 14px' }}>Source</th>
+                    <th style={{ padding: '10px 14px' }}>Status</th>
+                    <th style={{ padding: '10px 14px' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rightHandJobs.length > 0 ? (
+                    rightHandJobs.map((j) => (
+                      <tr key={j.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                        <td style={{ padding: '10px 14px', color: '#94a3b8' }}>#{j.id}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, color: '#f8fafc' }}>{j.company}</td>
+                        <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>{j.role_title}</td>
+                        <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{j.location}</td>
+                        <td style={{ padding: '10px 14px', color: '#a78bfa' }}>{j.source}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: j.status === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)', color: j.status === 'active' ? '#34d399' : '#fca5a5', padding: '2px 6px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800 }}>
+                            {j.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <button onClick={() => handleDeleteJob(j.id)} className="btn-tactile btn-tactile-ghost" style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#f43f5e' }}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
+                        No job postings found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 📧 TRANSACTIONAL ANNOUNCEMENT EMAIL SENDER */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.8)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 12px' }}>
+              📧 Batch Email Announcement Sender (With Compliant Unsubscribe Link)
+            </h3>
+            
+            <form onSubmit={handleSendAnnouncementEmail} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '4px' }}>Subject Line</label>
+                <input
+                  type="text"
+                  value={announcementSubject}
+                  onChange={(e) => setAnnouncementSubject(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '4px' }}>Email Content Body</label>
+                <textarea
+                  rows={4}
+                  value={announcementBody}
+                  onChange={(e) => setAnnouncementBody(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', fontSize: '0.82rem', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button type="submit" className="btn-tactile btn-tactile-amber" style={{ padding: '10px 18px', fontSize: '0.82rem', fontWeight: 800, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Send size={15} />
+                <span>Send Platform Digest Announcement</span>
+              </button>
+            </form>
+
+            {announcementMsg && (
+              <div style={{ marginTop: '12px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.15)', fontSize: '0.8rem', color: '#fbbf24' }}>
+                {announcementMsg}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------------- */}
+      {/* TIER 3 — MASTER ADMIN PANEL */}
+      {/* ---------------------------------------------------------------------- */}
+      {activeTab === 'tier3' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* 🔍 AUTOMATED CONTINUOUS RECONCILIATION ENGINE */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.95), rgba(15, 23, 42, 0.98))', border: '1px solid rgba(245, 158, 11, 0.5)', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', fontSize: '0.72rem', fontWeight: 900, padding: '3px 10px', borderRadius: '10px', textTransform: 'uppercase' }}>
+                  MASTER RECONCILIATION DASHBOARD
+                </span>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ffffff', margin: '4px 0 0' }}>
+                  Continuous Payment-to-Subscription Reconciliation Monitor
+                </h3>
+              </div>
+
+              <span style={{
+                background: masterReconciliation?.reconciliation_status === 'clean' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.25)',
+                color: masterReconciliation?.reconciliation_status === 'clean' ? '#34d399' : '#fca5a5',
+                border: masterReconciliation?.reconciliation_status === 'clean' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(244, 63, 94, 0.4)',
+                padding: '6px 14px',
+                borderRadius: '12px',
+                fontWeight: 900,
+                fontSize: '0.78rem'
+              }}>
+                ● {masterReconciliation?.reconciliation_status === 'clean' ? '100% RECONCILED & CLEAN' : 'DISCREPANCIES DETECTED'}
+              </span>
+            </div>
+
+            {/* Reconciliation Audit Results */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>Illegitimate Access Accounts</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: masterReconciliation?.illegitimate_accounts_count === 0 ? '#34d399' : '#f43f5e', marginTop: '4px' }}>
+                  {masterReconciliation?.illegitimate_accounts_count || 0}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '4px' }}>
+                  Cross-check of Pro profiles vs Cashfree payments & admin audit logs.
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>Data Catalog Freshness</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#38bdf8', marginTop: '4px' }}>
+                  {masterReconciliation?.data_freshness?.freshness_percentage || 100}%
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '4px' }}>
+                  {masterReconciliation?.data_freshness?.fresh_jobs_72h || 0} fresh jobs ingested in last 72 hours.
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800 }}>Scraper Fleet Status</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#a78bfa', marginTop: '4px' }}>
+                  {masterReconciliation?.scraper_fleet_health?.total_registered_sources || 50}+ Sources
+                </div>
+                <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '4px' }}>
+                  Fleet Status: <strong>{masterReconciliation?.scraper_fleet_health?.fleet_status || 'healthy'}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Discrepancies Details if any */}
+            {(masterReconciliation?.discrepancies || []).length > 0 && (
+              <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '12px', padding: '16px' }}>
+                <div style={{ fontWeight: 800, color: '#fca5a5', fontSize: '0.86rem', marginBottom: '8px' }}>
+                  ⚠️ Flagged Discrepancy Records:
+                </div>
+                {masterReconciliation.discrepancies.map((d, i) => (
+                  <div key={i} style={{ fontSize: '0.8rem', color: '#fff', marginBottom: '4px' }}>
+                    &bull; Profile #{d.profile_id} ({d.email}) &mdash; {d.issue}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ---------------------------------------------------------------------- */}
       {/* TAB 1: SCRAPER OPERATIONS PANEL */}
