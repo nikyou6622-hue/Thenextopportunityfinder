@@ -31,7 +31,11 @@ import {
   MessageSquare,
   Activity,
   FileCheck,
-  GitBranch
+  GitBranch,
+  CreditCard,
+  Inbox,
+  ArrowLeft,
+  SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -219,12 +223,82 @@ const NAV_GROUPS = [
   }
 ];
 
+const ADMIN_NAV_GROUPS = [
+  {
+    title: 'ADMIN COMMAND TIERS',
+    items: [
+      {
+        id: 'admin',
+        label: '🛡️ Tier 1 — Commander',
+        icon: ShieldAlert,
+        badge: 'OPERATIONS',
+        badgeColor: '#F59E0B'
+      },
+      {
+        id: 'admin',
+        label: '⚙️ Tier 2 — Right Hand',
+        icon: SlidersHorizontal,
+        badge: 'DATA & JOBS',
+        badgeColor: '#38BDF8'
+      },
+      {
+        id: 'admin',
+        label: '👑 Tier 3 — Master Oversight',
+        icon: ShieldCheck,
+        badge: 'RECONCILE',
+        badgeColor: '#10B981'
+      }
+    ]
+  },
+  {
+    title: 'OPERATIONAL CONTROLS',
+    items: [
+      {
+        id: 'admin',
+        label: 'Trigger Fleet Scrapers',
+        icon: Zap,
+        badge: '50+ SRC',
+        badgeColor: '#818CF8'
+      },
+      {
+        id: 'admin',
+        label: 'Collected Payments',
+        icon: CreditCard,
+        badge: 'REVENUE',
+        badgeColor: '#10B981'
+      },
+      {
+        id: 'admin',
+        label: 'Support Tickets Inbox',
+        icon: Inbox,
+        badge: 'INBOX',
+        badgeColor: '#A855F7'
+      }
+    ]
+  },
+  {
+    title: 'PORTAL SWITCH',
+    items: [
+      {
+        id: 'overview',
+        label: '← Exit to Candidate Portal',
+        icon: ArrowLeft,
+        badge: 'USER MODE',
+        badgeColor: '#64748B'
+      }
+    ]
+  }
+];
+
 export default function Sidebar({ activeTab, setActiveTab, profile, currentUser, isOpen, onClose, onOpenPaywall, isPro = false, scrapesRemaining = 5, freeLimit = 5 }) {
   const userName = currentUser?.full_name || profile?.name || "Aditya Tamta";
   const userRole = currentUser?.target_role || profile?.past_roles?.[0]?.title || "Full Stack Engineer";
-  const isAdmin = Boolean(currentUser?.is_admin || currentUser?.email === 'adityanikt@gmail.com');
+  const isAdmin = Boolean(currentUser?.is_admin || ['admin@thenextopportunityfinder.com', 'commander.admin@thenextopportunityfinder.com', 'righthand.admin@thenextopportunityfinder.com', 'master.admin@thenextopportunityfinder.com', 'adityanikt622@gmail.com', 'adityanikt@gmail.com'].includes(currentUser?.email?.toLowerCase()));
 
   const computedNavGroups = useMemo(() => {
+    if (activeTab === 'admin' || activeTab.startsWith('admin_')) {
+      return ADMIN_NAV_GROUPS;
+    }
     let groups = NAV_GROUPS;
     if (!isAdmin) {
       // Filter out admin-only system infrastructure status item
@@ -239,15 +313,15 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
       items: [
         {
           id: 'admin',
-          label: 'Admin Control Center',
+          label: 'Admin Operations Panel',
           icon: ShieldAlert,
-          badge: 'MASTER',
+          badge: 'ADMIN',
           badgeColor: '#F59E0B'
         }
       ]
     };
     return [adminGroup, ...groups];
-  }, [isAdmin]);
+  }, [isAdmin, activeTab]);
 
   const handleItemClick = (id) => {
     SoundSystem.playPop();
