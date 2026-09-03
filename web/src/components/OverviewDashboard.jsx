@@ -175,9 +175,9 @@ export default function OverviewDashboard({
     ? Math.round(matches.reduce((acc, m) => acc + (m.match_score || 0), 0) / matches.length) 
     : (profile ? 78 : 0);
 
-  const candidateName = profile?.name || "Aditya Tamta";
-  const candidateEmail = profile?.email || "aditya.tamta@dev.io";
-  const candidateRole = profile?.past_roles?.[0]?.title || profile?.experience_list?.[0]?.title || "Full Stack Engineer";
+  const candidateName = profile?.name || "Candidate User";
+  const candidateEmail = profile?.email || "";
+  const candidateRole = profile?.past_roles?.[0]?.title || profile?.experience_list?.[0]?.title || "Candidate Professional";
 
   // Dynamic Spline Wave Chart Data computed from real candidate pipeline applications
   const chartData = useMemo(() => {

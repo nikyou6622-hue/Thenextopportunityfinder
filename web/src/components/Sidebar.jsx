@@ -225,7 +225,15 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
   const isAdmin = Boolean(currentUser?.is_admin || currentUser?.email === 'adityanikt@gmail.com');
 
   const computedNavGroups = useMemo(() => {
-    if (!isAdmin) return NAV_GROUPS;
+    let groups = NAV_GROUPS;
+    if (!isAdmin) {
+      // Filter out admin-only system infrastructure status item
+      groups = NAV_GROUPS.map(g => ({
+        ...g,
+        items: g.items.filter(item => item.id !== 'status')
+      }));
+      return groups;
+    }
     const adminGroup = {
       title: 'ADMINISTRATION',
       items: [
@@ -238,7 +246,7 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
         }
       ]
     };
-    return [adminGroup, ...NAV_GROUPS];
+    return [adminGroup, ...groups];
   }, [isAdmin]);
 
   const handleItemClick = (id) => {

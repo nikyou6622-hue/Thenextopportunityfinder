@@ -27,59 +27,7 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [openingId, setOpeningId] = useState(null);
 
-  // Default curated demo apps matching Screen 07 if backend applications is empty
-  const defaultDemoApps = [
-    {
-      id: 'app-demo-1',
-      company: 'Spotify',
-      role_title: 'Graphic Designer',
-      applied_time: 'Applied 2 days ago',
-      status: 'in_review',
-      status_label: 'In Review',
-      status_badge_class: 'badge-status-review',
-      logo: 'S',
-      logo_bg: '#22C55E',
-      match_score: 92
-    },
-    {
-      id: 'app-demo-2',
-      company: 'Google',
-      role_title: 'Sr. UX Designer',
-      applied_time: 'Applied 5 days ago',
-      status: 'interview',
-      status_label: 'Interview',
-      status_badge_class: 'badge-status-interview',
-      logo: 'G',
-      logo_bg: '#7C3AED',
-      match_score: 96
-    },
-    {
-      id: 'app-demo-3',
-      company: 'Airbnb',
-      role_title: 'Project Manager',
-      applied_time: 'Applied 1 week ago',
-      status: 'applied',
-      status_label: 'Applied',
-      status_badge_class: 'badge-status-applied',
-      logo: 'A',
-      logo_bg: '#FF5A5F',
-      match_score: 90
-    },
-    {
-      id: 'app-demo-4',
-      company: 'Meta',
-      role_title: 'Frontend Developer',
-      applied_time: 'Applied 2 weeks ago',
-      status: 'rejected',
-      status_label: 'Rejected',
-      status_badge_class: 'badge-status-rejected',
-      logo: 'M',
-      logo_bg: '#3B82F6',
-      match_score: 86
-    }
-  ];
-
-  // Normalized list of apps
+  // Normalized list of apps (Real Data Only)
   const appList = applications.length > 0 ? applications.map(app => {
     const j = app.job || {};
     let statusLabel = 'Applied';
@@ -101,18 +49,18 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
 
     return {
       id: app.id,
-      company: j.company || 'TechCorp',
+      company: j.company || 'Direct Employer',
       role_title: j.role_title || j.title || 'Software Engineer',
       applied_time: 'Applied recently',
       status: app.status,
       status_label: statusLabel,
       status_badge_class: statusClass,
-      logo: (j.company || 'T').charAt(0).toUpperCase(),
+      logo: (j.company || 'D').charAt(0).toUpperCase(),
       logo_bg: '#7C3AED',
       match_score: app.match?.match_score || 88,
       raw: app
     };
-  }) : defaultDemoApps;
+  }) : [];
 
   const filteredList = appList.filter(app => {
     if (filterStatus === 'all') return true;

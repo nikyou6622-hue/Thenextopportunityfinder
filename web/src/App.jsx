@@ -1119,9 +1119,11 @@ export default function App() {
             )}
 
             {activeTab === 'status' && (
-              <SystemStatusPage 
-                onTriggerCelebration={handleTriggerCelebration}
-              />
+              <ProtectedRoute targetTab="status" activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} setCurrentUser={setCurrentUser}>
+                <SystemStatusPage 
+                  onTriggerCelebration={handleTriggerCelebration}
+                />
+              </ProtectedRoute>
             )}
 
             {activeTab === 'architecture' && (

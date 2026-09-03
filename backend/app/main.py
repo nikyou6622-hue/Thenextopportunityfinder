@@ -95,7 +95,7 @@ from backend.app.security.auth import require_auth_or_api_key
 from backend.app.security.rate_limiter import llm_rate_limiter
 from backend.app.security.usage_caps import weekly_usage_tracker
 from backend.app.security.cost_telemetry import log_llm_cost_telemetry, get_telemetry_summary
-from backend.app.security.subscriptions import get_access_level, grant_pro_access, revoke_pro_access
+from backend.app.security.subscriptions import get_access_level, grant_pro_access, revoke_pro_access, audit_and_cleanup_unauthorized_pro_accounts
 from backend.app.data_source_registry import is_source_compliant, DATA_SOURCE_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -364,8 +364,15 @@ async def startup_event():
 
     try:
         _ensure_default_admin_account()
+        db_audit = SessionLocal()
+        try:
+            downgraded = audit_and_cleanup_unauthorized_pro_accounts(db_audit)
+            if downgraded > 0:
+                logger.info(f"Startup Security Audit: Downgraded {downgraded} unauthorized pro accounts to free tier.")
+        finally:
+            db_audit.close()
     except Exception as e:
-        logger.warning(f"Startup admin account initialization notice: {e}")
+        logger.warning(f"Startup security audit initialization notice: {e}")
     if not os.getenv("VERCEL"):
         try:
             asyncio.create_task(daily_mnc_scanner_loop())
@@ -3644,6 +3651,7 @@ def _format_match_to_dict(m: Any, is_locked: bool = False) -> Dict[str, Any]:
         "matched_count": getattr(m, "matched_count", 0),
         "required_count": getattr(m, "required_count", 0),
         "skill_match_percentage": getattr(m, "skill_match_percentage", 75.0),
+        "match_tier": "strong_match" if float(getattr(m, "match_score", 0) or match_score) >= 50.0 else "more_opportunities",
         "is_locked": is_locked
     }
 
@@ -4398,13 +4406,15 @@ def run_mock_interview_turn(
 # --- TELEMETRY & COMPLIANCE DATA REGISTRY ENDPOINTS ---
 
 @app.get("/api/telemetry/cost")
-def get_cost_telemetry_endpoint(auth_user: str = Depends(require_auth_or_api_key)):
-    """Returns real-time token and USD cost analytics across all LLM endpoints."""
+def get_cost_telemetry_endpoint(request: Request, db: Session = Depends(get_db)):
+    """Returns real-time token and USD cost analytics across all LLM endpoints. Admin-only."""
+    _require_admin_user(request, db)
     return get_telemetry_summary()
 
 @app.get("/api/compliance/registry")
-def get_compliance_registry_endpoint():
-    """Returns data source compliance and terms of service status registry."""
+def get_compliance_registry_endpoint(request: Request, db: Session = Depends(get_db)):
+    """Returns data source compliance and terms of service status registry. Admin-only."""
+    _require_admin_user(request, db)
     return DATA_SOURCE_REGISTRY
 
 # --- EXPORT & LEARNING & KANBAN ENDPOINTS ---
@@ -5745,14 +5755,31 @@ def google_auth_verify_endpoint(
 ):
     """
     Verifies Google OAuth 2.0 Single Sign-On payload and provisions/authenticates candidate account.
+    Fix (Bug 5): Executes full account initialization (UserModel, ProfileModel, SubscriptionModel)
+    guaranteeing default 'free' tier assignment and proper database consistency.
     """
     user_email = str(payload.get("email", "candidate.google@gmail.com")).strip().lower()
     full_name = payload.get("full_name") or payload.get("name") or "Google Candidate User"
     
-    # Check if candidate profile already exists
+    # 1. Check or create UserModel
+    user = db.query(UserModel).filter(UserModel.email == user_email).first()
+    if not user:
+        user = UserModel(
+            email=user_email,
+            full_name=full_name,
+            password_hash="oauth_google_protected",
+            target_role=payload.get("target_role") or "Software Engineer",
+            is_active=True,
+            is_email_verified=True,
+            subscription_tier="free"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # 2. Check or create ProfileModel
     profile = db.query(ProfileModel).filter(ProfileModel.email == user_email).first()
     if not profile:
-        # Create new profile for Google candidate
         profile = ProfileModel(
             name=full_name,
             email=user_email,
@@ -5761,11 +5788,27 @@ def google_auth_verify_endpoint(
             skills=["Python", "React", "FastAPI", "PostgreSQL", "Docker", "Git"],
             domains=["fullstack", "backend"],
             consent_given=True,
-            consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
+            consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
+            subscription_tier="free"
         )
         db.add(profile)
         db.commit()
         db.refresh(profile)
+
+    # 3. Check or create SubscriptionModel (strictly default to 'free')
+    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == profile.id).first()
+    if not sub:
+        sub = SubscriptionModel(
+            profile_id=profile.id,
+            tier="free",
+            plan_tier="free",
+            status="active",
+            is_active=False,
+            credits_remaining=5,
+            amount_paid=0.0
+        )
+        db.add(sub)
+        db.commit()
 
     # Generate auth JWT token
     auth_token = f"jwt_google_auth_{profile.id}_{int(datetime.datetime.now(datetime.timezone.utc).timestamp())}"
@@ -5775,10 +5818,12 @@ def google_auth_verify_endpoint(
         "message": "Successfully authenticated with Google Single Sign-On!",
         "token": auth_token,
         "user": {
-            "id": profile.id,
-            "email": profile.email,
-            "full_name": profile.name,
-            "target_role": payload.get("target_role") or "Full Stack Engineer",
+            "id": user.id,
+            "profile_id": profile.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "target_role": user.target_role,
+            "subscription_tier": "free",
             "is_email_verified": True
         }
     }

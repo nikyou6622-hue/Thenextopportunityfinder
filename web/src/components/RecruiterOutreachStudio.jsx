@@ -31,16 +31,13 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
   const candidateName = profile?.name || 'Aditya Tamta';
   const candidateSkills = (profile?.skills || ['Python', 'FastAPI', 'React', 'Docker', 'PostgreSQL']).slice(0, 4).join(', ');
   
-  const [recruiterName, setRecruiterName] = useState('Sarah');
-  const [companyName, setCompanyName] = useState('Razorpay');
-  const [roleTitle, setRoleTitle] = useState('Backend Engineer');
-  const [recruiterEmail, setRecruiterEmail] = useState('recruiting@razorpay.com');
+  const [recruiterName, setRecruiterName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [roleTitle, setRoleTitle] = useState('');
+  const [recruiterEmail, setRecruiterEmail] = useState('');
   const [pitchMode, setPitchMode] = useState('impact');
   const [copied, setCopied] = useState(false);
-  const [outreachLogs, setOutreachLogs] = useState(() => [
-    { id: 1, name: 'Ananya Roy', company: 'Swiggy', role: 'Full Stack Engineer', date: '2026-08-15', status: 'Replied' },
-    { id: 2, name: 'Vikram Singh', company: 'CRED', role: 'Backend SDE-2', date: '2026-08-16', status: 'Sent' }
-  ]);
+  const [outreachLogs, setOutreachLogs] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
 
   // Dynamic Email Generation Formula

@@ -10,9 +10,9 @@ from backend.app.utils.skill_normalizer import normalize_skill, normalize_skill_
 
 logger = logging.getLogger(__name__)
 
-# Configurable minimum relevance threshold constants
-MIN_QUALIFIED_MATCH_THRESHOLD = 50.0
-TIER3_MIN_QUALIFIED_MATCH_THRESHOLD = 65.0
+# Configurable minimum relevance threshold constants (Bug 2 fix: lowered to 25.0 to expose real job volume)
+MIN_QUALIFIED_MATCH_THRESHOLD = 25.0
+TIER3_MIN_QUALIFIED_MATCH_THRESHOLD = 35.0
 
 def compute_skill_match(resume_skills: List[str], job_required_skills: List[str]) -> Dict[str, Any]:
     """
