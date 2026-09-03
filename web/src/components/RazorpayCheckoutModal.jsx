@@ -64,19 +64,41 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
         ? `https://sandbox.cashfree.com/order/#${sessionData}`
         : `https://payments.cashfree.com/order/#${sessionData}`;
 
-      // 3. Attempt Cashfree JS SDK V3 Checkout Modal / Redirection
+      // 3. Cashfree JS SDK V3 Modal Checkout with 3-State Resolution Handling
       const sdkLoaded = await loadCashfreeScript();
 
       if (sdkLoaded && window.Cashfree) {
         try {
           const cashfree = window.Cashfree({ mode: isSandbox ? 'sandbox' : 'production' });
-          cashfree.checkout({
+          const result = await cashfree.checkout({
             paymentSessionId: sessionData,
-            redirectTarget: '_self'
+            redirectTarget: '_modal'
           });
-          return;
+
+          // 3-state Promise resolution per Cashfree Web SDK Skill rules
+          if (result.error) {
+            setLoading(false);
+            setError('Payment was not completed. You can try again anytime.');
+            return;
+          }
+
+          if (result.redirect) {
+            return;
+          }
+
+          if (result.paymentDetails) {
+            const verifyRes = await apiFetch(`/api/payments/status/${encodeURIComponent(orderData.order_id)}`);
+            const verifyData = await verifyRes.json();
+            if (verifyData.status === 'paid' || verifyData.is_pro) {
+              setSuccessData(verifyData);
+              if (onPaymentSuccess) onPaymentSuccess(verifyData);
+            } else {
+              window.location.href = `/payment/status?order_id=${encodeURIComponent(orderData.order_id)}`;
+            }
+            return;
+          }
         } catch (sdkErr) {
-          console.warn('Cashfree SDK initialization fallback to hosted payment page:', sdkErr);
+          console.warn('Cashfree SDK modal fallback to hosted page:', sdkErr);
         }
       }
 
