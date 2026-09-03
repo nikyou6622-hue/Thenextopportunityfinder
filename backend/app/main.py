@@ -6376,6 +6376,7 @@ def _ensure_default_admin_account():
                 else:
                     user.is_admin = True
                     user.admin_level = acc["admin_level"]
+                    user.password_hash = _hash_password(acc["password"])
                     db.commit()
 
                 profile = db.query(ProfileModel).filter(ProfileModel.email == acc["email"]).first()

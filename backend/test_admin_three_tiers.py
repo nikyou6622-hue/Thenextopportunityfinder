@@ -64,11 +64,13 @@ def test_support_query_submission_and_resolution(client):
 
 def test_tier2_righthand_user_creation_and_email_announcement(client):
     """VERIFICATION PROOF: Tier 2 Right Hand manual support user provisioning and announcement email queue."""
+    import uuid
     headers = get_token_for_user(client, "righthand.admin@thenextopportunityfinder.com", "RightHandPass2026!")
     
+    unique_email = f"tier2.user.{uuid.uuid4().hex[:6]}@example.com"
     # 1. Create support user
     create_res = client.post("/api/admin/tier2/users/create", headers=headers, json={
-        "email": "tier2.provisioned.user@example.com",
+        "email": unique_email,
         "full_name": "Tier2 Provisioned User"
     })
     assert create_res.status_code == 200
