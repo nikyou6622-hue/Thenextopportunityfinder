@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import apiFetch from '../lib/apiClient';
-import { ShieldCheck, CheckCircle2, Zap, X, CreditCard, Sparkles, Clock, Lock } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Zap, X, CreditCard, Sparkles, Clock, Lock, RefreshCw } from 'lucide-react';
 
 export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, onPaymentSuccess }) {
   const [loading, setLoading] = useState(false);
@@ -9,14 +9,14 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
 
   if (!isOpen) return null;
 
-  const loadRazorpayScript = () => {
+  const loadCashfreeScript = () => {
     return new Promise((resolve) => {
-      if (window.Razorpay) {
+      if (window.Cashfree) {
         resolve(true);
         return;
       }
       const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
@@ -28,101 +28,51 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
     setError('');
 
     try {
-      // 1. Call backend to create Razorpay Order
+      // 1. Call backend endpoint to create Cashfree Order
       const res = await apiFetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 99.0, currency: 'INR' })
+        body: JSON.stringify({
+          amount: 99.0,
+          currency: 'INR',
+          profile_id: profile?.id
+        })
       });
 
       if (!res.ok) {
-        throw new Error('Failed to create payment order. Please try again.');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to create payment order. Please try again.');
       }
 
       const orderData = await res.json();
-      const loaded = await loadRazorpayScript();
+      const sessionData = orderData.payment_session_id;
 
-      if (!loaded || !window.Razorpay || orderData.key_id?.startsWith('rzp_test_mock')) {
-        // Test / Sandbox Simulation Mode (Smooth Fallback for local testing without live keys)
-        const mockPaymentId = `pay_mock_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      if (!sessionData) {
+        throw new Error('Payment Session ID not returned by server.');
+      }
+
+      // 2. Load Cashfree Checkout JS SDK v3
+      const sdkLoaded = await loadCashfreeScript();
+
+      if (!sdkLoaded || !window.Cashfree || sessionData.startsWith('session_mock_')) {
+        // Test / Sandbox Fallback Simulation Mode
         const mockOrderId = orderData.order_id || `order_mock_${Date.now()}`;
-        const mockSig = `sig_mock_${Date.now()}`;
-
-        const verifyRes = await apiFetch('/api/payments/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_payment_id: mockPaymentId,
-            razorpay_order_id: mockOrderId,
-            razorpay_signature: mockSig,
-            profile_id: profile?.id
-          })
-        });
-
-        if (verifyRes.ok) {
-          const vData = await verifyRes.json();
-          setSuccessData(vData);
-          if (onPaymentSuccess) onPaymentSuccess(vData);
-        } else {
-          throw new Error('Payment verification failed.');
-        }
-        setLoading(false);
+        window.location.href = `/payment/status?order_id=${mockOrderId}`;
         return;
       }
 
-      // Live Razorpay Modal Integration
-      const options = {
-        key: orderData.key_id,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'NextOpportunityFind Pro',
-        description: '6 Months Full Pro Access (₹99)',
-        image: '/logo.png',
-        order_id: orderData.order_id,
-        prefill: {
-          name: user?.full_name || profile?.name || '',
-          email: user?.email || profile?.email || ''
-        },
-        theme: {
-          color: '#6366f1'
-        },
-        handler: async function (response) {
-          try {
-            const verifyRes = await apiFetch('/api/payments/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-                profile_id: profile?.id
-              })
-            });
+      // 3. Initialize Cashfree SDK & Launch Hosted Checkout Page / Modal
+      const mode = orderData.cashfree_env === 'sandbox' ? 'sandbox' : 'production';
+      const cashfree = window.Cashfree({ mode });
 
-            if (verifyRes.ok) {
-              const vData = await verifyRes.json();
-              setSuccessData(vData);
-              if (onPaymentSuccess) onPaymentSuccess(vData);
-            } else {
-              setError('Payment verification failed. Please contact support with payment ID.');
-            }
-          } catch (err) {
-            setError('Error verifying payment: ' + err.message);
-          } finally {
-            setLoading(false);
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          }
-        }
+      const checkoutOptions = {
+        paymentSessionId: sessionData,
+        redirectTarget: '_self'
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      cashfree.checkout(checkoutOptions);
     } catch (err) {
-      console.error('Payment initiation error:', err);
+      console.error('Cashfree payment initiation error:', err);
       setError(err.message || 'An unexpected error occurred during checkout.');
       setLoading(false);
     }
@@ -160,6 +110,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
         }}>
           <button
             onClick={onClose}
+            aria-label="Close checkout modal"
             style={{
               position: 'absolute',
               top: '20px',
@@ -180,7 +131,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
           </button>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-            <Sparkles size={14} color="#fde047" /> Exclusive Early Access Offer
+            <Sparkles size={14} color="#fde047" /> Cashfree Payments · 6 Months Pro
           </div>
 
           <h2 style={{ fontSize: '1.6rem', fontWeight: 900, margin: '0 0 6px 0', lineHeight: 1.2 }}>
@@ -199,10 +150,10 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
                 <CheckCircle2 size={36} />
               </div>
               <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 8px 0' }}>
-                🎉 You're Pro Until {new Date(successData.valid_until || Date.now() + 180*86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}!
+                🎉 You're Pro for 6 Months!
               </h3>
               <p style={{ color: '#94a3b8', fontSize: '0.88rem', marginBottom: '24px' }}>
-                Payment verified ({successData.payment_id}). All features, direct apply links, and ATS resume exports are now unlocked.
+                Payment verified. All direct apply links, ATS resume exports, and interview studio are now unlocked.
               </p>
               <button
                 onClick={() => {
@@ -247,7 +198,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', fontSize: '0.8rem', color: '#94a3b8' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <ShieldCheck size={16} color="#818cf8" /> Secure Razorpay Payment
+                  <ShieldCheck size={16} color="#818cf8" /> Secure Cashfree Gateway
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Clock size={15} color="#fbbf24" /> Instant 6-Month Activation
@@ -277,12 +228,12 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
                 {loading ? (
                   <>
                     <RefreshCw className="animate-spin" size={18} />
-                    <span>Processing Payment...</span>
+                    <span>Connecting to Cashfree...</span>
                   </>
                 ) : (
                   <>
                     <CreditCard size={18} />
-                    <span>Pay ₹99 & Unlock Pro Access →</span>
+                    <span>Pay ₹99 via Cashfree →</span>
                   </>
                 )}
               </button>

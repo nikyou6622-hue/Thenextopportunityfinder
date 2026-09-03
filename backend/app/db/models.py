@@ -221,6 +221,21 @@ class SubscriptionModel(Base):
     amount_paid = Column(Float, default=0.0)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
+class PaymentOrderModel(Base):
+    __tablename__ = "payment_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(String, unique=True, index=True, nullable=False)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False)
+    amount = Column(Float, default=99.0)
+    currency = Column(String, default="INR")
+    status = Column(String, default="created", index=True) # created, paid, failed, dropped, cancelled
+    payment_session_id = Column(String, nullable=True)
+    cf_payment_id = Column(String, nullable=True)
+    payment_method = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
 # --- NEW MODELS FOR CS/TECH EXTENSIONS ---
 
 class LearningResourceModel(Base):

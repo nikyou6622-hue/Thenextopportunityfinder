@@ -15,6 +15,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ApplyButton from './ApplyButton';
 
 export default function JobDetailsModal({ 
   job, 
@@ -381,22 +382,20 @@ export default function JobDetailsModal({
               <span>Company Site ↗</span>
             </a>
 
-            <button
-              onClick={() => {
+            <ApplyButton
+              job={currentJob}
+              match={match}
+              variant="purple"
+              size="md"
+              style={{ flex: 1, minWidth: '160px', padding: '12px 20px', fontSize: '0.92rem' }}
+              onOpenFlowModal={(j, m) => {
                 onClose();
-                if (onApply) onApply(currentJob, match);
-              }}
-              className="btn-purple-action"
-              style={{
-                flex: 1,
-                minWidth: '160px',
-                padding: '12px 20px',
-                fontSize: '0.92rem',
-                fontWeight: 700
+                if (onApply) onApply(j, m);
               }}
             >
-              1-Click Apply <ArrowRight size={18} />
-            </button>
+              <span>Apply Now</span>
+              <ArrowRight size={18} />
+            </ApplyButton>
           </div>
 
         </motion.div>

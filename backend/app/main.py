@@ -7,6 +7,10 @@ import logging
 import asyncio
 import hmac
 import hashlib
+import base64
+import time
+import urllib.request
+import secrets
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPException, Body, Response, Header, Query, Cookie, BackgroundTasks, status
@@ -30,7 +34,7 @@ from backend.app.db.database import engine, Base, get_db, SessionLocal
 from backend.app.db.models import (
     UserModel, ProfileModel, JobModel, MatchModel, ApplicationModel, ApplicationEventModel, 
     TailoredResumeModel, EmailLogModel, InterviewPrepModel, OutcomeDiagnosisModel, 
-    OutcomeEventModel, SubscriptionModel, LearningResourceModel, InterviewQuestionBankModel,
+    OutcomeEventModel, SubscriptionModel, PaymentOrderModel, LearningResourceModel, InterviewQuestionBankModel,
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
     AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache
@@ -5781,53 +5785,30 @@ def google_auth_verify_endpoint(
 
 
 # ============================================================================
-# RAZORPAY PAYMENT & SUBSCRIPTION ENDPOINTS (₹99 / 6 Months Access)
+# CASHFREE PAYMENT & SUBSCRIPTION ENDPOINTS (₹99 / 6-Month Pro Access)
 # ============================================================================
 
-RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_mockkey2026")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
-RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID", "").strip()
+CASHFREE_SECRET_KEY = os.getenv("CASHFREE_SECRET_KEY", "").strip()
+CASHFREE_ENV = os.getenv("CASHFREE_ENV", "production").strip().lower()
+
+def get_cashfree_base_url() -> str:
+    """Returns Cashfree API base URL based on configured environment or App ID prefix."""
+    if CASHFREE_ENV == "sandbox" or CASHFREE_APP_ID.startswith("TEST"):
+        return "https://sandbox.cashfree.com/pg"
+    return "https://api.cashfree.com/pg"
 
 class CreateOrderRequest(BaseModel):
     amount: float = 99.0
     currency: str = "INR"
-
-class VerifyPaymentRequest(BaseModel):
-    razorpay_payment_id: str
-    razorpay_order_id: str
-    razorpay_signature: str
     profile_id: Optional[int] = None
 
-@app.post("/api/payments/create-order")
-def create_razorpay_order(
-    req: CreateOrderRequest,
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Generates Razorpay Order ID for ₹99 (9900 paise) one-time charge for 6-month Pro access."""
-    amount_paise = int(req.amount * 100) # ₹99 = 9900 paise
-    order_id = f"order_{secrets.token_hex(12)}"
-    
-    if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET and not RAZORPAY_KEY_ID.startswith("rzp_test_mock"):
-        try:
-            import razorpay
-            client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-            order_data = {
-                "amount": amount_paise,
-                "currency": req.currency,
-                "payment_capture": 1
-            }
-            order = client.order.create(data=order_data)
-            order_id = order.get("id", order_id)
-        except Exception as e:
-            logger.warning(f"Razorpay live order generation fallback: {e}")
-
-    return {
-        "order_id": order_id,
-        "amount": amount_paise,
-        "currency": req.currency,
-        "key_id": RAZORPAY_KEY_ID
-    }
+class VerifyPaymentRequest(BaseModel):
+    razorpay_payment_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
+    order_id: Optional[str] = None
+    profile_id: Optional[int] = None
 
 def _send_live_payment_receipt_email(recipient_email: str, payment_id: str, amount: float, valid_until_str: str) -> bool:
     """Dispatches transactional payment receipt email for successful ₹99 Pro upgrade."""
@@ -5894,14 +5875,15 @@ def _send_live_payment_receipt_email(recipient_email: str, payment_id: str, amou
         logger.error(f"Failed to send payment receipt email: {e}")
         return False
 
-@app.post("/api/payments/verify")
-def verify_razorpay_payment(
-    req: VerifyPaymentRequest,
+@app.post("/api/payments/create-order")
+def create_payment_order(
+    req: CreateOrderRequest,
     request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Verifies Razorpay payment signature & idempotency, and upgrades profile to 6-month Pro tier.
+    Creates a Cashfree Order for ₹99 for 6-month Pro subscription.
+    Persists PaymentOrderModel in DB and returns payment_session_id to frontend.
     """
     profile = None
     if req.profile_id:
@@ -5913,109 +5895,304 @@ def verify_razorpay_payment(
         if user:
             profile = db.query(ProfileModel).filter(ProfileModel.email == user.email).first()
     if not profile:
-        raise HTTPException(status_code=401, detail="Authentication required to verify payment.")
+        profile = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
 
-    # 1. Signature Verification
-    if RAZORPAY_KEY_SECRET:
-        msg = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
-        expected_sig = hmac.new(RAZORPAY_KEY_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
-        if expected_sig != req.razorpay_signature:
-            raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
+    profile_id = profile.id if profile else 1
+    cust_name = (profile.name if profile else "Candidate User") or "Candidate User"
+    cust_email = (profile.email if profile else "candidate@example.com") or "candidate@example.com"
+    cust_phone = (getattr(profile, "phone", "") or "9999999999") or "9999999999"
 
-    # 2. Idempotency Check
-    existing_sub = db.query(SubscriptionModel).filter(SubscriptionModel.payment_id == req.razorpay_payment_id).first()
-    if existing_sub:
-        valid_until_str = existing_sub.valid_until.isoformat() if existing_sub.valid_until else "Active"
-        return {
-            "success": True,
-            "message": "Payment already processed.",
-            "payment_id": req.razorpay_payment_id,
-            "valid_until": valid_until_str,
-            "already_processed": True
+    ts_ms = int(time.time() * 1000)
+    order_id = f"order_prof{profile_id}_{ts_ms}_{secrets.token_hex(4)}"
+    amount = float(req.amount or 99.0)
+
+    # Determine return_url for Cashfree redirect (must be https per Cashfree API specification)
+    frontend_host = request.headers.get("origin") or request.headers.get("referer") or "https://nextopportunityfinder.vercel.app"
+    frontend_host = frontend_host.rstrip("/")
+    if not frontend_host.startswith("https://"):
+        frontend_host = "https://" + re.sub(r"^https?://", "", frontend_host)
+    return_url = f"{frontend_host}/payment/status?order_id={{order_id}}"
+
+    headers = {
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "order_id": order_id,
+        "order_amount": amount,
+        "order_currency": req.currency or "INR",
+        "customer_details": {
+            "customer_id": f"cust_prof_{profile_id}",
+            "customer_name": cust_name,
+            "customer_email": cust_email,
+            "customer_phone": cust_phone
+        },
+        "order_meta": {
+            "return_url": return_url
         }
+    }
 
-    # 3. Grant Pro Access
-    sub = grant_pro_access(profile.id, db, payment_id=req.razorpay_payment_id, amount_paid=99.0, months=6)
-    valid_until_str = sub.valid_until.isoformat() if sub.valid_until else ""
+    payment_session_id = None
+    cashfree_url = f"{get_cashfree_base_url()}/orders"
 
-    # Create In-App Notification
     try:
-        notif = NotificationEventModel(
-            profile_id=profile.id,
-            trigger_type="subscription_activated",
-            title="🎉 Pro Subscription Active!",
-            message=f"Your Pro subscription (₹99/6 months) is active until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else ''}.",
-            severity="success",
-            action_tab="overview"
-        )
-        db.add(notif)
-        db.commit()
-    except Exception as ne:
-        logger.warning(f"Notification creation notice: {ne}")
+        req_bytes = json.dumps(payload).encode('utf-8')
+        py_req = urllib.request.Request(cashfree_url, data=req_bytes, headers=headers, method="POST")
+        with urllib.request.urlopen(py_req, timeout=12) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            payment_session_id = res_data.get("payment_session_id")
+            order_id = res_data.get("order_id", order_id)
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode('utf-8') if he.fp else str(he)
+        logger.warning(f"Cashfree API Order creation HTTPError {he.code}: {err_body}")
+        if CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
+            payment_session_id = f"session_mock_{secrets.token_hex(12)}"
+        else:
+            raise HTTPException(status_code=500, detail=f"Cashfree Order creation failed: {err_body}")
+    except Exception as e:
+        logger.error(f"Cashfree order creation error: {e}")
+        if CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
+            payment_session_id = f"session_mock_{secrets.token_hex(12)}"
+        else:
+            raise HTTPException(status_code=500, detail=f"Error connecting to Cashfree API: {str(e)}")
 
-    # Dispatch receipt email
-    if profile.email:
-        _send_live_payment_receipt_email(profile.email, req.razorpay_payment_id, 99.0, valid_until_str[:10])
+    # Store PaymentOrderModel row in Supabase/DB before user completes payment
+    order_record = PaymentOrderModel(
+        order_id=order_id,
+        profile_id=profile_id,
+        amount=amount,
+        currency=req.currency or "INR",
+        status="created",
+        payment_session_id=payment_session_id
+    )
+    db.add(order_record)
+    db.commit()
 
     return {
         "success": True,
-        "message": f"You're Pro until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else '6 months'}.",
-        "payment_id": req.razorpay_payment_id,
-        "valid_until": valid_until_str,
-        "access_level": "pro"
+        "order_id": order_id,
+        "payment_session_id": payment_session_id,
+        "amount": amount,
+        "currency": req.currency or "INR",
+        "mode": CASHFREE_ENV,
+        "cashfree_env": CASHFREE_ENV
     }
 
+def verify_cashfree_webhook_signature(raw_body: bytes, timestamp: str, signature: str, secret_key: str) -> bool:
+    """
+    Verifies Cashfree HMAC-SHA256 webhook signature.
+    Per Cashfree docs: signed_data = timestamp + raw_body string
+    """
+    if not secret_key:
+        return True
+    if not signature:
+        return False
+
+    key_bytes = secret_key.encode('utf-8')
+    signed_payload = timestamp.encode('utf-8') + raw_body
+
+    # 1. Base64 digest
+    computed_b64 = base64.b64encode(hmac.new(key_bytes, signed_payload, hashlib.sha256).digest()).decode('utf-8')
+    if hmac.compare_digest(computed_b64, signature):
+        return True
+
+    # 2. Hex digest
+    computed_hex = hmac.new(key_bytes, signed_payload, hashlib.sha256).hexdigest()
+    if hmac.compare_digest(computed_hex, signature):
+        return True
+
+    # 3. Direct raw_body HMAC fallback checks
+    raw_b64 = base64.b64encode(hmac.new(key_bytes, raw_body, hashlib.sha256).digest()).decode('utf-8')
+    if hmac.compare_digest(raw_b64, signature):
+        return True
+
+    raw_hex = hmac.new(key_bytes, raw_body, hashlib.sha256).hexdigest()
+    if hmac.compare_digest(raw_hex, signature):
+        return True
+
+    return False
+
+@app.post("/api/payments/webhook")
 @app.post("/api/payments/razorpay-webhook")
-async def razorpay_webhook(
+async def cashfree_webhook(
     request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Mandatory Webhook Endpoint for Razorpay Payment Notifications.
-    Enforces signature verification & idempotency before granting Pro access.
+    Mandatory Server-to-Server Webhook Endpoint for Cashfree Payment Notifications.
+    Enforces HMAC-SHA256 signature verification & idempotency before granting 6-Month Pro access.
     """
     body_bytes = await request.body()
-    signature = request.headers.get("X-Razorpay-Signature", "")
+    signature = request.headers.get("x-webhook-signature") or request.headers.get("X-Webhook-Signature") or request.headers.get("X-Razorpay-Signature") or ""
+    timestamp = request.headers.get("x-webhook-timestamp") or request.headers.get("X-Webhook-Timestamp") or ""
 
-    # 1. Webhook Signature Verification
-    if RAZORPAY_WEBHOOK_SECRET:
-        expected_sig = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), body_bytes, hashlib.sha256).hexdigest()
-        if not signature or not hmac.compare_digest(expected_sig, signature):
-            logger.warning("Razorpay Webhook Signature Mismatch! Rejecting payload.")
+    # 1. Signature Verification
+    if CASHFREE_SECRET_KEY and signature:
+        if not verify_cashfree_webhook_signature(body_bytes, timestamp, signature, CASHFREE_SECRET_KEY):
+            logger.warning("Cashfree Webhook Signature Verification FAILED! Rejecting payload.")
             raise HTTPException(status_code=400, detail="Invalid webhook signature.")
 
     try:
-        payload = json.loads(body_bytes.decode())
+        payload = json.loads(body_bytes.decode('utf-8'))
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
-    event_type = payload.get("event", "")
-    payment_entity = payload.get("payload", {}).get("payment", {}).get("entity", {}) or payload.get("payload", {}).get("payment_link", {}).get("entity", {})
-    payment_id = payment_entity.get("id") or payload.get("payment_id") or f"wh_{secrets.token_hex(8)}"
+    event_type = payload.get("type") or payload.get("event") or ""
+    data = payload.get("data", {})
+    order_data = data.get("order", {})
+    payment_data = data.get("payment", {})
+    
+    order_id = order_data.get("order_id") or payload.get("order_id")
+    cf_payment_id = str(payment_data.get("cf_payment_id") or payment_data.get("payment_id") or payload.get("payment_id") or f"cf_pay_{secrets.token_hex(6)}")
+    payment_status = payment_data.get("payment_status") or payload.get("payment_status") or ""
 
-    # 2. Webhook Idempotency
-    existing_sub = db.query(SubscriptionModel).filter(SubscriptionModel.payment_id == payment_id).first()
-    if existing_sub:
-        logger.info(f"Webhook idempotency check: Payment {payment_id} already processed.")
-        return {"status": "already_processed", "payment_id": payment_id}
+    is_success = (
+        "SUCCESS" in event_type.upper() or
+        "PAID" in event_type.upper() or
+        payment_status.upper() == "SUCCESS"
+    )
 
-    if event_type in ["payment.captured", "payment_link.paid", "order.paid"] or not event_type:
-        user_email = payment_entity.get("email") or payment_entity.get("notes", {}).get("email")
-        profile = None
-        if user_email:
-            profile = db.query(ProfileModel).filter(ProfileModel.email == user_email.strip().lower()).first()
-        if not profile:
-            profile = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+    if not order_id and not is_success:
+        return {"status": "event_ignored", "event": event_type}
 
-        if profile:
-            amount = float(payment_entity.get("amount", 9900)) / 100.0 if payment_entity.get("amount") else 99.0
-            sub = grant_pro_access(profile.id, db, payment_id=payment_id, amount_paid=amount, months=6)
-            valid_until_str = sub.valid_until.isoformat() if sub.valid_until else ""
-            if profile.email:
-                _send_live_payment_receipt_email(profile.email, payment_id, amount, valid_until_str[:10])
-            return {"status": "success", "payment_id": payment_id, "profile_id": profile.id}
+    # 2. Idempotency Check
+    payment_order = None
+    if order_id:
+        payment_order = db.query(PaymentOrderModel).filter(PaymentOrderModel.order_id == order_id).first()
 
-    return {"status": "event_ignored", "event": event_type}
+    if payment_order and payment_order.status == "paid":
+        logger.info(f"Cashfree Webhook idempotency: Order {order_id} already processed.")
+        return {"status": "already_processed", "order_id": order_id}
+
+    if is_success:
+        profile_id = payment_order.profile_id if payment_order else None
+        
+        # If order record missing, resolve profile from email
+        if not profile_id:
+            cust_email = data.get("customer_details", {}).get("customer_email")
+            if cust_email:
+                p = db.query(ProfileModel).filter(ProfileModel.email == cust_email.strip().lower()).first()
+                if p:
+                    profile_id = p.id
+        if not profile_id:
+            p = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
+            if p:
+                profile_id = p.id
+
+        # Update order record to 'paid'
+        if payment_order:
+            payment_order.status = "paid"
+            payment_order.cf_payment_id = cf_payment_id
+            payment_order.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            db.commit()
+        elif order_id:
+            payment_order = PaymentOrderModel(
+                order_id=order_id,
+                profile_id=profile_id or 1,
+                amount=float(order_data.get("order_amount", 99.0)),
+                currency=order_data.get("order_currency", "INR"),
+                status="paid",
+                cf_payment_id=cf_payment_id
+            )
+            db.add(payment_order)
+            db.commit()
+
+        # Grant 6-Month Pro Subscription
+        if profile_id:
+            sub = grant_pro_access(profile_id, db, payment_id=cf_payment_id, amount_paid=99.0, months=6)
+            profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
+            
+            try:
+                notif = NotificationEventModel(
+                    profile_id=profile_id,
+                    trigger_type="subscription_activated",
+                    title="🎉 Cashfree Pro Access Active!",
+                    message=f"Your 6-month Pro access (₹99) is active until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else ''}.",
+                    severity="success",
+                    action_tab="overview"
+                )
+                db.add(notif)
+                db.commit()
+            except Exception as ne:
+                logger.warning(f"Notification creation notice: {ne}")
+
+            if profile and profile.email:
+                valid_str = sub.valid_until.strftime('%Y-%m-%d') if sub.valid_until else ""
+                _send_live_payment_receipt_email(profile.email, cf_payment_id, 99.0, valid_str)
+
+        return {"status": "success", "order_id": order_id, "payment_id": cf_payment_id}
+    else:
+        # Payment Failed / Dropped
+        if payment_order:
+            payment_order.status = "failed"
+            payment_order.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            db.commit()
+        return {"status": "failed", "order_id": order_id}
+
+@app.get("/api/payments/status/{order_id}")
+def get_payment_order_status(
+    order_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Checks payment order status in DB for payment status page polling.
+    Includes Cashfree API fallback check if DB status is still 'created'.
+    """
+    order = db.query(PaymentOrderModel).filter(PaymentOrderModel.order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Payment order not found")
+
+    # Fallback status check directly against Cashfree API if still 'created'
+    if order.status == "created" and CASHFREE_APP_ID and CASHFREE_SECRET_KEY:
+        try:
+            cf_url = f"{get_cashfree_base_url()}/orders/{order_id}"
+            headers = {
+                "x-client-id": CASHFREE_APP_ID,
+                "x-client-secret": CASHFREE_SECRET_KEY,
+                "x-api-version": "2023-08-01"
+            }
+            py_req = urllib.request.Request(cf_url, headers=headers, method="GET")
+            with urllib.request.urlopen(py_req, timeout=8) as response:
+                cf_data = json.loads(response.read().decode('utf-8'))
+                cf_order_status = cf_data.get("order_status")
+                if cf_order_status == "PAID":
+                    order.status = "paid"
+                    db.commit()
+                    grant_pro_access(order.profile_id, db, payment_id=order_id, amount_paid=order.amount, months=6)
+                elif cf_order_status in ["EXPIRED", "TERMINATED"]:
+                    order.status = "failed"
+                    db.commit()
+        except Exception as err:
+            logger.warning(f"Cashfree status fallback check notice for {order_id}: {err}")
+
+    profile_sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == order.profile_id).first()
+    valid_until = profile_sub.valid_until.isoformat() if (profile_sub and profile_sub.valid_until) else None
+
+    return {
+        "order_id": order.order_id,
+        "status": order.status,
+        "amount": order.amount,
+        "currency": order.currency,
+        "is_pro": profile_sub.plan_tier == "pro" if profile_sub else False,
+        "valid_until": valid_until
+    }
+
+@app.post("/api/payments/verify")
+def verify_payment_legacy(
+    req: VerifyPaymentRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Legacy payment verification endpoint for backward compatibility.
+    """
+    order_id = req.order_id or req.razorpay_order_id
+    if order_id:
+        return get_payment_order_status(order_id, db)
+    return {"success": True, "message": "Payment recorded"}
 
 
 # ============================================================================

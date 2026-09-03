@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Star
-} from 'lucide-react';
+import ApplyButton from './ApplyButton';
 
 const CITY_OPTIONS = [
   { label: 'All Cities', value: 'all' },
@@ -1204,26 +1204,11 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                         })()}
                       </span>
 
-                      <a
-                        href={item.apply_url_resolved || item.apply_url || item.url || `https://www.google.com/search?q=${encodeURIComponent(comp + ' ' + (item.title || '') + ' internship apply')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          background: '#10B981',
-                          color: '#FFFFFF',
-                          textDecoration: 'none',
-                          borderRadius: '9999px',
-                          padding: '5px 12px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}
-                      >
-                        Apply <ExternalLink size={11} />
-                      </a>
+                      <ApplyButton
+                        job={item}
+                        variant="emerald"
+                        size="sm"
+                      />
 
                       <button
                         onClick={(e) => {

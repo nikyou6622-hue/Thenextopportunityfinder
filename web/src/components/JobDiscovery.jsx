@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import SkillGapActionPlanModal from './SkillGapActionPlanModal';
+import ApplyButton from './ApplyButton';
 import SoundSystem from './characters/SoundEffects';
 import EmptyStateCharacter from './characters/EmptyStateCharacter';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
@@ -872,30 +873,13 @@ export default function JobDiscovery({
                           })()}
                         </span>
 
-                        <a
-                          href={job.apply_url || job.url || `https://www.google.com/search?q=${encodeURIComponent(comp + ' ' + (job.title || '') + ' careers apply')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            background: 'rgba(15, 23, 42, 0.08)',
-                            border: '1px solid rgba(15, 23, 42, 0.2)',
-                            color: '#0F172A',
-                            borderRadius: '9999px',
-                            padding: '6px 12px',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            textDecoration: 'none',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer'
-                          }}
-                          title="Apply directly on official company careers portal"
-                        >
-                          <span>Apply</span>
-                          <ExternalLink size={12} />
-                        </a>
+                        <ApplyButton
+                          job={job}
+                          match={m}
+                          variant="outline"
+                          size="sm"
+                          onOpenFlowModal={onApplyJob}
+                        />
 
                         <button
                           onClick={(e) => {
@@ -1288,26 +1272,12 @@ export default function JobDiscovery({
                           {displaySal}
                         </span>
 
-                        <a 
-                          href={job.apply_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            background: '#0EA5E9',
-                            color: '#FFFFFF',
-                            textDecoration: 'none',
-                            borderRadius: '9999px',
-                            padding: '6px 14px',
-                            fontSize: '0.74rem',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          Apply <ExternalLink size={12} />
-                        </a>
+                        <ApplyButton
+                          job={job}
+                          variant="primary"
+                          size="sm"
+                          onOpenFlowModal={onApplyJob}
+                        />
                       </div>
                     </div>
                   </div>

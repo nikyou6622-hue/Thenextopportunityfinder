@@ -70,25 +70,41 @@ export default function ApplicationFlowModal({
     setIsSubmitting(true);
     SoundSystem.playPop();
     try {
-      if (match?.id) {
-        await apiFetch(`/api/applications/tailor/${match.id}`, { method: 'POST' });
+      const appId = match?.id || job?.application_id || job?.id;
+      if (appId && typeof appId === 'number') {
+        try {
+          await apiFetch(`/api/applications/${appId}/track-click`, { method: 'POST' });
+        } catch (e) {
+          console.warn("Track click warning:", e);
+        }
       }
+
+      // Canonical link-out to real external ATS portal
+      const compName = currentJob.company || currentJob.employer_name || '';
+      const roleTitle = currentJob.title || currentJob.role_title || '';
+      const searchFallback = `https://www.google.com/search?q=${encodeURIComponent(`${compName} ${roleTitle} careers apply`.trim())}`;
+      const targetUrl = currentJob.apply_url_resolved || currentJob.apply_url || currentJob.url || (compName ? searchFallback : '#');
+
+      if (targetUrl && targetUrl !== '#') {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+
       setSubmitted(true);
       SoundSystem.playSuccess();
       if (onTriggerCelebration) onTriggerCelebration();
       setTimeout(() => {
         if (onSubmitSuccess) onSubmitSuccess();
         onClose();
-      }, 1600);
+      }, 2200);
     } catch (e) {
-      console.error("Submission error:", e);
+      console.error("Link-out error:", e);
       setSubmitted(true);
       SoundSystem.playSuccess();
       if (onTriggerCelebration) onTriggerCelebration();
       setTimeout(() => {
         if (onSubmitSuccess) onSubmitSuccess();
         onClose();
-      }, 1600);
+      }, 2200);
     } finally {
       setIsSubmitting(false);
     }
@@ -192,10 +208,10 @@ export default function ApplicationFlowModal({
                   <NovaCharacter pose="celebrate" size={96} />
                 </div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#FFFFFF', marginBottom: '8px' }}>
-                  Application Submitted! 🚀
+                  Official Application Link Opened! 🚀
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#94A3B8' }}>
-                  Nova added this to your Application Pipeline & primed your Interview Prep Studio.
+                  Nova logged your direct application link-out in your Application Pipeline. Please complete your submission on {currentJob.company || 'the company'}'s portal.
                 </p>
               </div>
             ) : isSubmitting ? (
@@ -208,13 +224,13 @@ export default function ApplicationFlowModal({
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <img src="/loading.svg" alt="Submitting Application" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img src="/loading.svg" alt="Opening Application" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '8px' }}>
-                  Tailoring & Submitting Requisition...
+                  Opening External Application Portal...
                 </h3>
                 <p style={{ fontSize: '0.82rem', color: '#94A3B8' }}>
-                  Formatting ATS bullet points & syncing career telemetry.
+                  Logging link-out telemetry & directing you to verified employer portal.
                 </p>
               </div>
             ) : (
@@ -441,7 +457,7 @@ export default function ApplicationFlowModal({
                     }}>
                       <Sparkles size={16} color="#A78BFA" />
                       <span style={{ fontSize: '0.78rem', color: '#C4B5FD', lineHeight: 1.4 }}>
-                        AI Auto-Tailoring will align your bullet points to <strong>{currentJob.company}</strong>'s requirements upon submission.
+                        AI Profile Preview for <strong>{currentJob.company}</strong>. Clicking below opens their official careers site for manual candidate submission.
                       </span>
                     </div>
 
@@ -461,7 +477,7 @@ export default function ApplicationFlowModal({
                           fontWeight: 600
                         }}
                       >
-                        <span>Prefer to apply on company site? Open {currentJob.company || 'Company'} Portal</span>
+                        <span>Open {currentJob.company || 'Company'} Direct Portal</span>
                         <ExternalLink size={12} />
                       </a>
                     </div>
@@ -505,7 +521,7 @@ export default function ApplicationFlowModal({
                   opacity: isSubmitting ? 0.7 : 1
                 }}
               >
-                {isSubmitting ? 'Submitting...' : currentStep === 3 ? 'Submit Application 🚀' : 'Next →'}
+                {isSubmitting ? 'Opening Link...' : currentStep === 3 ? 'Open Official Application 🚀' : 'Next →'}
               </button>
             </div>
           )}

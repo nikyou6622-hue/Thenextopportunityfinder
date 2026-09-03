@@ -59,6 +59,7 @@ const CommunityForumView = lazyWithRetry(() => import('./components/CommunityFor
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
 const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel'));
 const RazorpayCheckoutModal = lazyWithRetry(() => import('./components/RazorpayCheckoutModal'));
+const PaymentStatusPage = lazyWithRetry(() => import('./components/PaymentStatusPage'));
 const SalaryIntelligenceStudio = lazyWithRetry(() => import('./components/SalaryIntelligenceStudio'));
 const ArchifySystemMap = lazyWithRetry(() => import('./components/ArchifySystemMap'));
 
@@ -108,9 +109,13 @@ export default function App() {
       const queryTab = params.get('tab')?.toLowerCase();
       const redirectTab = params.get('redirect')?.toLowerCase();
       
+      if (params.get('order_id') || path.includes('payment')) {
+        return 'payment-status';
+      }
+
       // Unauthenticated users: ALWAYS default to 'home' (HomePage) unless accessing a specific public info page
       if (!isAuthenticated) {
-        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary', 'admin', 'architecture'];
+        const publicPages = ['privacy', 'terms', 'status', 'changelog', 'salary', 'admin', 'architecture', 'payment-status'];
         const requested = queryTab || path || hash;
         if (requested && publicPages.includes(requested)) {
           return requested;
@@ -1145,6 +1150,12 @@ export default function App() {
 
             {activeTab === 'changelog' && (
               <ChangelogPage />
+            )}
+
+            {(activeTab === 'payment-status' || activeTab === 'payment/status') && (
+              <PaymentStatusPage 
+                onNavigateHome={() => setActiveTab('overview')}
+              />
             )}
 
             {activeTab === 'admin' && (

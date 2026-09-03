@@ -12,6 +12,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import ApplyButton from './ApplyButton';
 import SoundSystem from './characters/SoundEffects';
 import EmptyStateCharacter from './characters/EmptyStateCharacter';
 
@@ -330,27 +331,11 @@ export default function SavedJobsView({
                     })()}
                   </div>
 
-                  <a
-                    href={job.apply_url || job.url || `https://www.google.com/search?q=${encodeURIComponent(comp + ' ' + (job.title || '') + ' careers apply')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      background: '#10B981',
-                      color: '#FFFFFF',
-                      textDecoration: 'none',
-                      borderRadius: '9999px',
-                      padding: '5px 12px',
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                    title="Apply directly on company portal"
-                  >
-                    Apply <ExternalLink size={11} />
-                  </a>
+                  <ApplyButton
+                    job={job}
+                    variant="emerald"
+                    size="sm"
+                  />
                 </div>
               </div>
             </div>

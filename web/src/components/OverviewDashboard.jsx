@@ -43,6 +43,7 @@ import UploadResumeBanner from './UploadResumeBanner';
 import PostSignupResumeModal from './PostSignupResumeModal';
 import UserAvatar from './UserAvatar';
 import SoundSystem from './characters/SoundEffects';
+import ApplyButton from './ApplyButton';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
 import { NovaCharacter, PixelCharacter, LexiCharacter, ZenithCharacter } from './characters/CharacterUniverse';
 
@@ -1832,27 +1833,11 @@ export default function OverviewDashboard({
                           {roleSalary}
                         </div>
 
-                        <a
-                          href={jobObj.apply_url || jobObj.url || `https://www.google.com/search?q=${encodeURIComponent(comp + ' ' + roleTitle + ' careers apply')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            background: '#10B981',
-                            color: '#FFFFFF',
-                            textDecoration: 'none',
-                            borderRadius: '9999px',
-                            padding: '4px 10px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title="Apply directly on company portal"
-                        >
-                          Apply <ExternalLink size={11} />
-                        </a>
+                        <ApplyButton
+                          job={jobObj}
+                          variant="emerald"
+                          size="xs"
+                        />
                       </div>
                     </div>
                   </div>
