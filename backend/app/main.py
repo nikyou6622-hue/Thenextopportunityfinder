@@ -3955,13 +3955,14 @@ def get_link_health_summary(db: Session = Depends(get_db)):
     """
     Returns real-time link health telemetry across the opportunity catalog.
     """
-    total = db.query(JobModel).count()
-    live = db.query(JobModel).filter(JobModel.link_status == "live").count()
-    dead = db.query(JobModel).filter(JobModel.link_status == "dead").count()
-    redirected = db.query(JobModel).filter(JobModel.link_status == "redirected").count()
-    unchecked = db.query(JobModel).filter(
-        (JobModel.link_status == "unchecked") | (JobModel.link_status.is_(None))
-    ).count()
+    rows = db.query(JobModel.link_status, func.count(JobModel.id)).group_by(JobModel.link_status).all()
+    status_map = {r[0]: r[1] for r in rows if r[0]}
+    total = sum(r[1] for r in rows)
+    
+    live = status_map.get("live", 0)
+    dead = status_map.get("dead", 0)
+    redirected = status_map.get("redirected", 0)
+    unchecked = total - (live + dead + redirected)
     
     health_pct = round(((live + redirected) / total * 100.0), 1) if total > 0 else 100.0
     return LinkHealthSummary(
@@ -3969,7 +3970,7 @@ def get_link_health_summary(db: Session = Depends(get_db)):
         live_links=live,
         dead_links=dead,
         redirected_links=redirected,
-        unchecked_links=unchecked,
+        unchecked_links=max(0, unchecked),
         health_percentage=health_pct
     )
 
