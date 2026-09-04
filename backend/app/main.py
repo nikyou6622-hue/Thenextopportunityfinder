@@ -300,9 +300,9 @@ def auto_migrate_db(engine_obj):
                 except Exception:
                     pass
 
-# Always run database DDL auto-migrators at engine initialization
-auto_migrate_db(engine)
+# Run database DDL auto-migrators locally only (Skip on Vercel cold-starts for instant response)
 if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
+    auto_migrate_db(engine)
     auto_migrate_sqlite()
 
 # Seed learning resources, interview questions, coding questions & templates (Skip on Vercel cold-starts)
