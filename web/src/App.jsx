@@ -352,14 +352,12 @@ export default function App() {
           setProfile(profData);
         } else {
           const userEmail = activeUser?.email;
-          const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
-          const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
+          const localProf = userEmail ? loadProfileFromLocal(userEmail) : null;
           setProfile(localProf || null);
         }
       } else {
         const userEmail = activeUser?.email;
-        const cloudProf = userEmail ? await fetchProfileFromSupabase(userEmail) : null;
-        const localProf = cloudProf || (userEmail ? loadProfileFromLocal(userEmail) : null);
+        const localProf = userEmail ? loadProfileFromLocal(userEmail) : null;
         setProfile(localProf || null);
       }
 

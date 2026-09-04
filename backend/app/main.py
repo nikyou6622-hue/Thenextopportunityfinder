@@ -663,61 +663,7 @@ def _build_user_payload(user: UserModel, db: Optional[Session] = None) -> Dict[s
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
 
-def _ensure_default_admin_account():
-    """Guarantees the system administrator accounts adityanikt@gmail.com and adityanikt622@gmail.com are provisioned."""
-    db = SessionLocal()
-    try:
-        admin_accounts = [
-            ("adityanikt@gmail.com", "753951"),
-            ("adityanikt622@gmail.com", "Nikhiladitya#753951")
-        ]
-        
-        for email, pwd in admin_accounts:
-            admin_pass_hash = _hash_password(pwd)
-            user = db.query(UserModel).filter(UserModel.email == email).first()
-            if not user:
-                user = UserModel(
-                    full_name="Aditya Nikam (Admin)",
-                    email=email,
-                    password_hash=admin_pass_hash,
-                    target_role="Lead Architect & System Administrator",
-                    experience_level="Senior / Lead (5+ yrs)",
-                    avatar_url="https://api.dicebear.com/7.x/bottts/svg?seed=Aditya+Admin",
-                    is_active=True,
-                    is_email_verified=True
-                )
-                db.add(user)
-                db.commit()
-                db.refresh(user)
-                logger.info(f"Master Administrator account provisioned: {email}")
-            else:
-                user.password_hash = admin_pass_hash
-                user.is_active = True
-                user.is_email_verified = True
-                db.commit()
-
-            profile = db.query(ProfileModel).filter(ProfileModel.email == email).first()
-            if not profile:
-                profile = ProfileModel(
-                    name="Aditya Nikam (Admin)",
-                    email=email,
-                    phone="+91 9876543210",
-                    location={"city": "Bengaluru", "country": "India", "open_to_remote": True},
-                    skills=["Python", "FastAPI", "React", "Next.js", "Docker", "PostgreSQL", "System Design", "Distributed Systems", "AI Agents"],
-                    experience_years=6.0,
-                    ats_score=98,
-                    domains=["full stack", "distributed systems", "ai/ml", "devops"],
-                    summary="Lead Architect & System Administrator for Next Opportunity Finder. Monitoring 8 AI micro-agents, verified opportunity streams, and DPDP compliance.",
-                    consent_given=True,
-                    consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
-                )
-                db.add(profile)
-                db.commit()
-    except Exception as e:
-        logger.error(f"Error provisioning default admin account: {e}")
-        db.rollback()
-    finally:
-        db.close()
+# Early forward call for admin provisioning is handled by ADMIN_TIER_ACCOUNTS at app initialization
 
 # In-memory OTP token registry: email -> { "otp": str, "purpose": str, "created_at": float, "expires_at": float, "attempts": int }
 _OTP_REGISTRY: Dict[str, Dict[str, Any]] = {}
