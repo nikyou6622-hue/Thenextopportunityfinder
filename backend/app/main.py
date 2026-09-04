@@ -21,11 +21,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text, or_, and_, func
 
 try:
-    from dotenv import load_dotenv
-    _main_dir = os.path.dirname(os.path.abspath(__file__))
-    _root_dir = os.path.dirname(os.path.dirname(_main_dir))
-    load_dotenv(os.path.join(_root_dir, ".env"), override=True)
-    load_dotenv(os.path.join(_root_dir, "backend", ".env"), override=True)
+    if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
+        from dotenv import load_dotenv
+        _main_dir = os.path.dirname(os.path.abspath(__file__))
+        _root_dir = os.path.dirname(os.path.dirname(_main_dir))
+        load_dotenv(os.path.join(_root_dir, ".env"), override=False)
+        load_dotenv(os.path.join(_root_dir, "backend", ".env"), override=False)
 except ImportError:
     pass
 
