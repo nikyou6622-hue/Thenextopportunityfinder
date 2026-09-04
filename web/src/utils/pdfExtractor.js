@@ -21,7 +21,8 @@ export async function extractPdfTextClient(arrayBuffer) {
   // 1. Primary Engine: Mozilla PDF.js (Handles all font encodings & kerning arrays)
   try {
     if (pdfjsLib && pdfjsLib.getDocument) {
-      const loadingTask = pdfjsLib.getDocument({ data: bufferForWorker });
+      const verbosity = pdfjsLib.VerbosityLevel !== undefined ? pdfjsLib.VerbosityLevel.ERRORS : 0;
+      const loadingTask = pdfjsLib.getDocument({ data: bufferForWorker, verbosity });
       const pdf = await loadingTask.promise;
       let fullText = '';
       

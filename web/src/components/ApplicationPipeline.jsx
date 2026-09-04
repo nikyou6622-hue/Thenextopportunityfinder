@@ -22,13 +22,13 @@ import SoundSystem from './characters/SoundEffects';
 import EmptyStateCharacter from './characters/EmptyStateCharacter';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
 
-export default function ApplicationPipeline({ applications = [], onUpdateAppStatus, onLaunchInterviewPrep }) {
+export default function ApplicationPipeline({ applications = [], onUpdateAppStatus, onLaunchInterviewPrep, onNavigateToJobs }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [openingId, setOpeningId] = useState(null);
 
-  // Normalized list of apps (Real Data Only)
-  const appList = applications.length > 0 ? applications.map(app => {
+  // Normalized list of apps (Real Data Only - Zero Fake Cards)
+  const appList = Array.isArray(applications) && applications.length > 0 ? applications.map(app => {
     const j = app.job || {};
     let statusLabel = 'Applied';
     let statusClass = 'badge-status-applied';
@@ -51,13 +51,13 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
       id: app.id,
       company: j.company || 'Direct Employer',
       role_title: j.role_title || j.title || 'Software Engineer',
-      applied_time: 'Applied recently',
+      applied_time: app.applied_at ? new Date(app.applied_at).toLocaleDateString() : 'Applied recently',
       status: app.status,
       status_label: statusLabel,
       status_badge_class: statusClass,
       logo: (j.company || 'D').charAt(0).toUpperCase(),
       logo_bg: '#7C3AED',
-      match_score: app.match?.match_score || 88,
+      match_score: app.match?.match_score || 85,
       raw: app
     };
   }) : [];
@@ -217,8 +217,58 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
         </div>
       </div>
 
+      {/* HONEST EMPTY STATE */}
+      {filteredList.length === 0 && (
+        <div className="glass-panel" style={{
+          padding: '48px 24px',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '14px',
+          background: 'rgba(15, 23, 42, 0.75)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px'
+        }}>
+          <EmptyStateCharacter character="pixel" pose="searching" size={130} />
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+            {appList.length === 0 
+              ? "You haven't tracked any applications yet — apply to a job to start tracking it here."
+              : `No applications found for "${filterStatus}" filter`}
+          </h3>
+          <p style={{ fontSize: '0.88rem', color: '#94a3b8', maxWidth: '480px', margin: 0, lineHeight: 1.5 }}>
+            {appList.length === 0
+              ? "Your pipeline displays only genuine applications tied to your candidate profile. Discover active postings and apply with one click."
+              : "Try switching status filters or browse available positions in Job Discovery."}
+          </p>
+          {onNavigateToJobs && (
+            <button
+              onClick={onNavigateToJobs}
+              style={{
+                background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px 22px',
+                borderRadius: '12px',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(124, 58, 237, 0.4)',
+                marginTop: '6px'
+              }}
+            >
+              <Briefcase size={16} />
+              <span>Browse Job Discovery →</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 07. SCREEN 07 CARD VIEW */}
-      {viewMode === 'cards' && (
+      {viewMode === 'cards' && filteredList.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {filteredList.map((app, idx) => (
             <motion.div
@@ -332,7 +382,7 @@ export default function ApplicationPipeline({ applications = [], onUpdateAppStat
       )}
 
       {/* ADVANCED LIFECYCLE TABLE VIEW */}
-      {viewMode === 'table' && (
+      {viewMode === 'table' && filteredList.length > 0 && (
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>

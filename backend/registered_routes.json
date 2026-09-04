@@ -1,0 +1,1341 @@
+[
+  {
+    "path": "/openapi.json",
+    "methods": [
+      "GET",
+      "HEAD"
+    ],
+    "name": "openapi"
+  },
+  {
+    "path": "/docs",
+    "methods": [
+      "GET",
+      "HEAD"
+    ],
+    "name": "swagger_ui_html"
+  },
+  {
+    "path": "/docs/oauth2-redirect",
+    "methods": [
+      "GET",
+      "HEAD"
+    ],
+    "name": "swagger_ui_redirect"
+  },
+  {
+    "path": "/redoc",
+    "methods": [
+      "GET",
+      "HEAD"
+    ],
+    "name": "redoc_html"
+  },
+  {
+    "path": "/healthz",
+    "methods": [
+      "GET"
+    ],
+    "name": "liveness_check"
+  },
+  {
+    "path": "/api",
+    "methods": [
+      "GET"
+    ],
+    "name": "root_health_endpoint"
+  },
+  {
+    "path": "/",
+    "methods": [
+      "GET"
+    ],
+    "name": "root_health_endpoint"
+  },
+  {
+    "path": "/readyz",
+    "methods": [
+      "GET"
+    ],
+    "name": "readiness_check"
+  },
+  {
+    "path": "/debug-path",
+    "methods": [
+      "POST"
+    ],
+    "name": "debug_path_endpoint"
+  },
+  {
+    "path": "/api/debug-path",
+    "methods": [
+      "POST"
+    ],
+    "name": "debug_path_endpoint"
+  },
+  {
+    "path": "/debug-path",
+    "methods": [
+      "GET"
+    ],
+    "name": "debug_path_endpoint"
+  },
+  {
+    "path": "/api/debug-path",
+    "methods": [
+      "GET"
+    ],
+    "name": "debug_path_endpoint"
+  },
+  {
+    "path": "/api/health",
+    "methods": [
+      "GET"
+    ],
+    "name": "health_check"
+  },
+  {
+    "path": "/health",
+    "methods": [
+      "GET"
+    ],
+    "name": "health_check"
+  },
+  {
+    "path": "/api/auth/send-otp",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_send_otp"
+  },
+  {
+    "path": "/api/auth/verify-otp",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_verify_otp"
+  },
+  {
+    "path": "/api/auth/send-email-verification",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_send_email_verification"
+  },
+  {
+    "path": "/api/auth/verify-email",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_verify_email"
+  },
+  {
+    "path": "/api/auth/signup",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_signup"
+  },
+  {
+    "path": "/api/auth/login",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_login"
+  },
+  {
+    "path": "/api/auth/forgot-password/request",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_forgot_password_request"
+  },
+  {
+    "path": "/api/auth/forgot-password/reset",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_forgot_password_reset"
+  },
+  {
+    "path": "/api/auth/me",
+    "methods": [
+      "GET"
+    ],
+    "name": "auth_get_current_user"
+  },
+  {
+    "path": "/api/auth/logout",
+    "methods": [
+      "POST"
+    ],
+    "name": "auth_logout"
+  },
+  {
+    "path": "/api/auth/google/config",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_google_oauth_config"
+  },
+  {
+    "path": "/api/auth/google/verify",
+    "methods": [
+      "POST"
+    ],
+    "name": "verify_google_oauth"
+  },
+  {
+    "path": "/api/admin/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_system_stats"
+  },
+  {
+    "path": "/api/admin/scraper/concurrency",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_scraper_concurrency"
+  },
+  {
+    "path": "/api/admin/scraper/status",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_scraper_status"
+  },
+  {
+    "path": "/api/admin/scraper/activity",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_scraper_activity"
+  },
+  {
+    "path": "/api/admin/errors",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_error_logs"
+  },
+  {
+    "path": "/api/admin/errors/{error_id}/resolve",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_resolve_error_log"
+  },
+  {
+    "path": "/api/test/trigger-error",
+    "methods": [
+      "POST"
+    ],
+    "name": "test_trigger_unhandled_error"
+  },
+  {
+    "path": "/api/admin/scraper/run/{source}",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_trigger_scraper_run"
+  },
+  {
+    "path": "/api/admin/scraper/run",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_trigger_scraper_run"
+  },
+  {
+    "path": "/api/admin/jobs/health",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_jobs_health"
+  },
+  {
+    "path": "/api/admin/jobs/link-health-check",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_trigger_link_health_check"
+  },
+  {
+    "path": "/api/admin/system/health",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_system_health"
+  },
+  {
+    "path": "/api/admin/system/errors",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_system_errors"
+  },
+  {
+    "path": "/api/admin/users",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_users"
+  },
+  {
+    "path": "/api/admin/user/{user_id}/detail",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_user_detail"
+  },
+  {
+    "path": "/api/admin/user/{user_id}/action",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_execute_user_action"
+  },
+  {
+    "path": "/api/admin/audit-logs",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_audit_logs"
+  },
+  {
+    "path": "/api/admin/deploy/status",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_deploy_status"
+  },
+  {
+    "path": "/api/admin/metrics",
+    "methods": [
+      "GET"
+    ],
+    "name": "admin_get_business_metrics"
+  },
+  {
+    "path": "/subscription/status",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_subscription_status"
+  },
+  {
+    "path": "/api/subscription/status",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_subscription_status"
+  },
+  {
+    "path": "/subscription/scrape/",
+    "methods": [
+      "GET"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/subscription/scrape",
+    "methods": [
+      "GET"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/api/subscription/scrape/",
+    "methods": [
+      "GET"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/api/subscription/scrape",
+    "methods": [
+      "GET"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/subscription/scrape/",
+    "methods": [
+      "POST"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/subscription/scrape",
+    "methods": [
+      "POST"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/api/subscription/scrape/",
+    "methods": [
+      "POST"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/api/subscription/scrape",
+    "methods": [
+      "POST"
+    ],
+    "name": "record_scrape_action"
+  },
+  {
+    "path": "/api/subscription/upgrade",
+    "methods": [
+      "POST"
+    ],
+    "name": "upgrade_to_pro"
+  },
+  {
+    "path": "/profile/upload/",
+    "methods": [
+      "POST"
+    ],
+    "name": "upload_resume"
+  },
+  {
+    "path": "/profile/upload",
+    "methods": [
+      "POST"
+    ],
+    "name": "upload_resume"
+  },
+  {
+    "path": "/api/profile/upload/",
+    "methods": [
+      "POST"
+    ],
+    "name": "upload_resume"
+  },
+  {
+    "path": "/api/profile/upload",
+    "methods": [
+      "POST"
+    ],
+    "name": "upload_resume"
+  },
+  {
+    "path": "/api/profile/upload-status",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_upload_status"
+  },
+  {
+    "path": "/api/profile/upload-status/{job_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_upload_status"
+  },
+  {
+    "path": "/profile",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_profile"
+  },
+  {
+    "path": "/api/profile",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_profile"
+  },
+  {
+    "path": "/api/profile/reset",
+    "methods": [
+      "POST"
+    ],
+    "name": "delete_profile_and_data"
+  },
+  {
+    "path": "/api/profile",
+    "methods": [
+      "DELETE"
+    ],
+    "name": "delete_profile_and_data"
+  },
+  {
+    "path": "/api/profile/{profile_id}",
+    "methods": [
+      "DELETE"
+    ],
+    "name": "delete_profile_and_data"
+  },
+  {
+    "path": "/api/profile/consent",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_profile_consent_record"
+  },
+  {
+    "path": "/api/profile/{profile_id}/consent",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_profile_consent_record"
+  },
+  {
+    "path": "/api/notifications",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_candidate_notifications"
+  },
+  {
+    "path": "/api/notifications/{profile_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_candidate_notifications"
+  },
+  {
+    "path": "/api/notifications/{notification_id}/read",
+    "methods": [
+      "POST"
+    ],
+    "name": "mark_notification_as_read"
+  },
+  {
+    "path": "/api/notifications/mark-all-read",
+    "methods": [
+      "POST"
+    ],
+    "name": "mark_all_notifications_read"
+  },
+  {
+    "path": "/api/notifications/{profile_id}/preferences",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_notification_preferences"
+  },
+  {
+    "path": "/api/notifications/preferences",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_notification_preferences"
+  },
+  {
+    "path": "/api/notifications/{profile_id}/preferences",
+    "methods": [
+      "PUT"
+    ],
+    "name": "update_notification_preferences"
+  },
+  {
+    "path": "/api/notifications/preferences",
+    "methods": [
+      "PUT"
+    ],
+    "name": "update_notification_preferences"
+  },
+  {
+    "path": "/api/notifications/digest/preview",
+    "methods": [
+      "POST"
+    ],
+    "name": "generate_digest_preview"
+  },
+  {
+    "path": "/api/admin/purge-retention",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_retention_purge"
+  },
+  {
+    "path": "/api/profile",
+    "methods": [
+      "POST"
+    ],
+    "name": "update_profile"
+  },
+  {
+    "path": "/api/profile/reorder",
+    "methods": [
+      "POST"
+    ],
+    "name": "reorder_resume_elements"
+  },
+  {
+    "path": "/api/profile/ats-score",
+    "methods": [
+      "POST"
+    ],
+    "name": "calculate_live_ats_score"
+  },
+  {
+    "path": "/jobs/discover/",
+    "methods": [
+      "GET"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/jobs/discover",
+    "methods": [
+      "GET"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/api/jobs/discover/",
+    "methods": [
+      "GET"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/api/jobs/discover",
+    "methods": [
+      "GET"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/jobs/discover/",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/jobs/discover",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/api/jobs/discover/",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/api/jobs/discover",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_discovery"
+  },
+  {
+    "path": "/api/jobs/purge-dead",
+    "methods": [
+      "POST"
+    ],
+    "name": "purge_dead_job_listings"
+  },
+  {
+    "path": "/api/jobs/import-file",
+    "methods": [
+      "POST"
+    ],
+    "name": "import_jobs_file"
+  },
+  {
+    "path": "/api/jobs",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_jobs"
+  },
+  {
+    "path": "/matches",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_matches"
+  },
+  {
+    "path": "/api/matches",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_matches"
+  },
+  {
+    "path": "/api/jobs/revalidate-links",
+    "methods": [
+      "POST"
+    ],
+    "name": "revalidate_job_links_endpoint"
+  },
+  {
+    "path": "/api/jobs/link-health",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_link_health_summary"
+  },
+  {
+    "path": "/api/resume/tailor/{identifier}",
+    "methods": [
+      "POST"
+    ],
+    "name": "tailor_application"
+  },
+  {
+    "path": "/api/applications/tailor/{identifier}",
+    "methods": [
+      "POST"
+    ],
+    "name": "tailor_application"
+  },
+  {
+    "path": "/api/applications/",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_applications"
+  },
+  {
+    "path": "/applications",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_applications"
+  },
+  {
+    "path": "/api/applications",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_applications"
+  },
+  {
+    "path": "/applications/{app_id}",
+    "methods": [
+      "PUT"
+    ],
+    "name": "update_application_status"
+  },
+  {
+    "path": "/api/applications/{app_id}",
+    "methods": [
+      "PUT"
+    ],
+    "name": "update_application_status"
+  },
+  {
+    "path": "/applications/{app_id}/track-click",
+    "methods": [
+      "POST"
+    ],
+    "name": "track_application_click"
+  },
+  {
+    "path": "/api/applications/{app_id}/track-click",
+    "methods": [
+      "POST"
+    ],
+    "name": "track_application_click"
+  },
+  {
+    "path": "/applications/{app_id}",
+    "methods": [
+      "DELETE"
+    ],
+    "name": "delete_application"
+  },
+  {
+    "path": "/api/applications/{app_id}",
+    "methods": [
+      "DELETE"
+    ],
+    "name": "delete_application"
+  },
+  {
+    "path": "/api/emails/batch/prepare",
+    "methods": [
+      "POST"
+    ],
+    "name": "prepare_email_batch_endpoint"
+  },
+  {
+    "path": "/api/emails/batch/send/{batch_id}",
+    "methods": [
+      "POST"
+    ],
+    "name": "send_email_batch_endpoint"
+  },
+  {
+    "path": "/api/interview-prep/study-materials",
+    "methods": [
+      "POST"
+    ],
+    "name": "get_study_materials_endpoint"
+  },
+  {
+    "path": "/api/interview-prep/{application_id}",
+    "methods": [
+      "POST"
+    ],
+    "name": "generate_interview_prep"
+  },
+  {
+    "path": "/api/interview-prep/{application_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_interview_prep"
+  },
+  {
+    "path": "/api/interview-prep/{application_id}/mock-session",
+    "methods": [
+      "POST"
+    ],
+    "name": "run_mock_interview_turn"
+  },
+  {
+    "path": "/api/telemetry/cost",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_cost_telemetry_endpoint"
+  },
+  {
+    "path": "/api/compliance/registry",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_compliance_registry_endpoint"
+  },
+  {
+    "path": "/api/resume/export/{profile_id}",
+    "methods": [
+      "POST"
+    ],
+    "name": "export_candidate_resume"
+  },
+  {
+    "path": "/api/resume/export/{profile_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "export_candidate_resume"
+  },
+  {
+    "path": "/api/resume/quality-analysis",
+    "methods": [
+      "POST"
+    ],
+    "name": "get_resume_quality_analysis"
+  },
+  {
+    "path": "/api/resume/quality-analysis",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_resume_quality_analysis"
+  },
+  {
+    "path": "/api/skills/action-plan",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_skill_gap_action_plan"
+  },
+  {
+    "path": "/api/learning-resources",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_learning_resources"
+  },
+  {
+    "path": "/api/interview-questions",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_interview_questions"
+  },
+  {
+    "path": "/api/coding-questions",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_coding_questions"
+  },
+  {
+    "path": "/api/coding-questions/{question_id}/attempt",
+    "methods": [
+      "POST"
+    ],
+    "name": "submit_coding_attempt"
+  },
+  {
+    "path": "/api/resume-templates",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_resume_templates"
+  },
+  {
+    "path": "/applications",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_applications"
+  },
+  {
+    "path": "/api/applications",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_applications"
+  },
+  {
+    "path": "/api/applications/{application_id}/track-click",
+    "methods": [
+      "POST"
+    ],
+    "name": "track_application_click"
+  },
+  {
+    "path": "/api/applications/{application_id}",
+    "methods": [
+      "PUT"
+    ],
+    "name": "update_application"
+  },
+  {
+    "path": "/api/diagnosis/{profile_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_candidate_diagnoses"
+  },
+  {
+    "path": "/api/diagnosis/{profile_id}/analyze",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_diagnosis_analysis"
+  },
+  {
+    "path": "/api/metrics/outcomes",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_outcome_metrics"
+  },
+  {
+    "path": "/dashboard/metrics",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_dashboard"
+  },
+  {
+    "path": "/api/dashboard/metrics",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_dashboard"
+  },
+  {
+    "path": "/api/seed",
+    "methods": [
+      "POST"
+    ],
+    "name": "seed_demo"
+  },
+  {
+    "path": "/api/admin/super-audit",
+    "methods": [
+      "POST"
+    ],
+    "name": "run_super_admin_audit_endpoint"
+  },
+  {
+    "path": "/api/admin/super-audit",
+    "methods": [
+      "GET"
+    ],
+    "name": "run_super_admin_audit_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_mnc_jobs"
+  },
+  {
+    "path": "/api/jobs/mnc/scan",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_mnc_scan_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc/scan-status",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_mnc_scan_status_endpoint"
+  },
+  {
+    "path": "/internships/india",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_india_internships_endpoint"
+  },
+  {
+    "path": "/api/internships/india",
+    "methods": [
+      "GET"
+    ],
+    "name": "list_india_internships_endpoint"
+  },
+  {
+    "path": "/internships/india/scan",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_india_internship_scan_endpoint"
+  },
+  {
+    "path": "/api/internships/india/scan",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_india_internship_scan_endpoint"
+  },
+  {
+    "path": "/internships/india/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_market_stats_endpoint"
+  },
+  {
+    "path": "/api/internships/india/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_market_stats_endpoint"
+  },
+  {
+    "path": "/internships/market-stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_market_stats_endpoint"
+  },
+  {
+    "path": "/api/internships/market-stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_market_stats_endpoint"
+  },
+  {
+    "path": "/api/jobs/global",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_global_tech_jobs_endpoint"
+  },
+  {
+    "path": "/api/salary/benchmark",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_salary_benchmark_endpoint"
+  },
+  {
+    "path": "/api/cover-letter/export/{app_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "export_cover_letter_endpoint"
+  },
+  {
+    "path": "/api/resume/export",
+    "methods": [
+      "GET"
+    ],
+    "name": "export_candidate_resume_endpoint"
+  },
+  {
+    "path": "/api/resume/export/{profile_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "export_candidate_resume_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_mnc_jobs_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc/scan",
+    "methods": [
+      "GET"
+    ],
+    "name": "trigger_mnc_scan_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc/scan",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_mnc_scan_endpoint"
+  },
+  {
+    "path": "/api/jobs/mnc/scan/status",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_mnc_status_endpoint"
+  },
+  {
+    "path": "/internships/india",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_india_internships_endpoint"
+  },
+  {
+    "path": "/api/internships/india",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_india_internships_endpoint"
+  },
+  {
+    "path": "/internships/india/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_stats_endpoint"
+  },
+  {
+    "path": "/api/internships/india/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_internship_stats_endpoint"
+  },
+  {
+    "path": "/internships/india/refresh",
+    "methods": [
+      "GET"
+    ],
+    "name": "refresh_internship_hub_endpoint"
+  },
+  {
+    "path": "/api/internships/india/refresh",
+    "methods": [
+      "GET"
+    ],
+    "name": "refresh_internship_hub_endpoint"
+  },
+  {
+    "path": "/internships/india/refresh",
+    "methods": [
+      "POST"
+    ],
+    "name": "refresh_internship_hub_endpoint"
+  },
+  {
+    "path": "/api/internships/india/refresh",
+    "methods": [
+      "POST"
+    ],
+    "name": "refresh_internship_hub_endpoint"
+  },
+  {
+    "path": "/auth/google/verify",
+    "methods": [
+      "POST"
+    ],
+    "name": "google_auth_verify_endpoint"
+  },
+  {
+    "path": "/api/auth/google/verify",
+    "methods": [
+      "POST"
+    ],
+    "name": "google_auth_verify_endpoint"
+  },
+  {
+    "path": "/api/payments/create-order",
+    "methods": [
+      "POST"
+    ],
+    "name": "create_payment_order"
+  },
+  {
+    "path": "/api/payments/razorpay-webhook",
+    "methods": [
+      "POST"
+    ],
+    "name": "cashfree_webhook"
+  },
+  {
+    "path": "/api/payments/webhook",
+    "methods": [
+      "POST"
+    ],
+    "name": "cashfree_webhook"
+  },
+  {
+    "path": "/api/payments/status/{order_id}",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_payment_order_status"
+  },
+  {
+    "path": "/api/payments/verify",
+    "methods": [
+      "POST"
+    ],
+    "name": "verify_payment_legacy"
+  },
+  {
+    "path": "/api/admin/tier1/commander-summary",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_commander_summary_endpoint"
+  },
+  {
+    "path": "/api/support/queries",
+    "methods": [
+      "POST"
+    ],
+    "name": "submit_support_query_endpoint"
+  },
+  {
+    "path": "/api/admin/tier1/support/{query_id}/respond",
+    "methods": [
+      "POST"
+    ],
+    "name": "respond_support_query_endpoint"
+  },
+  {
+    "path": "/api/admin/tier2/users/create",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_create_user_support_endpoint"
+  },
+  {
+    "path": "/api/admin/tier2/jobs",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_admin_tier2_jobs_endpoint"
+  },
+  {
+    "path": "/api/admin/tier2/jobs/{job_id}",
+    "methods": [
+      "DELETE"
+    ],
+    "name": "delete_admin_job_endpoint"
+  },
+  {
+    "path": "/api/admin/tier2/jobs/cleanup-expired",
+    "methods": [
+      "POST"
+    ],
+    "name": "trigger_expired_jobs_cleanup_endpoint"
+  },
+  {
+    "path": "/api/admin/tier2/email/announcement",
+    "methods": [
+      "POST"
+    ],
+    "name": "send_tier2_announcement_email_endpoint"
+  },
+  {
+    "path": "/api/admin/tier3/reconciliation",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_master_admin_reconciliation_endpoint"
+  },
+  {
+    "path": "/api/admin/super/staff",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_super_admin_staff_endpoint"
+  },
+  {
+    "path": "/api/admin/super/role-change",
+    "methods": [
+      "POST"
+    ],
+    "name": "update_admin_staff_role_endpoint"
+  },
+  {
+    "path": "/admin/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_admin_stats"
+  },
+  {
+    "path": "/api/admin/stats",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_admin_stats"
+  },
+  {
+    "path": "/admin/users",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_admin_users"
+  },
+  {
+    "path": "/api/admin/users",
+    "methods": [
+      "GET"
+    ],
+    "name": "get_admin_users"
+  },
+  {
+    "path": "/api/admin/users/{target_user_id}/grant-pro",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_grant_pro"
+  },
+  {
+    "path": "/api/admin/users/{target_user_id}/revoke-pro",
+    "methods": [
+      "POST"
+    ],
+    "name": "admin_revoke_pro"
+  },
+  {
+    "path": "",
+    "methods": [],
+    "name": "static_spa"
+  }
+]

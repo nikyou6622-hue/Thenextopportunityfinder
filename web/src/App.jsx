@@ -1058,6 +1058,7 @@ export default function App() {
                     setSelectedPrepAppId(appId);
                     setActiveTab('interview-prep');
                   }}
+                  onNavigateToJobs={() => setActiveTab('jobs')}
                   onTriggerCelebration={handleTriggerCelebration}
                 />
               </ProtectedRoute>

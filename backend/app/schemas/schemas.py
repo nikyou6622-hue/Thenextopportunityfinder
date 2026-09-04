@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 class LocationInfo(BaseModel):
@@ -12,17 +12,17 @@ class ProfileSchema(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
-    location: LocationInfo = Field(default_factory=LocationInfo)
+    location: Optional[Union[LocationInfo, Dict[str, Any], str]] = Field(default_factory=LocationInfo)
     skills: List[str] = []
     experience_years: float = 0.0
-    past_roles: List[Dict[str, Any]] = []
+    past_roles: List[Union[Dict[str, Any], str]] = []
     domains: List[str] = []
-    education: List[Dict[str, Any]] = []
-    education_list: List[Dict[str, Any]] = []
-    projects: List[Dict[str, Any]] = []
+    education: List[Union[Dict[str, Any], str]] = []
+    education_list: List[Union[Dict[str, Any], str]] = []
+    projects: List[Union[Dict[str, Any], str]] = []
     summary: Optional[str] = None
-    experience_list: List[Dict[str, Any]] = []
-    key_strengths: List[str] = []
+    experience_list: List[Union[Dict[str, Any], str]] = []
+    key_strengths: List[Union[Dict[str, Any], str]] = []
     section_order: List[str] = ["summary", "skills", "experience", "projects", "education"]
     consent_given: bool = False
     consent_timestamp: Optional[str] = None

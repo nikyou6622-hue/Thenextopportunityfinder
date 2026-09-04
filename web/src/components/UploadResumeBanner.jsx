@@ -204,7 +204,7 @@ export default function UploadResumeBanner({
               }}
             >
               <UploadCloud size={17} />
-              <span>{hasResume ? 'Update Resume (PDF/DOCX)' : 'Upload Resume to Apply'}</span>
+              <span>{hasResume ? 'Update Resume (PDF recommended)' : 'Upload Resume to Apply'}</span>
             </button>
 
             {!hasResume && onSeedDemo && (
@@ -239,9 +239,25 @@ export default function UploadResumeBanner({
                 fontWeight: 700
               }}
             >
-              <span>{hasResume ? 'Browse & Apply Roles' : 'Open Resume Studio'}</span>
-              <ArrowRight size={15} />
+              <span>{hasResume ? 'Browse Matches' : 'Configure Profile'}</span>
             </button>
+          </div>
+
+          {/* Prominent PDF Format Guidance Notice */}
+          <div style={{
+            marginTop: '12px',
+            padding: '6px 14px',
+            background: 'rgba(56, 189, 248, 0.12)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '10px',
+            fontSize: '0.78rem',
+            color: '#7dd3fc',
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            💡 <span>For best results, upload a PDF — DOCX and other formats may reduce ATS parsing accuracy.</span>
           </div>
         </div>
 

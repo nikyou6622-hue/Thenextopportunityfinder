@@ -40,56 +40,111 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
   const [outreachLogs, setOutreachLogs] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Dynamic Email Generation Formula
-  const generatedEmail = useMemo(() => {
+  // Sanitized Dynamic Email Formula
+  const defaultEmail = useMemo(() => {
+    const recName = recruiterName.trim() || 'Hiring Team';
+    const compName = companyName.trim() || 'your team';
+    const targetRole = roleTitle.trim() || 'Software Engineer';
+    const skills = candidateSkills || 'Full Stack Engineering';
+
     let subject = '';
     let body = '';
 
     if (pitchMode === 'impact') {
-      subject = `${roleTitle} application — ${candidateName} (Engineered 35% latency reduction)`;
-      body = `Hi ${recruiterName},\n\nI noticed ${companyName} is expanding its engineering team for the ${roleTitle} position, and I wanted to reach out directly.\n\nOver the past 2+ years, I have specialized in ${candidateSkills}, focusing on building high-throughput microservices and distributed APIs. In my previous role, I engineered core service optimizations that reduced API response times by 35% and handled thousands of concurrent requests.\n\nGiven ${companyName}'s rapid growth and technical scale, I believe my background aligns strongly with your current roadmap. I have attached my resume and would welcome the chance for a brief 10-minute introductory conversation.\n\nBest regards,\n${candidateName}\nLinkedIn: linkedin.com/in/${candidateName.toLowerCase().replace(/\s+/g, '')}\nPortfolio / GitHub: github.com/${candidateName.toLowerCase().replace(/\s+/g, '')}`;
+      subject = `${targetRole} application — ${candidateName} (Engineered 35% latency reduction)`;
+      body = `Hi ${recName},\n\nI noticed ${compName} is expanding its engineering team for the ${targetRole} position, and I wanted to reach out directly.\n\nOver the past 2+ years, I have specialized in ${skills}, focusing on building high-throughput microservices and distributed APIs. In my previous role, I engineered core service optimizations that reduced API response times by 35% and handled thousands of concurrent requests.\n\nGiven ${compName}'s rapid growth and technical scale, I believe my background aligns strongly with your current roadmap. I have attached my resume and would welcome the chance for a brief 10-minute introductory conversation.\n\nBest regards,\n${candidateName}\nLinkedIn: linkedin.com/in/${candidateName.toLowerCase().replace(/\s+/g, '')}\nPortfolio / GitHub: github.com/${candidateName.toLowerCase().replace(/\s+/g, '')}`;
     } else if (pitchMode === 'portfolio') {
-      subject = `Quick note from ${candidateName} re: ${roleTitle} at ${companyName} (Live Projects Included)`;
-      body = `Hi ${recruiterName},\n\nI'm reaching out because I've been closely following ${companyName}'s engineering accomplishments, especially around scalable product architectures.\n\nI am a ${roleTitle} with hands-on expertise in ${candidateSkills}. I recently engineered a full-stack open-source career matching platform with real-time vector embeddings and containerized microservices.\n\nYou can review my live code repositories and technical write-ups here: github.com/${candidateName.toLowerCase().replace(/\s+/g, '')}.\n\nWould you be open to connecting this week to discuss how my skill set can support your team's objectives?\n\nWarmly,\n${candidateName}`;
+      subject = `Quick note from ${candidateName} re: ${targetRole} at ${compName} (Live Projects Included)`;
+      body = `Hi ${recName},\n\nI'm reaching out because I've been closely following ${compName}'s engineering accomplishments, especially around scalable product architectures.\n\nI am a ${targetRole} with hands-on expertise in ${skills}. I recently engineered a full-stack open-source career matching platform with real-time vector embeddings and containerized microservices.\n\nYou can review my live code repositories and technical write-ups here: github.com/${candidateName.toLowerCase().replace(/\s+/g, '')}.\n\nWould you be open to connecting this week to discuss how my skill set can support your team's objectives?\n\nWarmly,\n${candidateName}`;
     } else if (pitchMode === 'founder') {
-      subject = `Building ${companyName} — Quick intro from ${candidateName} (${roleTitle})`;
-      body = `Hi ${recruiterName},\n\nHuge fan of what you are building at ${companyName}! As an engineer who thrives in high-velocity startup environments, I am excited by your product vision.\n\nI ship fast with ${candidateSkills}, having taken zero-to-one MVPs from database architecture to production deployment. I love owning end-to-end features and solving complex engineering bottlenecks.\n\nI'd love to chat about where ${companyName} needs the most engineering firepower right now.\n\nCheers,\n${candidateName}`;
+      subject = `Building ${compName} — Quick intro from ${candidateName} (${targetRole})`;
+      body = `Hi ${recName},\n\nHuge fan of what you are building at ${compName}! As an engineer who thrives in high-velocity startup environments, I am excited by your product vision.\n\nI ship fast with ${skills}, having taken zero-to-one MVPs from database architecture to production deployment. I love owning end-to-end features and solving complex engineering bottlenecks.\n\nI'd love to chat about where ${compName} needs the most engineering firepower right now.\n\nCheers,\n${candidateName}`;
     } else {
-      subject = `${roleTitle} opening at ${companyName} — Quick referral inquiry`;
-      body = `Hi ${recruiterName},\n\nHope you're having a great week! I came across the ${roleTitle} opening at ${companyName} and was impressed by the team's engineering standards.\n\nWith my background in ${candidateSkills}, I believe I could make an immediate contribution to your group. If you feel there is a good fit, would you be open to submitting an internal referral on my behalf?\n\nI've linked my resume and profile for your review. Happy to answer any questions!\n\nBest regards,\n${candidateName}`;
+      subject = `${targetRole} opening at ${compName} — Quick referral inquiry`;
+      body = `Hi ${recName},\n\nHope you're having a great week! I came across the ${targetRole} opening at ${compName} and was impressed by the team's engineering standards.\n\nWith my background in ${skills}, I believe I could make an immediate contribution to your group. If you feel there is a good fit, would you be open to submitting an internal referral on my behalf?\n\nI've linked my resume and profile for your review. Happy to answer any questions!\n\nBest regards,\n${candidateName}`;
     }
+
+    // Sanitize any accidental raw double bracket template artifacts
+    subject = subject.replace(/\{\{\s*company_name\s*\}\}/gi, compName)
+                     .replace(/\{\{\s*recruiter_name\s*\}\}/gi, recName)
+                     .replace(/\{\{\s*role_title\s*\}\}/gi, targetRole);
+    body = body.replace(/\{\{\s*company_name\s*\}\}/gi, compName)
+               .replace(/\{\{\s*recruiter_name\s*\}\}/gi, recName)
+               .replace(/\{\{\s*role_title\s*\}\}/gi, targetRole);
 
     return { subject, body };
   }, [recruiterName, companyName, roleTitle, candidateName, candidateSkills, pitchMode]);
 
+  // Editable Draft State
+  const [editedSubject, setEditedSubject] = useState('');
+  const [editedBody, setEditedBody] = useState('');
+  const [isCustomEdited, setIsCustomEdited] = useState(false);
+
+  // Synchronize default formula changes to editable draft unless manually edited
+  React.useEffect(() => {
+    if (!isCustomEdited) {
+      setEditedSubject(defaultEmail.subject);
+      setEditedBody(defaultEmail.body);
+    }
+  }, [defaultEmail, isCustomEdited]);
+
+  const handleResetToDefault = () => {
+    setIsCustomEdited(false);
+    setEditedSubject(defaultEmail.subject);
+    setEditedBody(defaultEmail.body);
+  };
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(`Subject: ${generatedEmail.subject}\n\n${generatedEmail.body}`);
+    const finalSub = editedSubject || defaultEmail.subject;
+    const finalBody = editedBody || defaultEmail.body;
+    navigator.clipboard.writeText(`Subject: ${finalSub}\n\n${finalBody}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
   const handleOpenMailer = () => {
-    const mailto = `mailto:${recruiterEmail}?subject=${encodeURIComponent(generatedEmail.subject)}&body=${encodeURIComponent(generatedEmail.body)}`;
+    const finalSub = editedSubject || defaultEmail.subject;
+    const finalBody = editedBody || defaultEmail.body;
+    const mailto = `mailto:${recruiterEmail}?subject=${encodeURIComponent(finalSub)}&body=${encodeURIComponent(finalBody)}`;
     window.open(mailto, '_blank');
   };
 
   const handleLogOutreach = () => {
     const newEntry = {
       id: Date.now(),
-      name: recruiterName,
-      company: companyName,
-      role: roleTitle,
+      name: recruiterName || 'Hiring Manager',
+      company: companyName || 'Target Tech',
+      role: roleTitle || 'Software Engineer',
       date: new Date().toISOString().split('T')[0],
       status: 'Sent'
     };
     setOutreachLogs([newEntry, ...outreachLogs]);
-    setToastMessage(`Outreach to ${recruiterName} at ${companyName} logged!`);
+    setToastMessage(`Outreach to ${recruiterName || 'Hiring Manager'} at ${companyName || 'Target Tech'} logged!`);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '1400px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       
+      {/* 🛡️ CANDIDATE OUTREACH SAFETY & NO-AUTO-SEND DISCLAIMER */}
+      <div style={{
+        padding: '12px 18px',
+        background: 'rgba(56, 189, 248, 0.1)',
+        border: '1px solid rgba(56, 189, 248, 0.3)',
+        borderRadius: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        fontSize: '0.82rem',
+        color: '#7dd3fc',
+        lineHeight: 1.45
+      }}>
+        <ShieldCheck size={20} color="#38bdf8" style={{ flexShrink: 0 }} />
+        <span>
+          <strong>Outreach Safety & Control Guarantee:</strong> This tool generates real-data draft pitches for your review. In compliance with candidate safety policies, <strong>emails are NEVER automatically sent on your behalf</strong>. You retain 100% control to review, edit, copy, or send manually.
+        </span>
+      </div>
+
       {!isPro && (
         <div className="glass-panel" style={{
           padding: '18px 24px',
@@ -170,7 +225,10 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
               <input
                 type="text"
                 value={recruiterName}
-                onChange={(e) => setRecruiterName(e.target.value)}
+                onChange={(e) => {
+                  setRecruiterName(e.target.value);
+                  setIsCustomEdited(false);
+                }}
                 placeholder="e.g. Sarah"
                 style={{ padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#fff', fontSize: '0.82rem', outline: 'none' }}
               />
@@ -181,7 +239,10 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
               <input
                 type="text"
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onChange={(e) => {
+                  setCompanyName(e.target.value);
+                  setIsCustomEdited(false);
+                }}
                 placeholder="e.g. Razorpay"
                 style={{ padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#fff', fontSize: '0.82rem', outline: 'none' }}
               />
@@ -194,7 +255,10 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
               <input
                 type="text"
                 value={roleTitle}
-                onChange={(e) => setRoleTitle(e.target.value)}
+                onChange={(e) => {
+                  setRoleTitle(e.target.value);
+                  setIsCustomEdited(false);
+                }}
                 placeholder="e.g. Backend Engineer"
                 style={{ padding: '9px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#fff', fontSize: '0.82rem', outline: 'none' }}
               />
@@ -221,7 +285,10 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
                 return (
                   <div
                     key={pm.id}
-                    onClick={() => setPitchMode(pm.id)}
+                    onClick={() => {
+                      setPitchMode(pm.id);
+                      setIsCustomEdited(false);
+                    }}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '10px',
@@ -244,7 +311,7 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
 
         </div>
 
-        {/* RIGHT COLUMN: AI EMAIL PREVIEW & INSTANT DISPATCH */}
+        {/* RIGHT COLUMN: AI EMAIL EDITABLE DRAFT & DISPATCH */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -252,11 +319,29 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Sparkles size={18} color="#818cf8" />
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
-                  Generated Cold Outreach Email
+                  Editable Cold Outreach Pitch (Live Draft)
                 </h3>
               </div>
 
               <div style={{ display: 'flex', gap: '8px' }}>
+                {isCustomEdited && (
+                  <button
+                    onClick={handleResetToDefault}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: '#94a3b8',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Reset Template
+                  </button>
+                )}
+
                 <button
                   onClick={handleCopy}
                   style={{
@@ -274,7 +359,7 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
                   }}
                 >
                   {copied ? <Check size={13} /> : <Copy size={13} />}
-                  {copied ? 'Copied!' : 'Copy'}
+                  {copied ? 'Copied!' : 'Copy Draft'}
                 </button>
 
                 <button
@@ -293,34 +378,62 @@ export default function RecruiterOutreachStudio({ profile, onOpenPaywall, isPro 
                     gap: '5px'
                   }}
                 >
-                  <Send size={13} /> Open in Mail
+                  <Send size={13} /> Open in Mail Client
                 </button>
               </div>
             </div>
 
-            {/* Subject line */}
-            <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700 }}>Subject: </span>
-              <span style={{ fontSize: '0.84rem', color: '#f8fafc', fontWeight: 600 }}>{generatedEmail.subject}</span>
+            {/* Editable Subject input line */}
+            <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 800 }}>Subject:</span>
+              <input
+                type="text"
+                value={editedSubject}
+                onChange={(e) => {
+                  setEditedSubject(e.target.value);
+                  setIsCustomEdited(true);
+                }}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#f8fafc',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  outline: 'none'
+                }}
+              />
             </div>
 
-            {/* Email Body */}
-            <pre style={{
-              background: 'rgba(0, 0, 0, 0.4)',
-              padding: '16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              color: '#cbd5e1',
-              fontSize: '0.82rem',
-              fontFamily: 'inherit',
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.55,
-              margin: 0,
-              maxHeight: '340px',
-              overflowY: 'auto'
-            }}>
-              {generatedEmail.body}
-            </pre>
+            {/* Editable Email Body Textarea */}
+            <div style={{ position: 'relative' }}>
+              <textarea
+                rows={11}
+                value={editedBody}
+                onChange={(e) => {
+                  setEditedBody(e.target.value);
+                  setIsCustomEdited(true);
+                }}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  padding: '14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: '#cbd5e1',
+                  fontSize: '0.84rem',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.55,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
+              <span style={{ position: 'absolute', right: '12px', bottom: '12px', fontSize: '0.68rem', color: '#64748b', pointerEvents: 'none' }}>
+                ✏️ Click text to edit draft before sending
+              </span>
+            </div>
 
             {/* Save Log Button */}
             <button

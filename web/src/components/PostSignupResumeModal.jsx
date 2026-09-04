@@ -239,40 +239,23 @@ export default function PostSignupResumeModal({
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  marginBottom: '20px',
-                  position: 'relative',
-                  zIndex: 2
                 }}
               >
                 <div style={{
                   width: '56px',
                   height: '56px',
                   borderRadius: '16px',
-                  background: 'linear-gradient(135deg, rgba(255, 90, 95, 0.2) 0%, rgba(124, 58, 237, 0.2) 100%)',
-                  border: '1px solid rgba(255, 90, 95, 0.3)',
+                  background: 'rgba(124, 58, 237, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: '12px',
-                  boxShadow: '0 8px 20px rgba(124, 58, 237, 0.25)'
+                  marginBottom: '12px'
                 }}>
                   <UploadCloud size={28} color="#A78BFA" />
                 </div>
 
-                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', marginBottom: '6px' }}>
-                  {selectedFileName ? selectedFileName : 'Drag & Drop Your Resume Here'}
-                </span>
-
-                <span style={{ fontSize: '0.8rem', color: '#CBD5E1', marginBottom: '14px' }}>
-                  Supports PDF, DOCX, DOC or TXT (Max 10MB)
-                </span>
-
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
                   className="btn-gradient-coral-purple"
                   style={{
                     padding: '10px 22px',

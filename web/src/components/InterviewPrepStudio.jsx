@@ -206,6 +206,10 @@ export default function InterviewPrepStudio({
   // Question Filter
   const [questionCategory, setQuestionCategory] = useState('all');
 
+  // Zenith Voice Coach Coming Soon Modal State
+  const [showZenithVoiceModal, setShowZenithVoiceModal] = useState(false);
+  const [voiceNotified, setVoiceNotified] = useState(false);
+
   // Curated Resource Hub Filter & Video Player Modal State
   const [selectedResourceCategory, setSelectedResourceCategory] = useState('all');
   const [activeVideoModal, setActiveVideoModal] = useState(null);
@@ -514,19 +518,143 @@ export default function InterviewPrepStudio({
         </div>
       )}
 
-      {/* 🌟 ZENITH SENSEI MOCK COACH GUIDANCE */}
-      <CharacterSpeechBubble
-        character="zenith"
-        pose="listening"
-        message="I am Zenith, your Voice & Behavioral Interview Coach. Ready to rehearse under real pressure?"
-        subtitle="Tip: Structure answers using STAR (Situation, Task, Action, Result) for highest recruiter marks."
-        actionLabel="Jump to Voice Mock Simulator →"
-        onAction={() => {
-          SoundSystem.playPop();
-          setStudioTab('mock');
-        }}
-        variant="emerald"
-      />
+      {/* 🌟 ZENITH SENSEI MOCK COACH GUIDANCE & COMING SOON GATING */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <CharacterSpeechBubble
+          character="zenith"
+          pose="listening"
+          message="I am Zenith, your Behavioral & Technical Interview Coach. Written STAR Evaluation is fully live! Real-time voice audio stream is coming soon."
+          subtitle="Status: ✍️ Written STAR Simulator (LIVE) | 🎙️ Real-Time Voice Bot (COMING SOON)"
+          actionLabel="✍️ Practice Written STAR Simulator (Live) →"
+          onAction={() => {
+            SoundSystem.playPop();
+            setStudioTab('mock');
+          }}
+          variant="emerald"
+        />
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '-4px', marginLeft: '12px' }}>
+          <button
+            onClick={() => {
+              SoundSystem.playPop();
+              setShowZenithVoiceModal(true);
+            }}
+            style={{
+              background: 'rgba(245, 158, 11, 0.15)',
+              color: '#fbbf24',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Sparkles size={14} /> 🎙️ Preview Zenith Voice AI Bot (Coming Soon)
+          </button>
+        </div>
+      </div>
+
+      {/* 🎙️ ZENITH VOICE AI COMING SOON GATING MODAL */}
+      {showZenithVoiceModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(12px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '520px',
+            width: '100%',
+            padding: '28px',
+            borderRadius: '20px',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.6)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="badge badge-amber" style={{ fontSize: '0.75rem', fontWeight: 900 }}>
+                  🎙️ COMING SOON
+                </span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: 0 }}>
+                  Zenith Real-Time Voice Bot
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowZenithVoiceModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.86rem', color: '#cbd5e1', lineHeight: 1.55, margin: 0 }}>
+              Zenith's <strong>Written STAR Framework Evaluator</strong> is 100% functional and live today! Real-time voice audio stream transcription and spoken filler-word scoring is currently in beta testing and launching in the next release.
+            </p>
+
+            <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#34d399', marginBottom: '4px' }}>
+                ✓ What's Live Today:
+              </div>
+              <div style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
+                Text STAR answer evaluation, rubric scoring, clarity index, and LeetCode company solutions.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <button
+                onClick={() => {
+                  setVoiceNotified(true);
+                  setTimeout(() => setVoiceNotified(false), 3000);
+                }}
+                style={{
+                  flex: 1,
+                  background: voiceNotified ? 'rgba(34, 197, 94, 0.2)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: voiceNotified ? '#4ade80' : '#ffffff',
+                  border: voiceNotified ? '1px solid rgba(34, 197, 94, 0.4)' : 'none',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                {voiceNotified ? '✓ You\'re on the Early Access List!' : '🔔 Notify me when Voice launches'}
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowZenithVoiceModal(false);
+                  setStudioTab('mock');
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Use Live Text STAR →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Studio Header Card */}
       <div className="glass-panel" style={{ padding: '26px', position: 'relative', overflow: 'hidden' }}>

@@ -175,8 +175,7 @@ def tailor_resume_for_job(profile: Dict[str, Any], job: Dict[str, Any], match_de
     if llm_summary and len(llm_summary.strip()) > 30:
         tailored_summary = llm_summary.strip()
     else:
-        matched_str = ", ".join(matching_skills[:3]) if matching_skills else (", ".join(skills[:3]) if skills else "software engineering")
-        tailored_summary = f"Results-driven technical candidate with {exp_years} years of verified experience in {matched_str}. Proven track record in developing robust solutions, directly aligned with core requirements for the {role_title} role at {company}."
+        tailored_summary = f"Candidate targeting {role_title} at {company}. AI summary unavailable, needs manual input."
 
     # Zero-hallucination verification audit
     audit_report = verify_tailored_claims(tailored_summary, profile)

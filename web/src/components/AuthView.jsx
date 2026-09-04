@@ -56,6 +56,11 @@ export default function AuthView({
   const [successMessage, setSuccessMessage] = useState('');
   const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
 
+  // Staged Auth Processing UI State
+  const [authStage, setAuthStage] = useState(null); // null | 'verifying' | 'loading_profile' | 'preparing' | 'success'
+  const [authStageMessage, setAuthStageMessage] = useState('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   // Form Fields (Password Flow)
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -77,6 +82,19 @@ export default function AuthView({
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const forgotInputRefs = useRef([]);
+
+  // Elapsed timer effect for processing latency > 2s feedback
+  useEffect(() => {
+    let interval;
+    if (loading || authStage) {
+      interval = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [loading, authStage]);
 
   // Countdown timer effect for resend code
   useEffect(() => {
@@ -181,7 +199,11 @@ export default function AuthView({
     }
 
     setLoading(true);
+    setAuthStage('verifying');
+    setAuthStageMessage('Generating 6-digit access code...');
     try {
+      setAuthStage('loading_profile');
+      setAuthStageMessage('Dispatching verification code email...');
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,22 +217,26 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(getErrorMessage(data, 'Failed to send verification code email.'));
+        throw new Error(getErrorMessage(data, 'Couldn\'t send verification code — verify email and try again.'));
       }
 
+      setAuthStage('success');
+      setAuthStageMessage(`Verification code sent to ${emailClean}! Check your inbox.`);
       setOtpStep('verify');
       setOtpCountdown(60);
       setSuccessMessage(data.message || `Verification code sent to ${emailClean}. Please check your email inbox.`);
       SoundSystem.playPop();
 
       setTimeout(() => {
+        setAuthStage(null);
+        setLoading(false);
         if (otpInputRefs.current[0]) otpInputRefs.current[0].focus();
-      }, 200);
+      }, 750);
     } catch (err) {
-      setErrorMessage(err.message || 'Network error while generating OTP token.');
-      SoundSystem.playError();
-    } finally {
+      setAuthStage(null);
       setLoading(false);
+      setErrorMessage(err.message || 'Failed to dispatch verification email. Please check your email and try again.');
+      SoundSystem.playError();
     }
   };
 
@@ -270,6 +296,8 @@ export default function AuthView({
     isVerifyingRef.current = true;
     setLoading(true);
     setErrorMessage('');
+    setAuthStage('verifying');
+    setAuthStageMessage('Verifying 6-digit access code...');
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
@@ -288,8 +316,16 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(getErrorMessage(data, 'Invalid or expired verification code.'));
+        throw new Error(getErrorMessage(data, 'Invalid or expired verification code. Please check code and try again.'));
       }
+
+      setAuthStage('loading_profile');
+      setAuthStageMessage('Validating candidate account...');
+      await new Promise(r => setTimeout(r, 150));
+
+      setAuthStage('preparing');
+      setAuthStageMessage('Almost there... preparing dashboard');
+      await new Promise(r => setTimeout(r, 150));
 
       const verifiedUser = data.user || {
         id: `usr_${Date.now()}`,
@@ -303,17 +339,25 @@ export default function AuthView({
         sessionStorage.setItem('nof_just_signed_up', 'true');
       }
 
+      setAuthStage('success');
+      setAuthStageMessage('Verified! Redirecting to candidate dashboard...');
       SoundSystem.playSuccess();
-      setSuccessMessage(data.message || 'Account verified successfully! Redirecting to candidate dashboard...');
-      if (onAuthSuccess) {
-        setTimeout(() => onAuthSuccess(verifiedUser, tokenStr, { isNewSignUp: isSignUpFlow }), 500);
-      }
+      setSuccessMessage(data.message || 'Account verified successfully! Redirecting...');
+      
+      setTimeout(() => {
+        setAuthStage(null);
+        setLoading(false);
+        isVerifyingRef.current = false;
+        if (onAuthSuccess) {
+          onAuthSuccess(verifiedUser, tokenStr, { isNewSignUp: isSignUpFlow });
+        }
+      }, 750);
     } catch (err) {
+      setAuthStage(null);
+      setLoading(false);
+      isVerifyingRef.current = false;
       setErrorMessage(err.message || 'Verification failed. Please check the 6-digit code and try again.');
       SoundSystem.playError();
-    } finally {
-      isVerifyingRef.current = false;
-      setLoading(false);
     }
   };
 
@@ -452,7 +496,11 @@ export default function AuthView({
     }
 
     setLoading(true);
+    setAuthStage('verifying');
+    setAuthStageMessage('Registering candidate credentials...');
     try {
+      setAuthStage('loading_profile');
+      setAuthStageMessage('Creating workspace & candidate profile...');
       const consentTimestamp = new Date().toISOString();
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -475,9 +523,11 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(getErrorMessage(data, 'Signup failed. Please try again.'));
+        throw new Error(getErrorMessage(data, 'Couldn\'t register account — please check details and try again.'));
       }
 
+      setAuthStage('success');
+      setAuthStageMessage('Account created! Dispatching verification code...');
       const emailClean = email.trim().toLowerCase();
       SoundSystem.playPop();
       setAuthMode('verify-signup');
@@ -486,13 +536,15 @@ export default function AuthView({
       setSuccessMessage(data.message || `Verification code sent to ${emailClean}. Please enter your 6-digit code to activate your account.`);
 
       setTimeout(() => {
+        setAuthStage(null);
+        setLoading(false);
         if (otpInputRefs.current[0]) otpInputRefs.current[0].focus();
-      }, 300);
+      }, 750);
     } catch (err) {
-      setErrorMessage(err.message || 'An unexpected error occurred during signup.');
-      SoundSystem.playError();
-    } finally {
+      setAuthStage(null);
       setLoading(false);
+      setErrorMessage(err.message || 'Couldn\'t register account — please check details and try again.');
+      SoundSystem.playError();
     }
   };
 
@@ -512,6 +564,8 @@ export default function AuthView({
     }
 
     setLoading(true);
+    setAuthStage('verifying');
+    setAuthStageMessage('Verifying credentials...');
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -529,8 +583,16 @@ export default function AuthView({
       } catch {}
 
       if (!res.ok) {
-        throw new Error(getErrorMessage(data, 'Invalid email or password. Please verify your credentials.'));
+        throw new Error(getErrorMessage(data, 'Couldn\'t verify your credentials — check your password and try again.'));
       }
+
+      setAuthStage('loading_profile');
+      setAuthStageMessage('Loading candidate profile & subscription...');
+      await new Promise(r => setTimeout(r, 200));
+
+      setAuthStage('preparing');
+      setAuthStageMessage('Almost there... preparing dashboard');
+      await new Promise(r => setTimeout(r, 200));
 
       const loginUser = data.user || {
         id: `usr_${Date.now()}`,
@@ -541,16 +603,23 @@ export default function AuthView({
       localStorage.setItem('nof_auth_token', loginToken);
       localStorage.setItem('nof_user', JSON.stringify(loginUser));
 
+      setAuthStage('success');
+      setAuthStageMessage(`Welcome back, ${loginUser.full_name || loginUser.email}! Redirecting...`);
       SoundSystem.playSuccess();
       setSuccessMessage(data.message || 'Login successful! Redirecting to candidate dashboard...');
-      if (onAuthSuccess) {
-        setTimeout(() => onAuthSuccess(loginUser, loginToken), 400);
-      }
+
+      setTimeout(() => {
+        setAuthStage(null);
+        setLoading(false);
+        if (onAuthSuccess) {
+          onAuthSuccess(loginUser, loginToken);
+        }
+      }, 750);
     } catch (err) {
-      setErrorMessage(err.message || 'Incorrect email or password. Please verify your credentials.');
-      SoundSystem.playError();
-    } finally {
+      setAuthStage(null);
       setLoading(false);
+      setErrorMessage(err.message || 'Couldn\'t verify your credentials — check your password and try again.');
+      SoundSystem.playError();
     }
   };
 
@@ -764,7 +833,7 @@ export default function AuthView({
         )}
 
         {/* Success Feedback Banner */}
-        {successMessage && (
+        {successMessage && !authStage && (
           <div style={{
             background: 'rgba(16, 185, 129, 0.12)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
@@ -779,6 +848,84 @@ export default function AuthView({
           }}>
             <CheckCircle2 size={16} color="#10b981" style={{ flexShrink: 0 }} />
             <span style={{ flex: 1 }}>{successMessage}</span>
+          </div>
+        )}
+
+        {/* 🚀 REAL-TIME STAGED AUTH PROCESSING FEEDBACK BANNER */}
+        {authStage && (
+          <div style={{
+            background: authStage === 'success' 
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.12))' 
+              : 'linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(79, 70, 229, 0.12))',
+            border: `1.5px solid ${authStage === 'success' ? 'rgba(16, 185, 129, 0.45)' : 'rgba(129, 140, 248, 0.45)'}`,
+            borderRadius: '14px',
+            padding: '14px 16px',
+            marginBottom: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            boxShadow: authStage === 'success' ? '0 8px 24px rgba(16, 185, 129, 0.25)' : '0 8px 24px rgba(99, 102, 241, 0.25)',
+            animation: 'fadeIn 0.2s ease-in-out'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {authStage === 'success' ? (
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle2 size={18} color="#34d399" />
+                  </div>
+                ) : (
+                  <RefreshCw size={18} color="#a5b4fc" className="animate-spin" style={{ flexShrink: 0 }} />
+                )}
+                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: authStage === 'success' ? '#34d399' : '#f8fafc' }}>
+                  {authStageMessage}
+                </span>
+              </div>
+
+              {elapsedSeconds >= 2 && authStage !== 'success' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  color: '#fbbf24',
+                  background: 'rgba(251, 191, 36, 0.14)',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(251, 191, 36, 0.35)'
+                }}>
+                  <Clock size={12} />
+                  <span>Still working... {elapsedSeconds}s</span>
+                </div>
+              )}
+            </div>
+
+            {/* Stage Step Indicators */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '6px',
+              marginTop: '2px'
+            }}>
+              <div style={{
+                height: '4px',
+                borderRadius: '2px',
+                background: ['verifying', 'loading_profile', 'preparing', 'success'].includes(authStage) ? '#818cf8' : 'rgba(255,255,255,0.1)',
+                transition: 'all 0.3s ease'
+              }} />
+              <div style={{
+                height: '4px',
+                borderRadius: '2px',
+                background: ['loading_profile', 'preparing', 'success'].includes(authStage) ? '#818cf8' : 'rgba(255,255,255,0.1)',
+                transition: 'all 0.3s ease'
+              }} />
+              <div style={{
+                height: '4px',
+                borderRadius: '2px',
+                background: authStage === 'success' ? '#34d399' : (authStage === 'preparing' ? '#818cf8' : 'rgba(255,255,255,0.1)'),
+                transition: 'all 0.3s ease'
+              }} />
+            </div>
           </div>
         )}
 
