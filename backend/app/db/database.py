@@ -3,7 +3,16 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import NullPool
 
-DEFAULT_SUPABASE_URL = "postgresql+psycopg2://postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+HAS_PSYCOPG2 = False
+try:
+    import psycopg2
+    HAS_PSYCOPG2 = True
+except ImportError:
+    pass
+
+driver_prefix = "postgresql+psycopg2://" if HAS_PSYCOPG2 else "postgresql+pg8000://"
+
+DEFAULT_SUPABASE_URL = f"{driver_prefix}postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
 
 def is_cloud_environment():
     return bool(
@@ -17,24 +26,30 @@ def is_cloud_environment():
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    # Default to production Supabase PostgreSQL connection target
     SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
 
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", driver_prefix, 1)
 elif SQLALCHEMY_DATABASE_URL.startswith("postgresql://") and not SQLALCHEMY_DATABASE_URL.startswith("postgresql+"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-elif "postgresql+pg8000://" in SQLALCHEMY_DATABASE_URL:
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql+pg8000://", "postgresql+psycopg2://", 1)
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", driver_prefix, 1)
+elif HAS_PSYCOPG2 and "postgresql+pg8000://" in SQLALCHEMY_DATABASE_URL:
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql+pg8000://", driver_prefix, 1)
+elif not HAS_PSYCOPG2 and "postgresql+psycopg2://" in SQLALCHEMY_DATABASE_URL:
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql+psycopg2://", driver_prefix, 1)
 
-if not SQLALCHEMY_DATABASE_URL.startswith("sqlite") and "sslmode=" not in SQLALCHEMY_DATABASE_URL:
+if not SQLALCHEMY_DATABASE_URL.startswith("sqlite") and HAS_PSYCOPG2 and "sslmode=" not in SQLALCHEMY_DATABASE_URL:
     delimiter = "&" if "?" in SQLALCHEMY_DATABASE_URL else "?"
     SQLALCHEMY_DATABASE_URL = f"{SQLALCHEMY_DATABASE_URL}{delimiter}sslmode=require"
 
-# Configure NullPool for Vercel/serverless environments connecting to Supabase PgBouncer.
-# NullPool forces SQLAlchemy to release sockets immediately back to PgBouncer, preventing socket exhaustion.
 engine_kwargs = {"pool_pre_ping": True}
 if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    if not HAS_PSYCOPG2:
+        import ssl
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        engine_kwargs["connect_args"] = {"ssl_context": ssl_ctx}
+
     if is_cloud_environment():
         engine_kwargs["poolclass"] = NullPool
     else:
@@ -45,7 +60,7 @@ else:
     engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30.0}
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
-print(f"DATABASE ENGINE POOL CLASS: {engine.pool.__class__.__name__}")
+print(f"DATABASE ENGINE DRIVER: {'psycopg2' if HAS_PSYCOPG2 else 'pg8000'} | POOL: {engine.pool.__class__.__name__}")
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
