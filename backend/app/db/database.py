@@ -12,7 +12,7 @@ except ImportError:
 
 driver_prefix = "postgresql+psycopg2://" if HAS_PSYCOPG2 else "postgresql+pg8000://"
 
-DEFAULT_SUPABASE_URL = f"{driver_prefix}postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+DEFAULT_SUPABASE_URL = f"{driver_prefix}postgres.hoobggdrjghfqxgjfoqf:a%23NIK789532@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
 def is_cloud_environment():
     return bool(
@@ -27,6 +27,9 @@ def is_cloud_environment():
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
+
+if ":6543/" in SQLALCHEMY_DATABASE_URL:
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(":6543/", ":5432/", 1)
 
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", driver_prefix, 1)
