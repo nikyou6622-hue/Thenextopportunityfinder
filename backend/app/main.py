@@ -418,18 +418,20 @@ async def startup_event():
             logger.critical("CRITICAL FATAL SECURITY ERROR: Insecure or missing RAZORPAY_SECRET_KEY in production mode!")
             sys.exit(1)
 
-    try:
-        _ensure_default_admin_account()
-        db_audit = SessionLocal()
+    # Skip heavy DB blocking tasks on Vercel cold starts to ensure instant serverless response
+    if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
         try:
-            downgraded = audit_and_cleanup_unauthorized_pro_accounts(db_audit)
-            if downgraded > 0:
-                logger.info(f"Startup Security Audit: Downgraded {downgraded} unauthorized pro accounts to free tier.")
-        finally:
-            db_audit.close()
-    except Exception as e:
-        logger.warning(f"Startup security audit initialization notice: {e}")
-    if not os.getenv("VERCEL"):
+            _ensure_default_admin_account()
+            db_audit = SessionLocal()
+            try:
+                downgraded = audit_and_cleanup_unauthorized_pro_accounts(db_audit)
+                if downgraded > 0:
+                    logger.info(f"Startup Security Audit: Downgraded {downgraded} unauthorized pro accounts to free tier.")
+            finally:
+                db_audit.close()
+        except Exception as e:
+            logger.warning(f"Startup security audit initialization notice: {e}")
+
         try:
             asyncio.create_task(daily_mnc_scanner_loop())
             asyncio.create_task(daily_dpdp_retention_purge_loop())
@@ -534,20 +536,17 @@ def debug_path_endpoint(request: Request):
 def health_check(db: Session = Depends(get_db)):
     """Liveness, database connectivity, and subsystem telemetry health check."""
     now = datetime.datetime.now(datetime.timezone.utc)
+    t0 = time.time()
     
-    # 1. Database Health & Table Metrics
+    # 1. Fast Database Health Ping
     db_status = "healthy"
+    total_jobs = total_profiles = total_matches = total_applications = 0
     try:
         db.execute(text("SELECT 1"))
-        total_jobs = db.query(JobModel).count()
-        total_profiles = db.query(ProfileModel).count()
-        total_matches = db.query(MatchModel).count()
-        total_applications = db.query(ApplicationModel).count()
-        db_ping_ms = 1.2
+        db_ping_ms = round((time.time() - t0) * 1000, 2)
     except Exception as e:
         logger.error(f"Health check DB ping failed: {e}")
         db_status = f"unhealthy: {str(e)}"
-        total_jobs = total_profiles = total_matches = total_applications = 0
         db_ping_ms = -1.0
 
     # 2. MNC Scraper Adapters Health
