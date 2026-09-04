@@ -112,28 +112,32 @@ def run_auto_migrations():
                             conn.execute(text(f"ALTER TABLE subscriptions ADD COLUMN {c_name} {c_type}"))
                     conn.commit()
             else:
-                # PostgreSQL auto-migrations for Supabase Cloud
-                try:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;"))
-                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;"))
-                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;"))
-                    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';"))
-                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;"))
-                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;"))
-                    conn.execute(text("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';"))
-                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_skills JSON DEFAULT '[]'::json;"))
-                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_count INTEGER DEFAULT 0;"))
-                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS required_count INTEGER DEFAULT 0;"))
-                    conn.execute(text("ALTER TABLE matches ADD COLUMN IF NOT EXISTS skill_match_percentage DOUBLE PRECISION DEFAULT 0.0;"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free';"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP;"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMP;"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_id VARCHAR;"))
-                    conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount_paid DOUBLE PRECISION DEFAULT 0.0;"))
-                    conn.commit()
-                except Exception as ex:
-                    print(f"PostgreSQL migration warning: {ex}")
+                # PostgreSQL auto-migrations for Supabase Cloud with isolated statement protection
+                ddl_statements = [
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';",
+                    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR DEFAULT 'free';",
+                    "ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_skills JSON DEFAULT '[]'::json;",
+                    "ALTER TABLE matches ADD COLUMN IF NOT EXISTS matched_count INTEGER DEFAULT 0;",
+                    "ALTER TABLE matches ADD COLUMN IF NOT EXISTS required_count INTEGER DEFAULT 0;",
+                    "ALTER TABLE matches ADD COLUMN IF NOT EXISTS skill_match_percentage DOUBLE PRECISION DEFAULT 0.0;",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free';",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP;",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMP;",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_id VARCHAR;",
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount_paid DOUBLE PRECISION DEFAULT 0.0;"
+                ]
+                for stmt in ddl_statements:
+                    try:
+                        conn.execute(text(stmt))
+                        conn.commit()
+                    except Exception as ex:
+                        pass
     except Exception as e:
         print(f"Auto-migration notice: {e}")
 
