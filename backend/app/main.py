@@ -5948,10 +5948,35 @@ def get_cashfree_base_url() -> str:
         return "https://sandbox.cashfree.com/pg"
     return "https://api.cashfree.com/pg"
 
+def _sanitize_cashfree_phone(raw_phone: Optional[str]) -> str:
+    """Sanitizes candidate phone string to satisfy Cashfree PG 10-digit regex requirements."""
+    if not raw_phone:
+        return "9876543210"
+    digits = re.sub(r"\D", "", str(raw_phone))
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) == 10 and digits[0] in "6789" and digits not in ("9999999999", "0000000000", "1111111111", "1234567890"):
+        return digits
+    return "9876543210"
+
+def _sanitize_cashfree_name(raw_name: Optional[str]) -> str:
+    name = (raw_name or "").strip()
+    clean = re.sub(r"[^A-Za-z\s]", "", name).strip()
+    return clean if len(clean) >= 2 else "Candidate User"
+
+def _sanitize_cashfree_email(raw_email: Optional[str]) -> str:
+    email = (raw_email or "").strip().lower()
+    if "@" in email and "." in email:
+        return email
+    return "candidate@example.com"
+
 class CreateOrderRequest(BaseModel):
     amount: float = 99.0
     currency: str = "INR"
     profile_id: Optional[int] = None
+    phone: Optional[str] = None
 
 class VerifyPaymentRequest(BaseModel):
     razorpay_payment_id: Optional[str] = None
@@ -6048,9 +6073,10 @@ def create_payment_order(
         profile = db.query(ProfileModel).order_by(ProfileModel.id.desc()).first()
 
     profile_id = profile.id if profile else 1
-    cust_name = (profile.name if profile else "Candidate User") or "Candidate User"
-    cust_email = (profile.email if profile else "candidate@example.com") or "candidate@example.com"
-    cust_phone = (getattr(profile, "phone", "") or "9999999999") or "9999999999"
+    cust_name = _sanitize_cashfree_name(profile.name if profile else None)
+    cust_email = _sanitize_cashfree_email(profile.email if profile else None)
+    raw_phone = req.phone or (getattr(profile, "phone", None) if profile else None)
+    cust_phone = _sanitize_cashfree_phone(raw_phone)
 
     ts_ms = int(time.time() * 1000)
     order_id = f"order_prof{profile_id}_{ts_ms}_{secrets.token_hex(4)}"
@@ -6098,10 +6124,28 @@ def create_payment_order(
     except urllib.error.HTTPError as he:
         err_body = he.read().decode('utf-8') if he.fp else str(he)
         logger.warning(f"Cashfree API Order creation HTTPError {he.code}: {err_body}")
-        if CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
+
+        # If phone number invalid, auto-heal with fallback 9876543210 and retry once
+        if "customer_phone_invalid" in err_body and payload.get("customer_details", {}).get("customer_phone") != "9876543210":
+            logger.info("Retrying Cashfree order creation with sanitized fallback phone 9876543210...")
+            payload["customer_details"]["customer_phone"] = "9876543210"
+            try:
+                retry_bytes = json.dumps(payload).encode('utf-8')
+                retry_req = urllib.request.Request(cashfree_url, data=retry_bytes, headers=headers, method="POST")
+                with urllib.request.urlopen(retry_req, timeout=12) as retry_res:
+                    res_data = json.loads(retry_res.read().decode('utf-8'))
+                    payment_session_id = res_data.get("payment_session_id")
+                    order_id = res_data.get("order_id", order_id)
+            except Exception as retry_err:
+                logger.error(f"Cashfree retry failed: {retry_err}")
+                if CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
+                    payment_session_id = f"session_mock_{secrets.token_hex(12)}"
+                else:
+                    raise HTTPException(status_code=400, detail=f"Cashfree Order creation failed: {err_body}")
+        elif CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
             payment_session_id = f"session_mock_{secrets.token_hex(12)}"
         else:
-            raise HTTPException(status_code=500, detail=f"Cashfree Order creation failed: {err_body}")
+            raise HTTPException(status_code=400, detail=f"Cashfree Order creation failed: {err_body}")
     except Exception as e:
         logger.error(f"Cashfree order creation error: {e}")
         if CASHFREE_ENV == "sandbox" or "TEST" in CASHFREE_APP_ID or not CASHFREE_SECRET_KEY:
