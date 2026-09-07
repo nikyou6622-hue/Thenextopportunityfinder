@@ -632,9 +632,14 @@ NON_TECHNICAL_ROLE_PATTERNS = [
     r"\bhotel(\s+management|\s+manager|\s+staff)?\b",
     r"\bsocial\s+media(\s+(manager|marketing|management|designer|analyst|executive))?\b",
     r"\b(digital\s+|content\s+|influencer\s+|affiliate\s+)?marketing(\s+(intern|internship|lead|executive|manager))?\b",
-    r"\bcampus\s+(head|ambassador)\b",
-    r"\bhr(\s+operations|\s+internship|\s+executive)?\b", r"\brecruiter\b",
-    r"\b(content\s+writer|copywriter)\b", r"\bevent\s+manager\b"
+    r"\bcampus\s+(head|ambassador)(\s+(internship|programme|program))?\b",
+    r"\bhr(\s+operations|\s+internship|\s+executive)?\b", r"\brecruiter\b", r"\brecruitment\s+consultant\b",
+    r"\b(content\s+writer|copywriter)\b", r"\bevent\s+manager\b", r"\bevent\s+management\b",
+    r"\bgraphic\s+design(er)?\b", r"\bvisual\s+designer\b", r"\bcustomer\s+(service|support)\b",
+    r"\bfundraising\b", r"\bbusiness\s+development(\s+\(sales\))?\b", r"\breel\s+editor\b",
+    r"\blinkedin\s+outreach\b", r"\bretail\s+operations\b", r"\bsales\s+and\s+marketing\b",
+    r"\bbrand\s+management\b", r"\bcontent\s+writing\b", r"\bbusiness\s+administration\b",
+    r"\binside\s+sales\b"
 ]
 
 TECHNICAL_CORROBORATING_KEYWORDS = [
@@ -665,11 +670,9 @@ def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
         if tech_hits < 2:
             return False
 
-    # Check if title has explicit technical role titles (note: "intern" removed as it indicates seniority, not domain)
-    has_tech_title = any(kw in title_lower for kw in [
-        "developer", "engineer", "architect", "programmer", "tech", "data", "software",
-        "backend", "frontend", "full stack", "devops", "qa", "sde", "ai", "ml"
-    ])
+    # Check if title has explicit technical role titles using strict word boundaries
+    tech_title_pattern = r"\b(developer|engineer|architect|programmer|software|backend|frontend|fullstack|full-stack|devops|qa|sde|ai|ml|data scientist|data engineer|cloud engineer)\b"
+    has_tech_title = bool(re.search(tech_title_pattern, title_lower))
     if has_tech_title:
         return True
 

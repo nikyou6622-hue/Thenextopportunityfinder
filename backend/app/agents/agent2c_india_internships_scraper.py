@@ -658,15 +658,31 @@ def parse_generic_html(html: str, source: SourceTarget, max_items: int) -> List[
 # Deduplication
 # ============================================================================
 
+def compute_job_fingerprint(data: Dict[str, Any]) -> str:
+    comp = (data.get("company") or "").strip().lower()
+    title = (data.get("role_title") or "").strip().lower()
+    loc = (data.get("location") or "").strip().lower()
+    raw_str = f"{comp}::{title}::{loc}"
+    return hashlib.sha256(raw_str.encode("utf-8")).hexdigest()[:16]
+
 def deduplicate_listings(listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Removes duplicate listings by external_id."""
-    seen: Set[str] = set()
+    """Removes duplicate listings by external_id and job_fingerprint."""
+    seen_ids: Set[str] = set()
+    seen_fps: Set[str] = set()
     unique = []
     for listing in listings:
         ext_id = listing.get("external_id", "")
-        if ext_id and ext_id not in seen:
-            seen.add(ext_id)
-            unique.append(listing)
+        fp = listing.get("job_fingerprint") or compute_job_fingerprint(listing)
+        listing["job_fingerprint"] = fp
+
+        if (ext_id and ext_id in seen_ids) or (fp and fp in seen_fps):
+            continue
+
+        if ext_id:
+            seen_ids.add(ext_id)
+        if fp:
+            seen_fps.add(fp)
+        unique.append(listing)
     return unique
 
 # ============================================================================
@@ -685,36 +701,36 @@ def store_jobs_batch(
     # Deduplicate before storage
     jobs = deduplicate_listings(jobs)
     
-    external_ids = list({j["external_id"] for j in jobs})
+    external_ids = list({j["external_id"] for j in jobs if j.get("external_id")})
+    fingerprints = list({j["job_fingerprint"] for j in jobs if j.get("job_fingerprint")})
     
     with factory() as db:
         try:
-            existing = {
+            existing_ext = {
                 j.external_id: j
                 for j in db.query(JobModel).filter(JobModel.external_id.in_(external_ids)).all()
-            }
+                if j.external_id
+            } if external_ids else {}
+
+            existing_fp = {
+                j.job_fingerprint: j
+                for j in db.query(JobModel).filter(JobModel.job_fingerprint.in_(fingerprints)).all()
+                if j.job_fingerprint
+            } if fingerprints else {}
             
             profile = db.get(ProfileModel, profile_id) if profile_id else None
             
-            match_map = {}
-            if profile and existing:
-                existing_ids = [j.id for j in existing.values()]
-                match_map = {
-                    m.job_id: m
-                    for m in db.query(MatchModel).filter(
-                        MatchModel.profile_id == profile.id,
-                        MatchModel.job_id.in_(existing_ids)
-                    ).all()
-                }
-            
             created, updated = 0, 0
-            all_jobs = []
             
             for data in jobs:
-                model = existing.get(data["external_id"])
+                fp = data.get("job_fingerprint") or compute_job_fingerprint(data)
+                ext_id = data.get("external_id")
+
+                model = existing_ext.get(ext_id) or existing_fp.get(fp)
                 if model is None:
                     model = JobModel(
-                        external_id=data["external_id"],
+                        external_id=ext_id,
+                        job_fingerprint=fp,
                         source_category="internship_india",
                         role_type="internship",
                         posted_date=dt.date.today().isoformat(),
@@ -725,6 +741,8 @@ def store_jobs_batch(
                 else:
                     updated += 1
                 
+                model.job_fingerprint = fp
+
                 # Apply all fields
                 for f in ("role_title", "company", "location", "location_type",
                           "remote", "required_skills", "domain", "description",

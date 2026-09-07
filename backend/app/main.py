@@ -5818,6 +5818,7 @@ def get_india_internships_endpoint(
     
     query = db.query(JobModel).filter(
         JobModel.status == "active",
+        JobModel.link_status != "dead",
         or_(
             JobModel.role_title.ilike("%intern%"),
             JobModel.role_type.ilike("%intern%"),
@@ -5834,7 +5835,13 @@ def get_india_internships_endpoint(
     cand_skills_set = set(s.lower().strip() for s in (profile.skills or [])) if profile and profile.skills else set()
     
     res = []
+    seen_keys = set()
     for j in jobs:
+        dedup_key = (j.company or "").strip().lower(), (j.role_title or "").strip().lower(), (j.location or "").strip().lower()
+        if dedup_key in seen_keys:
+            continue
+        seen_keys.add(dedup_key)
+
         if not is_technical_role(j.role_title, j.description):
             continue
 
@@ -5853,20 +5860,29 @@ def get_india_internships_endpoint(
         
         if required_count > 0:
             skill_pct = (matched_count / required_count) * 100.0
-            # Weighted formula: 40% skill overlap + 25% domain fit (85) + 15% location fit (85) + 20% semantic fit (80)
-            score = round(0.40 * skill_pct + 0.25 * 85.0 + 0.15 * 85.0 + 0.20 * 80.0, 1)
-            if matched_count == 0:
-                score = min(score, 55.0)  # Capped at max 55% when 0 skills match out of required skills
         else:
-            skill_pct = 0.0
-            score = 75.0
-                
+            desc_text = f"{j.role_title} {j.description}".lower()
+            matching_in_desc = [s for s in cand_skills_set if s in desc_text]
+            if cand_skills_set:
+                skill_pct = min(100.0, (len(matching_in_desc) / max(1, len(cand_skills_set))) * 100.0)
+            else:
+                skill_pct = 0.0
+            matched_skills = matching_in_desc
+            matched_count = len(matching_in_desc)
+
+        # Weighted formula: 40% skill overlap + 25% domain fit (75) + 15% location fit (75) + 20% semantic fit (70)
+        # Base components sum to 0.25*75 + 0.15*75 + 0.20*70 = 44.0. 40% skill adds up to 40.0 points.
+        # Total score ranges dynamically from 44.0 (0% skill) to 84.0 (100% skill).
+        score = round(0.40 * skill_pct + 0.25 * 75.0 + 0.15 * 75.0 + 0.20 * 70.0, 1)
+        if skill_pct == 0.0 or matched_count == 0:
+            score = min(score, 45.0)
+
         res.append({
             "id": f"int-db-{j.id}",
             "job_id": j.id,
             "title": j.role_title if "intern" in (j.role_title or "").lower() else f"{j.role_title} Intern",
             "role_title": j.role_title,
-            "company": j.company,
+            "company": j.company or "Verified Company",
             "source": j.source or "Verified Portal",
             "platform": (j.source or "Verified Portal").title(),
             "location": j.location or "Bengaluru, India",
@@ -5875,6 +5891,7 @@ def get_india_internships_endpoint(
             "ppo_offered": True,
             "tier2_3_friendly": True,
             "posted_date": j.posted_date or "Recently",
+            "description": j.description or f"{j.role_title} position at {j.company or 'Verified Company'}.",
             "skills_required": req_skills_list,
             "required_skills": req_skills_list,
             "matched_skills": matched_skills,

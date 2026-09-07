@@ -874,7 +874,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
           <div className="job-cards-grid">
             {sortedList.map((item, idx) => {
               const matchScore = getDynamicMatchScore(item);
-              const comp = item.company || 'TechCorp';
+              const comp = item.company || 'Verified Company';
               const cLower = comp.toLowerCase();
               const isJobLocked = !isPro && (Boolean(item.is_locked) || idx >= 5);
 
@@ -1094,7 +1094,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                       lineHeight: 1.45, 
                       margin: '2px 0 0'
                     }}>
-                      {item.description ? (item.description.length > 110 ? `${item.description.substring(0, 105)}...` : item.description) : 'Hands-on production internship working with modern engineering teams.'}
+                      {item.description ? (item.description.length > 110 ? `${item.description.substring(0, 105)}...` : item.description) : ''}
                     </p>
 
                     {/* Skill Match Breakdown Bar */}

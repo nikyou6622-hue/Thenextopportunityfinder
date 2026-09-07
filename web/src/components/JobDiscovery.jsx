@@ -1085,7 +1085,7 @@ export default function JobDiscovery({
           ) : (
             <div className="job-cards-grid">
               {globalJobs.map((job, idx) => {
-                const comp = job.company || 'TechCorp';
+                const comp = job.company || 'Verified Company';
                 const cLower = comp.toLowerCase();
 
                 const themeType = cLower.includes('spotify') ? 'amber' :
