@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey, JSON, Index
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.app.db.database import Base
 
@@ -123,6 +123,9 @@ class EmailLogModel(Base):
 
 class MatchModel(Base):
     __tablename__ = "matches"
+    __table_args__ = (
+        UniqueConstraint('job_id', 'profile_id', name='uq_matches_job_profile'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)

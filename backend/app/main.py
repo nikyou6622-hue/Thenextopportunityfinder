@@ -17,8 +17,10 @@ from fastapi import FastAPI, Request, Depends, UploadFile, File, Form, HTTPExcep
 from fastapi.responses import Response, PlainTextResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy import text, or_, and_, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 try:
     if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV"):
@@ -296,6 +298,7 @@ def auto_migrate_db(engine_obj):
         "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'active';",
         "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_trust_tier VARCHAR DEFAULT 'Tier 3';",
         "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS is_technical BOOLEAN DEFAULT TRUE;",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_matches_job_profile ON matches (job_id, profile_id);",
 
         """
         CREATE TABLE IF NOT EXISTS support_queries (
@@ -2318,13 +2321,113 @@ def get_active_profile(db: Session, request: Optional[Request] = None) -> Option
     return db.query(ProfileModel).order_by(ProfileModel.last_analyzed_at.desc(), ProfileModel.id.desc()).first()
 
 
+def bulk_upsert_matches(db: Session, match_rows: List[Dict[str, Any]], batch_size: int = 1000):
+    """
+    Executes PostgreSQL native bulk upsert (or SQLite fallback) for MatchModel rows
+    in efficient batched SQL statements (default 1,000 rows/batch) instead of per-row ORM flushes.
+    """
+    if not match_rows:
+        return
+
+    bind_engine = db.get_bind()
+    dialect_name = bind_engine.dialect.name if bind_engine else "postgresql"
+
+    for i in range(0, len(match_rows), batch_size):
+        chunk = match_rows[i : i + batch_size]
+        if dialect_name == "sqlite":
+            stmt = sqlite_insert(MatchModel.__table__).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["job_id", "profile_id"],
+                set_={
+                    "match_score": stmt.excluded.match_score,
+                    "skill_overlap_score": stmt.excluded.skill_overlap_score,
+                    "domain_score": stmt.excluded.domain_score,
+                    "location_score": stmt.excluded.location_score,
+                    "semantic_score": stmt.excluded.semantic_score,
+                    "matching_skills": stmt.excluded.matching_skills,
+                    "matched_skills": stmt.excluded.matched_skills,
+                    "missing_skills": stmt.excluded.missing_skills,
+                    "matched_count": stmt.excluded.matched_count,
+                    "required_count": stmt.excluded.required_count,
+                    "skill_match_percentage": stmt.excluded.skill_match_percentage
+                }
+            )
+        else:
+            stmt = pg_insert(MatchModel.__table__).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["job_id", "profile_id"],
+                set_={
+                    "match_score": stmt.excluded.match_score,
+                    "skill_overlap_score": stmt.excluded.skill_overlap_score,
+                    "domain_score": stmt.excluded.domain_score,
+                    "location_score": stmt.excluded.location_score,
+                    "semantic_score": stmt.excluded.semantic_score,
+                    "matching_skills": stmt.excluded.matching_skills,
+                    "matched_skills": stmt.excluded.matched_skills,
+                    "missing_skills": stmt.excluded.missing_skills,
+                    "matched_count": stmt.excluded.matched_count,
+                    "required_count": stmt.excluded.required_count,
+                    "skill_match_percentage": stmt.excluded.skill_match_percentage
+                }
+            )
+
+        db.execute(stmt)
+    db.commit()
+
+
 def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match: Optional[int] = None):
     """
     Matches a candidate profile against existing, already-scraped jobs in the database.
     Does NOT trigger any live scraping — that happens exclusively via scheduled GitHub Actions workflows.
+    Includes stage-by-stage timing instrumentation for performance diagnostics.
     """
-    # Indexed Pre-filtering for High-Scale Catalog
-    jobs_query = db.query(JobModel).filter(
+    timings = {}
+    total_start = time.time()
+
+    # Stage 1: Resume parsing (text extraction, skill extraction, stopwords filtering)
+    t0 = time.time()
+    decrypted_resume_text = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
+    stopwords = {"the", "and", "a", "to", "in", "is", "for", "with", "on", "at", "by", "of", "an", "be", "as", "are", "or", "our", "we", "you", "your"}
+    parsed_resume_words = set(re.findall(r'\w+', decrypted_resume_text.lower())) - stopwords if decrypted_resume_text else set()
+
+    skills_extracted = profile.skills if isinstance(profile.skills, list) else []
+    profile_dict = {
+        "name": profile.name,
+        "email": profile.email,
+        "phone": profile.phone,
+        "location": profile.location or {},
+        "skills": skills_extracted,
+        "experience_years": profile.experience_years or 0.0,
+        "domains": profile.domains or [],
+        "raw_resume_text": parsed_resume_words
+    }
+    timings['parsing'] = round(time.time() - t0, 5)
+
+    # Stage 2: ATS scoring (outcome signals / 5-pillar calculation)
+    t1 = time.time()
+    outcome_signals = []
+    if profile.id:
+        diagnoses = db.query(OutcomeDiagnosisModel).filter(OutcomeDiagnosisModel.profile_id == profile.id).all()
+        outcome_signals = [{"pattern_type": d.pattern_type, "recommendation": d.recommendation} for d in diagnoses]
+    timings['ats_scoring'] = round(time.time() - t1, 5)
+
+    # Stage 3: DB query — fetching active jobs to match against (with load_only column reduction)
+    t2 = time.time()
+    jobs_query = db.query(JobModel).options(
+        load_only(
+            JobModel.id,
+            JobModel.company,
+            JobModel.role_title,
+            JobModel.location,
+            JobModel.remote,
+            JobModel.required_skills,
+            JobModel.domain,
+            JobModel.is_technical,
+            JobModel.source_trust_tier,
+            JobModel.status,
+            JobModel.link_status
+        )
+    ).filter(
         JobModel.status == "active",
         JobModel.link_status != "dead"
     )
@@ -2332,36 +2435,12 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
         jobs = jobs_query.order_by(JobModel.id.desc()).limit(max_jobs_to_match).all()
     else:
         jobs = jobs_query.order_by(JobModel.id.desc()).all()
+    timings['job_fetch'] = round(time.time() - t2, 5)
 
-    decrypted_resume_text = decrypt_field(profile.raw_resume_text) if profile.raw_resume_text else ""
-    stopwords = {"the", "and", "a", "to", "in", "is", "for", "with", "on", "at", "by", "of", "an", "be", "as", "are", "or", "our", "we", "you", "your"}
-    parsed_resume_words = set(re.findall(r'\w+', decrypted_resume_text.lower())) - stopwords if decrypted_resume_text else set()
-
-    profile_dict = {
-        "name": profile.name,
-        "email": profile.email,
-        "phone": profile.phone,
-        "location": profile.location or {},
-        "skills": profile.skills or [],
-        "experience_years": profile.experience_years or 0.0,
-        "domains": profile.domains or [],
-        "raw_resume_text": parsed_resume_words
-    }
-
-    # Fetch outcome feedback signals
-    outcome_signals = []
-    if profile.id:
-        diagnoses = db.query(OutcomeDiagnosisModel).filter(OutcomeDiagnosisModel.profile_id == profile.id).all()
-        outcome_signals = [{"pattern_type": d.pattern_type, "recommendation": d.recommendation} for d in diagnoses]
-
-    # Pre-fetch all existing matches & applications for this profile into dictionaries (eliminates N+1 DB queries)
-    existing_matches = {}
-    existing_apps = {}
-    if profile.id:
-        match_rows = db.query(MatchModel).filter(MatchModel.profile_id == profile.id).all()
-        existing_matches = {m.job_id: m for m in match_rows}
-        app_rows = db.query(ApplicationModel).filter(ApplicationModel.profile_id == profile.id).all()
-        existing_apps = {a.job_id: a for a in app_rows}
+    # Stage 4: Match scoring loop — computing skill overlap/domain/location/semantic score per job
+    t3 = time.time()
+    scored_count = 0
+    match_rows_to_upsert = []
 
     for job in jobs:
         job_dict = {
@@ -2371,42 +2450,41 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
             "remote": job.remote,
             "required_skills": job.required_skills or [],
             "domain": job.domain,
-            "description": job.description
+            "description": job.__dict__.get("description", ""),
+            "is_technical": getattr(job, "is_technical", True),
+            "source_trust_tier": getattr(job, "source_trust_tier", "tier1_verified")
         }
         match_result = compute_match(profile_dict, job_dict, outcome_feedback_signals=outcome_signals)
-        
-        existing_match = existing_matches.get(job.id)
-        if existing_match:
-            existing_match.match_score = match_result["match_score"]
-            existing_match.skill_overlap_score = match_result["skill_overlap_score"]
-            existing_match.domain_score = match_result["domain_score"]
-            existing_match.location_score = match_result["location_score"]
-            existing_match.semantic_score = match_result["semantic_score"]
-            existing_match.matching_skills = match_result["matched_skills"]
-            existing_match.matched_skills = match_result["matched_skills"]
-            existing_match.missing_skills = match_result["missing_skills"]
-            existing_match.matched_count = match_result["matched_count"]
-            existing_match.required_count = match_result["required_count"]
-            existing_match.skill_match_percentage = match_result["skill_match_percentage"]
-        else:
-            new_match = MatchModel(
-                job_id=job.id,
-                profile_id=profile.id,
-                match_score=match_result["match_score"],
-                skill_overlap_score=match_result["skill_overlap_score"],
-                domain_score=match_result["domain_score"],
-                location_score=match_result["location_score"],
-                semantic_score=match_result["semantic_score"],
-                matching_skills=match_result["matched_skills"],
-                matched_skills=match_result["matched_skills"],
-                missing_skills=match_result["missing_skills"],
-                matched_count=match_result["matched_count"],
-                required_count=match_result["required_count"],
-                skill_match_percentage=match_result["skill_match_percentage"]
-            )
-            db.add(new_match)
+        scored_count += 1
 
-    db.commit()
+        if profile.id:
+            match_rows_to_upsert.append({
+                "job_id": job.id,
+                "profile_id": profile.id,
+                "match_score": match_result["match_score"],
+                "skill_overlap_score": match_result["skill_overlap_score"],
+                "domain_score": match_result["domain_score"],
+                "location_score": match_result["location_score"],
+                "semantic_score": match_result["semantic_score"],
+                "matching_skills": match_result["matched_skills"],
+                "matched_skills": match_result["matched_skills"],
+                "missing_skills": match_result["missing_skills"],
+                "matched_count": match_result["matched_count"],
+                "required_count": match_result["required_count"],
+                "skill_match_percentage": match_result["skill_match_percentage"]
+            })
+    timings['match_scoring'] = round(time.time() - t3, 5)
+
+    # Stage 5: DB single bulk upsert execution
+    t4 = time.time()
+    if profile.id and match_rows_to_upsert:
+        bulk_upsert_matches(db, match_rows_to_upsert)
+    timings['response_prep'] = round(time.time() - t4, 5)
+
+    timings['total'] = round(time.time() - total_start, 5)
+
+    logger.info(f"MATCH_TIMING: {timings}")
+    logger.info(f"MATCH_CONTEXT: jobs_fetched={len(jobs)}, jobs_scored={scored_count}, skills_extracted={len(skills_extracted)}")
 
 
 def run_matching_pipeline_background(profile_id: int):

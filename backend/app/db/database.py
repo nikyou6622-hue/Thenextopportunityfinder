@@ -25,7 +25,9 @@ def is_cloud_environment():
     )
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-if not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+if os.getenv("USE_SQLITE_TEST") == "1":
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+elif not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
 
 if ":6543/" in SQLALCHEMY_DATABASE_URL:
