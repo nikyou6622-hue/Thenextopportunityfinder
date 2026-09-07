@@ -6491,15 +6491,20 @@ async def cashfree_webhook(
 
         # Grant 6-Month Pro Subscription
         if profile_id:
-            sub = grant_pro_access(profile_id, db, payment_id=cf_payment_id, amount_paid=99.0, months=6)
+            try:
+                sub = grant_pro_access(profile_id, db, payment_id=cf_payment_id, amount_paid=float(order_data.get("order_amount", 99.0)), months=6)
+            except Exception as ge:
+                logger.error(f"Error executing grant_pro_access in webhook for profile {profile_id}: {ge}")
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Database error granting Pro subscription: {ge}")
+
             profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
-            
             try:
                 notif = NotificationEventModel(
                     profile_id=profile_id,
                     trigger_type="subscription_activated",
                     title="🎉 Cashfree Pro Access Active!",
-                    message=f"Your 6-month Pro access (₹99) is active until {sub.valid_until.strftime('%b %d, %Y') if sub.valid_until else ''}.",
+                    message=f"Your 6-month Pro access (₹{order_data.get('order_amount', 99.0)}) is active until {sub.valid_until.strftime('%b %d, %Y') if sub and sub.valid_until else ''}.",
                     severity="success",
                     action_tab="overview"
                 )
@@ -6508,9 +6513,12 @@ async def cashfree_webhook(
             except Exception as ne:
                 logger.warning(f"Notification creation notice: {ne}")
 
-            if profile and profile.email:
-                valid_str = sub.valid_until.strftime('%Y-%m-%d') if sub.valid_until else ""
-                _send_live_payment_receipt_email(profile.email, cf_payment_id, 99.0, valid_str)
+            try:
+                if profile and profile.email:
+                    valid_str = sub.valid_until.strftime('%Y-%m-%d') if sub and sub.valid_until else ""
+                    _send_live_payment_receipt_email(profile.email, cf_payment_id, float(order_data.get("order_amount", 99.0)), valid_str)
+            except Exception as ee:
+                logger.warning(f"Webhook payment receipt email notice: {ee}")
 
         return {"status": "success", "order_id": order_id, "payment_id": cf_payment_id}
     else:
@@ -7144,10 +7152,66 @@ def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Dep
     runs = db.query(ScraperRunModel).order_by(ScraperRunModel.start_time.desc()).limit(50).all()
     failed_runs_count = sum(1 for r in runs if r.status == "failed")
 
+    # 4. Stuck Payments Safety Net Reconciliation Check
+    thirty_mins_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=30)
+    stuck_candidate_orders = db.query(PaymentOrderModel).filter(
+        PaymentOrderModel.created_at <= thirty_mins_ago
+    ).all()
+
+    stuck_payments_flagged = []
+    for order in stuck_candidate_orders:
+        profile = db.query(ProfileModel).filter(ProfileModel.id == order.profile_id).first()
+        sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == order.profile_id).first() if profile else None
+        plan_tier = sub.plan_tier if sub else "free"
+        
+        # If candidate profile is still on 'free' tier despite order > 30 minutes old
+        if plan_tier == "free":
+            cf_status = "UNKNOWN"
+            if order.status == "created" and CASHFREE_APP_ID and CASHFREE_SECRET_KEY:
+                try:
+                    cf_url = f"{get_cashfree_base_url()}/orders/{order.order_id}"
+                    headers = {
+                        "x-client-id": CASHFREE_APP_ID,
+                        "x-client-secret": CASHFREE_SECRET_KEY,
+                        "x-api-version": "2023-08-01"
+                    }
+                    py_req = urllib.request.Request(cf_url, headers=headers, method="GET")
+                    with urllib.request.urlopen(py_req, timeout=5) as response:
+                        cf_data = json.loads(response.read().decode('utf-8'))
+                        cf_status = cf_data.get("order_status") or "UNKNOWN"
+                        if cf_status == "PAID":
+                            # Auto-recover stuck payment!
+                            order.status = "paid"
+                            db.commit()
+                            grant_pro_access(order.profile_id, db, payment_id=order.order_id, amount_paid=order.amount, months=6)
+                            plan_tier = "pro"
+                except Exception as ex:
+                    logger.warning(f"Reconciliation Cashfree API query notice for order {order.order_id}: {ex}")
+
+            if plan_tier == "free":
+                stuck_payments_flagged.append({
+                    "order_id": order.order_id,
+                    "profile_id": order.profile_id,
+                    "customer_email": profile.email if profile else "UNKNOWN",
+                    "amount": order.amount,
+                    "db_order_status": order.status,
+                    "cashfree_api_status": cf_status,
+                    "created_at": order.created_at.isoformat() if order.created_at else None,
+                    "issue": f"Stuck Payment Alert: Payment order >30m old (DB: {order.status}, Cashfree: {cf_status}) but profile subscription remains 'free'."
+                })
+
+    overall_status = "clean"
+    if len(discrepancies) > 0:
+        overall_status = "discrepancies_detected"
+    elif len(stuck_payments_flagged) > 0:
+        overall_status = "stuck_payments_detected"
+
     return {
-        "reconciliation_status": "clean" if len(discrepancies) == 0 else "discrepancies_detected",
+        "reconciliation_status": overall_status,
         "illegitimate_accounts_count": len(discrepancies),
+        "stuck_payments_count": len(stuck_payments_flagged),
         "discrepancies": discrepancies,
+        "stuck_payments_flagged": stuck_payments_flagged,
         "data_freshness": {
             "total_active_jobs": total_active_jobs,
             "fresh_jobs_72h": fresh_72h,
