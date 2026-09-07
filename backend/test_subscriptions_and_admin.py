@@ -250,6 +250,7 @@ def test_webhook_signature_verification_and_idempotency(setup_db):
 
     # 1. Invalid Webhook Signature when secret configured
     main_module.RAZORPAY_WEBHOOK_SECRET = "secret_key_123"
+    main_module.CASHFREE_SECRET_KEY = "secret_key_123"
     try:
         payload = {
             "event": "payment.captured",

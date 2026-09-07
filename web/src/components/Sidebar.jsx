@@ -338,10 +338,10 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
     }
     let groups = NAV_GROUPS;
     if (!isAdmin) {
-      // Filter out admin-only system infrastructure status item
+      // Filter out admin-only system status and changelog infrastructure items
       groups = NAV_GROUPS.map(g => ({
         ...g,
-        items: g.items.filter(item => item.id !== 'status')
+        items: g.items.filter(item => item.id !== 'status' && item.id !== 'changelog')
       }));
       return groups;
     }

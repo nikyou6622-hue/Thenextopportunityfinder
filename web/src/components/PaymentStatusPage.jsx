@@ -57,7 +57,7 @@ export default function PaymentStatusPage({ onNavigateHome }) {
         setOrderDetails({
           order_id: orderId,
           status: 'paid',
-          amount: 99.0,
+          amount: 1.0,
           currency: 'INR',
           is_pro: true,
           valid_until: new Date(Date.now() + 180 * 86400000).toISOString()

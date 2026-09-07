@@ -33,7 +33,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: 99.0,
+          amount: 1.0,
           currency: 'INR',
           profile_id: profile?.id
         })

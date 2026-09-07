@@ -15,6 +15,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import apiFetch from '../lib/apiClient';
+import { AlertCircle } from 'lucide-react';
 
 const RELEASES = [
   {
@@ -124,6 +126,35 @@ const RELEASES = [
 
 export default function ChangelogPage() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [unauthorized, setUnauthorized] = useState(false);
+
+  React.useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await apiFetch('/api/changelog');
+        if (res.status === 403) {
+          setUnauthorized(true);
+        }
+      } catch (err) {
+        console.error("Changelog authorization check failed:", err);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  if (unauthorized) {
+    return (
+      <div className="glass-panel" style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '600px', margin: '60px auto', borderRadius: '24px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
+        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', color: '#f87171' }}>
+          <AlertCircle size={36} />
+        </div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '10px' }}>403 Forbidden — Access Denied</h2>
+        <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: '24px' }}>
+          System Release Changelog is restricted to authorized platform administrators only.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px', paddingBottom: '60px' }}>

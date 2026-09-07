@@ -23,12 +23,18 @@ import SoundSystem from './characters/SoundEffects';
 export default function SystemStatusPage({ onTriggerCelebration }) {
   const [healthData, setHealthData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   const fetchHealth = async () => {
     setLoading(true);
+    setUnauthorized(false);
     try {
-      const res = await apiFetch('/api/health');
+      const res = await apiFetch('/api/system-status');
+      if (res.status === 403) {
+        setUnauthorized(true);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setHealthData(data);
@@ -85,6 +91,20 @@ export default function SystemStatusPage({ onTriggerCelebration }) {
     fetchHealth();
     if (onTriggerCelebration) onTriggerCelebration();
   };
+
+  if (unauthorized) {
+    return (
+      <div className="glass-panel" style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '600px', margin: '60px auto', borderRadius: '24px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
+        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', color: '#f87171' }}>
+          <AlertCircle size={36} />
+        </div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '10px' }}>403 Forbidden — Access Denied</h2>
+        <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: '24px' }}>
+          System Infrastructure Status is restricted to authorized platform administrators only.
+        </p>
+      </div>
+    );
+  }
 
   const isAllOperational = healthData?.status === "operational";
 

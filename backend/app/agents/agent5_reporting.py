@@ -1,26 +1,34 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.app.db.models import JobModel, MatchModel, ApplicationModel, ProfileModel, EmailLogModel
 from backend.app.schemas.schemas import DashboardMetrics
 
-def generate_dashboard_metrics(db: Session) -> DashboardMetrics:
-    """Aggregates platform metric statistics for Agent 5 dashboard."""
-    total_matched = db.query(MatchModel).count()
+def generate_dashboard_metrics(db: Session, profile_id: Optional[int] = None) -> DashboardMetrics:
+    """Aggregates platform metric statistics for Agent 5 dashboard scoped to a specific profile if provided."""
+    match_query = db.query(MatchModel)
+    app_query = db.query(ApplicationModel)
+    
+    if profile_id is not None:
+        match_query = match_query.filter(MatchModel.profile_id == profile_id)
+        app_query = app_query.filter(ApplicationModel.profile_id == profile_id)
+
+    total_matched = match_query.count()
     
     # Applications link-opened or submitted
-    apps_sent = db.query(ApplicationModel).filter(ApplicationModel.status.in_(["link_opened", "submitted", "emailed", "interview_scheduled", "offer_received", "hired"])).count()
+    apps_sent = app_query.filter(ApplicationModel.status.in_(["link_opened", "submitted", "emailed", "interview_scheduled", "offer_received", "hired"])).count()
     
     # Email outreach sent
     emails_sent = db.query(EmailLogModel).filter(EmailLogModel.status == "sent").count()
     
     # Pending manual review count
-    pending_review = db.query(ApplicationModel).filter(ApplicationModel.status == "pending_manual_review").count()
+    pending_review = app_query.filter(ApplicationModel.status == "pending_manual_review").count()
     
     # High match count (>75%)
-    high_match = db.query(MatchModel).filter(MatchModel.match_score >= 75.0).count()
+    high_match = match_query.filter(MatchModel.match_score >= 75.0).count()
     
     # Average match score
-    avg_score_res = db.query(func.avg(MatchModel.match_score)).scalar()
+    avg_score_res = match_query.with_entities(func.avg(MatchModel.match_score)).scalar()
     avg_match_score = round(float(avg_score_res), 1) if avg_score_res else 0.0
 
     # Domain breakdown
@@ -28,10 +36,10 @@ def generate_dashboard_metrics(db: Session) -> DashboardMetrics:
     domain_breakdown = {dom or "other": count for dom, count in domain_query}
 
     # Match distribution (ranges: 90-100, 80-89, 70-79, <70)
-    match_90_100 = db.query(MatchModel).filter(MatchModel.match_score >= 90.0).count()
-    match_80_89 = db.query(MatchModel).filter(MatchModel.match_score >= 80.0, MatchModel.match_score < 90.0).count()
-    match_70_79 = db.query(MatchModel).filter(MatchModel.match_score >= 70.0, MatchModel.match_score < 80.0).count()
-    match_below_70 = db.query(MatchModel).filter(MatchModel.match_score < 70.0).count()
+    match_90_100 = match_query.filter(MatchModel.match_score >= 90.0).count()
+    match_80_89 = match_query.filter(MatchModel.match_score >= 80.0, MatchModel.match_score < 90.0).count()
+    match_70_79 = match_query.filter(MatchModel.match_score >= 70.0, MatchModel.match_score < 80.0).count()
+    match_below_70 = match_query.filter(MatchModel.match_score < 70.0).count()
 
     match_distribution = {
         "90-100%": match_90_100,
@@ -50,3 +58,4 @@ def generate_dashboard_metrics(db: Session) -> DashboardMetrics:
         domain_breakdown=domain_breakdown,
         match_distribution=match_distribution
     )
+

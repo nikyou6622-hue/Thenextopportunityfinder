@@ -80,8 +80,11 @@ Base = declarative_base()
 def run_auto_migrations():
     """Applies schema migrations for new columns without losing existing data."""
     try:
+        from backend.app.db.models import Base
+        Base.metadata.create_all(bind=engine)
         from sqlalchemy import text
         with engine.connect() as conn:
+
             if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
                 tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
                 if "users" in tables:

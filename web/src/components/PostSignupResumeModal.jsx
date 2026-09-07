@@ -270,6 +270,10 @@ export default function PostSignupResumeModal({
                   <FileText size={16} />
                   <span>Browse File from Computer</span>
                 </button>
+
+                <span style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '10px', fontWeight: 600 }}>
+                  💡 For best results, upload a PDF — other formats may reduce ATS parsing accuracy.
+                </span>
               </div>
 
               {/* Quick Demo Seed Option */}

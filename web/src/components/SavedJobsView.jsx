@@ -25,53 +25,8 @@ export default function SavedJobsView({
 }) {
   const [filterType, setFilterType] = useState('all'); // 'all' | 'jobs' | 'companies'
 
-  // If savedJobs is empty, display curated default saved items
-  const displayJobs = savedJobs.length > 0 ? savedJobs : [
-    {
-      id: 'saved-1',
-      title: 'Full Stack Engineer',
-      company: 'Spotify',
-      location: 'Bengaluru / Remote',
-      job_type: 'Full-time',
-      experience_level: '1-3 years exp',
-      salary_range: '₹28L - ₹42L / yr',
-      theme: 'card-next-amber',
-      logo: 'S'
-    },
-    {
-      id: 'saved-2',
-      title: 'Sr. Backend Engineer',
-      company: 'Google',
-      location: 'Bengaluru / Hyderabad',
-      job_type: 'Full-time',
-      experience_level: '3+ years exp',
-      salary_range: '₹45L - ₹65L / yr',
-      theme: 'card-next-purple',
-      logo: 'G'
-    },
-    {
-      id: 'saved-3',
-      title: 'Product Engineer',
-      company: 'CRED',
-      location: 'Bengaluru',
-      job_type: 'Full-time',
-      experience_level: '1-3 years exp',
-      salary_range: '₹24L - ₹36L / yr',
-      theme: 'card-next-coral',
-      logo: 'C'
-    },
-    {
-      id: 'saved-4',
-      title: 'Frontend Developer',
-      company: 'Razorpay',
-      location: 'Bengaluru / Remote',
-      job_type: 'Full-time',
-      experience_level: '2+ years exp',
-      salary_range: '₹30L - ₹45L / yr',
-      theme: 'card-next-dark',
-      logo: 'R'
-    }
-  ];
+  // Display savedJobs directly (Real Data Only)
+  const displayJobs = Array.isArray(savedJobs) ? savedJobs : [];
 
   const filteredList = displayJobs.filter(item => {
     if (filterType === 'all') return true;
@@ -301,6 +256,21 @@ export default function SavedJobsView({
                   }}>
                     <Briefcase size={10} /> {job.job_type || 'Full-time'}
                   </span>
+                  {job.link_status === 'dead' && (
+                    <span style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      borderRadius: '9999px',
+                      padding: '3px 10px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      ⚠️ Expired / Closed Link
+                    </span>
+                  )}
                 </div>
               </div>
 

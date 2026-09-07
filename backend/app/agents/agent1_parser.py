@@ -699,19 +699,61 @@ def _extract_email(text: str) -> Optional[str]:
     return match.group(0).lower() if match else None
 
 
+def is_valid_phone_number(candidate: str) -> bool:
+    """Validates if a phone string candidate is a real formatted phone number."""
+    if not candidate:
+        return False
+    digits = re.sub(r'\D', '', candidate)
+    
+    # Ignore invalid lengths (must be 10 to 13 digits including optional country code)
+    if len(digits) < 10 or len(digits) > 13:
+        return False
+    
+    # Ignore repeating or dummy numbers
+    if len(set(digits)) <= 2 or digits in ("1234567890", "0123456789", "9876543210"):
+        return False
+        
+    # Ignore timestamps starting with 202 (e.g. 20260905...)
+    if digits.startswith("202") and len(digits) > 10:
+        return False
+
+    # Indian mobile: 10 digits starting with 6-9 (optional prefix +91, 91, or 0)
+    if len(digits) == 12 and digits.startswith("91"):
+        digits_10 = digits[2:]
+        return digits_10[0] in "6789"
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits_10 = digits[1:]
+        return digits_10[0] in "6789"
+    elif len(digits) == 10:
+        return digits[0] in "6789" or digits[0] in "123456789"
+        
+    return True
+
+
 def _extract_phone(text: str) -> Optional[str]:
-    """Extracts phone number."""
+    """
+    Extracts phone number with strict pattern and digit count validation.
+    Returns None if malformed or ambiguous.
+    """
     patterns = [
-        r'(\+91[\s-]?)?[6789]\d{9}',  # Indian mobile
-        r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',  # US format
+        # Explicit labeled phone field
+        r'(?:phone|mobile|tel|contact|cell)\s*[:\-–—]?\s*(\+?\d{1,4}[\s.-]?\(?\d{2,5}\)?[\s.-]?\d{3,5}[\s.-]?\d{3,5})',
+        # Standard Indian mobile format (+91 or standalone 10 digits starting with 6-9)
+        r'\b(?:(?:\+91[\s.-]?|91[\s.-]?|0)?[6-9]\d{4}[\s.-]?\d{5})\b',
+        # US/Intl format with parentheses/dashes
+        r'\b(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b',
     ]
     
     for pattern in patterns:
-        match = re.search(pattern, text)
-        if match:
-            return match.group(0).strip()
+        matches = re.finditer(pattern, text, re.IGNORECASE)
+        for match in matches:
+            val = match.group(1) if match.lastindex and match.lastindex >= 1 else match.group(0)
+            cleaned_val = val.strip()
+            if is_valid_phone_number(cleaned_val):
+                return cleaned_val
     
     return None
+
 
 
 def _extract_name(text: str) -> Optional[str]:

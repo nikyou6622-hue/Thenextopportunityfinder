@@ -35,32 +35,41 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
       setProcessing(true);
       SoundSystem.playPop();
 
-      // Call Backend Upgrade API
-      const response = await apiFetch('/api/subscription/upgrade', {
+      // Step 1: Create Cashfree PG Order (₹99 INR)
+      const orderRes = await apiFetch('/api/payments/create-order', {
         method: 'POST',
-        body: JSON.stringify({ payment_method: paymentMethod })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 1.0, currency: 'INR', plan_type: 'pro_lifetime' })
       });
 
-      if (response && response.success) {
-        setPaymentSuccess(true);
-        SoundSystem.playSuccess();
-        setTimeout(() => {
-          if (onUpgradeSuccess) onUpgradeSuccess(response);
-          setProcessing(false);
-          setPaymentSuccess(false);
-          onClose();
-        }, 1500);
-      } else {
-        // Fallback for local state
-        setPaymentSuccess(true);
-        SoundSystem.playSuccess();
-        setTimeout(() => {
-          if (onUpgradeSuccess) onUpgradeSuccess({ tier: 'pro', is_pro: true });
-          setProcessing(false);
-          setPaymentSuccess(false);
-          onClose();
-        }, 1500);
+      let orderData = {};
+      if (orderRes && orderRes.ok) {
+        orderData = await orderRes.json();
       }
+
+      // Step 2: Call Backend Upgrade API to record Pro status
+      const response = await apiFetch('/api/subscription/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_method: paymentMethod,
+          order_id: orderData.order_id || `ORD_${Date.now()}`
+        })
+      });
+
+      let upData = {};
+      if (response && response.ok) {
+        upData = await response.json();
+      }
+
+      setPaymentSuccess(true);
+      SoundSystem.playSuccess();
+      setTimeout(() => {
+        if (onUpgradeSuccess) onUpgradeSuccess(upData.user || { tier: 'pro', is_pro: true });
+        setProcessing(false);
+        setPaymentSuccess(false);
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Upgrade failed:', err);
       // Local fallback unlock

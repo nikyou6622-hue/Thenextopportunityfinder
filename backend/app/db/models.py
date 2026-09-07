@@ -239,6 +239,18 @@ class PaymentOrderModel(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
+class SavedJobModel(Base):
+    __tablename__ = "saved_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    job = relationship("JobModel")
+    profile = relationship("ProfileModel")
+
+
 # --- NEW MODELS FOR CS/TECH EXTENSIONS ---
 
 class LearningResourceModel(Base):
@@ -430,3 +442,35 @@ class SupportQueryModel(Base):
     status = Column(String, default="open", index=True) # open, in_progress, resolved
     admin_response = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
+class AdminPermissionModel(Base):
+    __tablename__ = "admin_permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    admin_email = Column(String, index=True, nullable=False)
+    permission_key = Column(String, index=True, nullable=False) # e.g. "cleanup_expired_jobs", "grant_pro", "trigger_scrapers", "send_announcements", "purge_retention"
+    granted_by = Column(String, nullable=False)
+    granted_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+
+class AdminLoginLogModel(Base):
+    __tablename__ = "admin_login_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    admin_email = Column(String, index=True, nullable=False)
+    admin_level = Column(String, default="commander")
+    ip_address = Column(String, default="127.0.0.1", index=True)
+    user_agent = Column(Text, nullable=True)
+    device_summary = Column(String, default="Desktop Browser")
+    login_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
+
+class AdminLockdownModel(Base):
+    __tablename__ = "admin_lockdown_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    locked_by = Column(String, nullable=False)
+    revoked_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+    reason = Column(Text, default="Emergency Admin Lockdown Triggered by Super Admin")
+    is_active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
+

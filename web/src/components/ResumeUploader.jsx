@@ -227,6 +227,9 @@ export default function ResumeUploader({ profile, onUpload, onUpdateProfile, onS
               <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
                 Supports PDF, DOCX, TXT (Max 10MB)
               </span>
+              <span style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
+                💡 For best results, upload a PDF — other formats may reduce ATS parsing accuracy.
+              </span>
             </label>
           </div>
 
