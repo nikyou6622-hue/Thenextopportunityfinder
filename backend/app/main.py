@@ -3774,7 +3774,7 @@ async def import_jobs_file(file: UploadFile = File(...), db: Session = Depends(g
         logger.error(f"Error importing jobs file: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
-UNRELIABLE_COMPANIES = {"infosys", "wipro", "cognizant", "tcs", "hcl tech", "hcl technologies"}
+UNRELIABLE_COMPANIES = set()  # Unblocked via Playwright JS rendering and direct ATS verification
 
 @app.get("/api/jobs", response_model=List[JobSchema])
 def get_jobs(

@@ -25,6 +25,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
+      - name: Install Playwright & Headless Chromium Browser
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
       - name: Run Daily Ingestion Pipeline (MNC, India Internships, Global Jobs)
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}

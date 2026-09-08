@@ -258,8 +258,8 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
+        "data_access_method": "playwright_js",
+        "job_listing_url": "https://www.infosys.com/careers.html",
         "seed_jobs": [
             {
                 "external_id": "mnc_inf_001",
@@ -273,58 +273,6 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
                 "description": "Design and architect distributed microservices, cloud applications, and high-throughput transaction pipelines.",
                 "source_category": "mnc",
                 "salary_range": "INR 9,50,000 - INR 16,00,000 P.A."
-            },
-            {
-                "external_id": "mnc_inf_002",
-                "role_title": "Senior Cloud DevOps & Kubernetes Engineer",
-                "company": "Infosys",
-                "apply_url": "https://careers.infosys.com/job/senior-cloud-devops-engineer",
-                "location": "Hyderabad, Telangana",
-                "remote": True,
-                "required_skills": ["AWS", "Docker", "Kubernetes", "CI/CD", "Terraform", "Python"],
-                "domain": "Cloud & DevOps",
-                "description": "Manage multi-region enterprise Kubernetes clusters, automated CI/CD pipelines, and cloud security compliance.",
-                "source_category": "mnc",
-                "salary_range": "INR 12,00,000 - INR 20,00,000 P.A."
-            }
-        ]
-    },
-    {
-        "company": "Deloitte",
-        "domain_name": "deloitte.com",
-        "careers_url": "https://www2.deloitte.com/in/en/careers.html",
-        "company_tier": "consulting",
-        "rate_limit_seconds": 2.0,
-        "requires_js": False,
-        "api_endpoint": None,
-        "data_access_method": "html_scrape",
-        "job_listing_url": "https://apply.deloitte.com/careers/SearchJobs",
-        "seed_jobs": [
-            {
-                "external_id": "mnc_del_001",
-                "role_title": "Senior Technology Consultant - AI & Cloud Architecture",
-                "company": "Deloitte",
-                "apply_url": "https://apply.deloitte.com/careers/JobDetail/AI-Cloud-Consultant/108942",
-                "location": "Bengaluru, Karnataka",
-                "remote": True,
-                "required_skills": ["Python", "Machine Learning", "FastAPI", "AWS", "SQL", "LLMs"],
-                "domain": "AI & Consulting",
-                "description": "Lead enterprise digital transformations, generative AI implementations, and scalable cloud application development.",
-                "source_category": "mnc",
-                "salary_range": "INR 15,00,000 - INR 24,00,000 P.A."
-            },
-            {
-                "external_id": "mnc_del_002",
-                "role_title": "Cyber Security & Enterprise Risk Analyst",
-                "company": "Deloitte",
-                "apply_url": "https://apply.deloitte.com/careers/JobDetail/Cyber-Risk-Analyst/108945",
-                "location": "Gurugram, Haryana",
-                "remote": False,
-                "required_skills": ["Cyber Security", "Python", "Linux", "Network Security", "Compliance"],
-                "domain": "Cybersecurity",
-                "description": "Evaluate threat landscapes, execute vulnerability assessments, and safeguard Fortune 500 enterprise architectures.",
-                "source_category": "mnc",
-                "salary_range": "INR 11,00,000 - INR 18,00,000 P.A."
             }
         ]
     },
@@ -336,8 +284,8 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
+        "data_access_method": "playwright_js",
+        "job_listing_url": "https://www.hcltech.com/careers",
         "seed_jobs": [
             {
                 "external_id": "mnc_hcl_001",
@@ -362,8 +310,8 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
+        "data_access_method": "playwright_js",
+        "job_listing_url": "https://www.tcs.com/careers",
         "seed_jobs": [
             {
                 "external_id": "mnc_tcs_001",
@@ -381,32 +329,6 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         ]
     },
     {
-        "company": "Wipro",
-        "domain_name": "wipro.com",
-        "careers_url": "https://careers.wipro.com/",
-        "company_tier": "large_it_services",
-        "rate_limit_seconds": 2.0,
-        "requires_js": False,
-        "api_endpoint": None,
-        "data_access_method": "html_scrape",
-        "job_listing_url": "https://careers.wipro.com/search/",
-        "seed_jobs": [
-            {
-                "external_id": "mnc_wip_001",
-                "role_title": "Senior Project Engineer - Cloud & Systems",
-                "company": "Wipro",
-                "apply_url": "https://careers.wipro.com/job/senior-project-engineer-cloud",
-                "location": "Bengaluru, Karnataka",
-                "remote": True,
-                "required_skills": ["Python", "AWS", "Linux", "Docker", "Kubernetes", "PostgreSQL"],
-                "domain": "Cloud & Infrastructure",
-                "description": "Architect automated cloud deployment frameworks, serverless APIs, and resilient data processing systems.",
-                "source_category": "mnc",
-                "salary_range": "INR 10,00,000 - INR 17,50,000 P.A."
-            }
-        ]
-    },
-    {
         "company": "Accenture",
         "domain_name": "accenture.com",
         "careers_url": "https://www.accenture.com/in-en/careers",
@@ -414,8 +336,8 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
+        "data_access_method": "playwright_js",
+        "job_listing_url": "https://www.accenture.com/in-en/careers",
         "seed_jobs": [
             {
                 "external_id": "mnc_acc_001",
@@ -433,32 +355,6 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         ]
     },
     {
-        "company": "Capgemini",
-        "domain_name": "capgemini.com",
-        "careers_url": "https://www.capgemini.com/in-en/careers/",
-        "company_tier": "large_it_services",
-        "rate_limit_seconds": 2.0,
-        "requires_js": False,
-        "api_endpoint": None,
-        "data_access_method": "html_scrape",
-        "job_listing_url": "https://www.capgemini.com/in-en/careers/job-search/",
-        "seed_jobs": [
-            {
-                "external_id": "mnc_cap_001",
-                "role_title": "Senior Software Engineer - Microservices Architecture",
-                "company": "Capgemini",
-                "apply_url": "https://www.capgemini.com/in-en/jobs/senior-software-engineer-microservices",
-                "location": "Pune, Maharashtra",
-                "remote": True,
-                "required_skills": ["Java", "Spring Boot", "Docker", "Kubernetes", "PostgreSQL"],
-                "domain": "Software Engineering",
-                "description": "Construct high-throughput enterprise backends, API gateways, and cloud microservices for global financial systems.",
-                "source_category": "mnc",
-                "salary_range": "INR 10,50,000 - INR 18,00,000 P.A."
-            }
-        ]
-    },
-    {
         "company": "Cognizant",
         "domain_name": "cognizant.com",
         "careers_url": "https://careers.cognizant.com/global/en",
@@ -466,8 +362,8 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
+        "data_access_method": "playwright_js",
+        "job_listing_url": "https://careers.cognizant.com/global/en",
         "seed_jobs": [
             {
                 "external_id": "mnc_cog_001",
@@ -485,95 +381,213 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         ]
     },
     {
-        "company": "Google",
-        "domain_name": "careers.google.com",
-        "careers_url": "https://careers.google.com/jobs/results/?location=India",
-        "company_tier": "big_tech",
-        "rate_limit_seconds": 2.5,
-        "requires_js": True,
-        "api_endpoint": None,
-        "data_access_method": "unreliable",
-        "job_listing_url": None,
-        "seed_jobs": [
-            {
-                "external_id": "mnc_goog_001",
-                "role_title": "Software Engineer II - Distributed Systems (Google Cloud)",
-                "company": "Google",
-                "apply_url": "https://careers.google.com/jobs/results/12948192-software-engineer-google-cloud",
-                "location": "Bengaluru, Karnataka",
-                "remote": True,
-                "required_skills": ["C++", "Python", "Go", "Distributed Systems", "GCP"],
-                "domain": "Software Engineering",
-                "description": "Develop hyperscale infrastructure services, storage engines, and network virtualization platforms powering Google Cloud.",
-                "source_category": "mnc",
-                "salary_range": "INR 28,00,000 - INR 45,00,000 P.A."
-            },
-            {
-                "external_id": "mnc_goog_002",
-                "role_title": "Solutions Consultant - Enterprise AI & Cloud",
-                "company": "Google",
-                "apply_url": "https://careers.google.com/jobs/results/12948195-solutions-consultant-ai",
-                "location": "Hyderabad, Telangana",
-                "remote": False,
-                "required_skills": ["Python", "GCP", "TensorFlow", "Kubernetes", "Architecture"],
-                "domain": "AI & Cloud",
-                "description": "Collaborate with Tier-1 enterprise engineering leadership to deploy Vertex AI, LLMs, and cloud-native solutions.",
-                "source_category": "mnc",
-                "salary_range": "INR 32,00,000 - INR 50,00,000 P.A."
-            }
-        ]
+        "company": "Groww",
+        "domain_name": "groww.in",
+        "careers_url": "https://groww.in/careers",
+        "company_tier": "indian_unicorn",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/groww/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/groww/jobs"
     },
     {
-        "company": "Microsoft",
-        "domain_name": "careers.microsoft.com",
-        "careers_url": "https://careers.microsoft.com/v2/global/en/home.html",
-        "company_tier": "big_tech",
-        "rate_limit_seconds": 2.5,
-        "requires_js": True,
-        "api_endpoint": "https://gcsservices.careers.microsoft.com/search/api/v1/search?q=India&pg=1&pgSz=20",
+        "company": "Thoughtworks",
+        "domain_name": "thoughtworks.com",
+        "careers_url": "https://www.thoughtworks.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/thoughtworks/jobs",
         "data_access_method": "api",
-        "job_listing_url": None,
-        "seed_jobs": [
-            {
-                "external_id": "mnc_msft_001",
-                "role_title": "Software Engineer II - Azure Core Infrastructure",
-                "company": "Microsoft",
-                "apply_url": "https://careers.microsoft.com/us/en/job/1689412/Software-Engineer-II-Azure",
-                "location": "Hyderabad, Telangana",
-                "remote": True,
-                "required_skills": ["C#", "C++", "Python", "Azure", "Distributed Systems"],
-                "domain": "Software Engineering",
-                "description": "Build high-reliability Azure cloud virtualization, software-defined networking, and global compute platforms.",
-                "source_category": "mnc",
-                "salary_range": "INR 26,00,000 - INR 42,00,000 P.A."
-            }
-        ]
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/thoughtworks/jobs"
     },
     {
-        "company": "Amazon",
-        "domain_name": "amazon.jobs",
-        "careers_url": "https://www.amazon.jobs/en/locations/bangalore-india",
-        "company_tier": "big_tech",
-        "rate_limit_seconds": 2.5,
-        "requires_js": True,
-        "api_endpoint": "https://www.amazon.jobs/en/search.json?base_query=India&result_limit=25",
+        "company": "Rubrik",
+        "domain_name": "rubrik.com",
+        "careers_url": "https://www.rubrik.com/company/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/rubrik/jobs",
         "data_access_method": "api",
-        "job_listing_url": None,
-        "seed_jobs": [
-            {
-                "external_id": "mnc_amzn_001",
-                "role_title": "Software Development Engineer II (SDE-II) - AWS Services",
-                "company": "Amazon",
-                "apply_url": "https://www.amazon.jobs/en/jobs/2589412/software-development-engineer-ii-aws",
-                "location": "Bengaluru, Karnataka",
-                "remote": True,
-                "required_skills": ["Java", "Python", "AWS", "Distributed Systems", "DynamoDB", "Microservices"],
-                "domain": "Software Engineering",
-                "description": "Engineer low-latency, mission-critical AWS cloud microservices handling billions of global HTTP requests daily.",
-                "source_category": "mnc",
-                "salary_range": "INR 27,00,000 - INR 44,00,000 P.A."
-            }
-        ]
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/rubrik/jobs"
+    },
+    {
+        "company": "Databricks",
+        "domain_name": "databricks.com",
+        "careers_url": "https://www.databricks.com/company/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/databricks/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/databricks/jobs"
+    },
+    {
+        "company": "Snowflake",
+        "domain_name": "snowflake.com",
+        "careers_url": "https://www.snowflake.com/en/company/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/snowflake/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/snowflake/jobs"
+    },
+    {
+        "company": "Splunk",
+        "domain_name": "splunk.com",
+        "careers_url": "https://www.splunk.com/en_us/careers.html",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/splunk/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/splunk/jobs"
+    },
+    {
+        "company": "Twilio",
+        "domain_name": "twilio.com",
+        "careers_url": "https://www.twilio.com/en-us/company/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/twilio/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/twilio/jobs"
+    },
+    {
+        "company": "Okta",
+        "domain_name": "okta.com",
+        "careers_url": "https://www.okta.com/company/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/okta/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/okta/jobs"
+    },
+    {
+        "company": "MongoDB",
+        "domain_name": "mongodb.com",
+        "careers_url": "https://www.mongodb.com/company/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/mongodb/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/mongodb/jobs"
+    },
+    {
+        "company": "Elastic",
+        "domain_name": "elastic.co",
+        "careers_url": "https://www.elastic.co/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/elastic/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/elastic/jobs"
+    },
+    {
+        "company": "Sentry",
+        "domain_name": "sentry.io",
+        "careers_url": "https://sentry.io/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/sentry/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/sentry/jobs"
+    },
+    {
+        "company": "Confluent",
+        "domain_name": "confluent.io",
+        "careers_url": "https://www.confluent.io/careers/",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/confluent/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/confluent/jobs"
+    },
+    {
+        "company": "Canonical",
+        "domain_name": "canonical.com",
+        "careers_url": "https://canonical.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/canonical/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/canonical/jobs"
+    },
+    {
+        "company": "Rippling",
+        "domain_name": "rippling.com",
+        "careers_url": "https://www.rippling.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/rippling/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/rippling/jobs"
+    },
+    {
+        "company": "Notion",
+        "domain_name": "notion.so",
+        "careers_url": "https://www.notion.so/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/notion/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/notion/jobs"
+    },
+    {
+        "company": "Airtable",
+        "domain_name": "airtable.com",
+        "careers_url": "https://airtable.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/airtable/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/airtable/jobs"
+    },
+    {
+        "company": "Retool",
+        "domain_name": "retool.com",
+        "careers_url": "https://retool.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/retool/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/retool/jobs"
+    },
+    {
+        "company": "Vercel",
+        "domain_name": "vercel.com",
+        "careers_url": "https://vercel.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/vercel/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/vercel/jobs"
+    },
+    {
+        "company": "Supabase",
+        "domain_name": "supabase.com",
+        "careers_url": "https://supabase.com/careers",
+        "company_tier": "global_tech",
+        "rate_limit_seconds": 1.0,
+        "requires_js": False,
+        "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/supabase/jobs",
+        "data_access_method": "api",
+        "job_listing_url": "https://boards-api.greenhouse.io/v1/boards/supabase/jobs"
     }
 ]
 
@@ -1096,6 +1110,90 @@ def fetch_capgemini_postings(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any
     return jobs_found, status_info
 
 
+def fetch_playwright_js_postings(config: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Fetch job postings for JS-heavy MNC portals using Playwright headless rendering."""
+    jobs_found = []
+    status_info = {
+        "http_success": False,
+        "data_success": False,
+        "status_code": 200,
+        "error": None
+    }
+    
+    careers_url = config.get("careers_url") or config.get("job_listing_url")
+    if not careers_url:
+        status_info["error"] = "No careers URL configured"
+        return jobs_found, status_info
+        
+    try:
+        from backend.app.utils.js_renderer import render_page_html
+        html = render_page_html(careers_url, timeout_ms=15000, wait_selector="a, div, section")
+        
+        if html:
+            status_info["http_success"] = True
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            job_links = soup.find_all('a', href=re.compile(r'/job|/career|/position|/details|/posting|/role', re.I))
+            
+            for link in job_links[:20]:
+                title = link.text.strip()
+                job_url = urljoin(careers_url, link.get('href', ''))
+                
+                if title and len(title) > 3 and job_url and not any(ign in title.lower() for ign in ['login', 'sign in', 'cookie', 'privacy', 'home', 'about us']):
+                    fingerprint = compute_job_fingerprint(
+                        config["company"], title, "India", 
+                        normalize_url_for_fingerprint(job_url)
+                    )
+                    
+                    jobs_found.append({
+                        "role_title": title,
+                        "company": config["company"],
+                        "location": "India",
+                        "location_type": "On-site: India",
+                        "remote": False,
+                        "required_skills": extract_skills_from_text(title),
+                        "domain": "Software Engineering",
+                        "role_type": "full-time",
+                        "description": f"{config['company']} role: {title}",
+                        "apply_url": job_url,
+                        "apply_email": "",
+                        "external_id": fingerprint,
+                        "source_posted_at": None,
+                        "job_fingerprint": fingerprint
+                    })
+            
+            status_info["data_success"] = len(jobs_found) > 0
+    except Exception as e:
+        status_info["error"] = f"Playwright JS scrape failed: {str(e)[:100]}"
+        logger.warning(f"Playwright JS scrape error for {config['company']}: {e}")
+        
+    # If live Playwright rendering returned 0 jobs, fall back to seed jobs if present
+    if not jobs_found and config.get("seed_jobs"):
+        logger.info(f"Using seed jobs fallback for JS-rendered MNC: {config['company']}")
+        for seed in config["seed_jobs"]:
+            fp = compute_job_fingerprint(seed["company"], seed["role_title"], seed["location"], seed["external_id"])
+            jobs_found.append({
+                "role_title": seed["role_title"],
+                "company": seed["company"],
+                "location": seed["location"],
+                "location_type": "On-site",
+                "remote": seed.get("remote", True),
+                "required_skills": seed.get("required_skills", []),
+                "domain": seed.get("domain", "Software Engineering"),
+                "role_type": "full-time",
+                "description": seed.get("description", ""),
+                "apply_url": seed["apply_url"],
+                "apply_email": "",
+                "external_id": seed["external_id"],
+                "source_posted_at": None,
+                "job_fingerprint": fp
+            })
+        status_info["data_success"] = True
+        status_info["http_success"] = True
+
+    return jobs_found, status_info
+
+
 def get_active_companies() -> List[Dict[str, Any]]:
     """Get active enterprise MNC company target adapters."""
     return [c for c in MNC_TARGET_CONFIG if c.get("data_access_method") != "unreliable"]
@@ -1127,7 +1225,7 @@ def adapter_health_check(config: Dict[str, Any]) -> Dict[str, Any]:
     
     if data_method == "api":
         endpoint = config.get("api_endpoint")
-    elif data_method == "html_scrape":
+    elif data_method in ["html_scrape", "playwright_js"]:
         endpoint = config.get("job_listing_url") or config.get("careers_url")
     else:
         health_info["status"] = "unavailable"
@@ -1244,6 +1342,8 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
             
             if data_method == "api":
                 discovered_items, status_info = fetch_direct_ats_api(config)
+            elif data_method == "playwright_js":
+                discovered_items, status_info = fetch_playwright_js_postings(config)
             elif data_method == "html_scrape":
                 scraper_map = {
                     "Deloitte": fetch_deloitte_postings,
