@@ -37,7 +37,7 @@ export default function SuperAdminDashboard({
   masterReconciliation,
   onRefresh
 }) {
-  const [activeSuperTab, setActiveSuperTab] = useState('staff'); // 'staff' | 'deepjobs' | 'activity' | 'logins' | 'audit' | 'commander' | 'righthand' | 'master'
+  const [activeSuperTab, setActiveSuperTab] = useState('staff'); // 'staff' | 'deepjobs' | 'scrapers' | 'activity' | 'logins' | 'audit' | 'commander' | 'righthand' | 'master'
   
   // Data States
   const [staff, setStaff] = useState([]);
@@ -48,6 +48,9 @@ export default function SuperAdminDashboard({
   const [activityFeed, setActivityFeed] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [lockdownState, setLockdownState] = useState({ is_locked_down: false });
+  const [ingestionRuns, setIngestionRuns] = useState([]);
+  const [scraperHealth, setScraperHealth] = useState({});
+  const [scraperSchedules, setScraperSchedules] = useState([]);
   
   // Loading & Feedback States
   const [loading, setLoading] = useState(false);
@@ -66,14 +69,17 @@ export default function SuperAdminDashboard({
   const fetchAllSuperData = async () => {
     setLoading(true);
     try {
-      const [resStaff, resAudit, resPerms, resJobs, resFeed, resLogins, resLockdown] = await Promise.all([
+      const [resStaff, resAudit, resPerms, resJobs, resFeed, resLogins, resLockdown, resIngestion, resHealth, resSchedules] = await Promise.all([
         apiFetch('/api/admin/super/staff'),
         apiFetch('/api/admin/audit-logs'),
         apiFetch('/api/admin/super/permissions'),
         apiFetch('/api/admin/super/jobs'),
         apiFetch('/api/admin/super/activity-feed'),
         apiFetch('/api/admin/super/login-logs'),
-        apiFetch('/api/admin/super/lockdown')
+        apiFetch('/api/admin/super/lockdown'),
+        apiFetch('/api/admin/scrapers/ingestion-runs'),
+        apiFetch('/api/scrapers/health'),
+        apiFetch('/api/scrapers/schedules')
       ]);
 
       if (resStaff?.ok) {
@@ -107,8 +113,64 @@ export default function SuperAdminDashboard({
         const data = await safeJson(resLockdown);
         setLockdownState(data || { is_locked_down: false });
       }
+      if (resIngestion?.ok) {
+        const data = await safeJson(resIngestion);
+        if (data?.runs) setIngestionRuns(data.runs);
+      }
+      if (resHealth?.ok) {
+        const data = await safeJson(resHealth);
+        if (data?.health) setScraperHealth(data.health);
+      }
+      if (resSchedules?.ok) {
+        const data = await safeJson(resSchedules);
+        if (data?.schedules) setScraperSchedules(data.schedules);
+      }
     } catch (e) {
       console.warn("Failed to fetch super admin data:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunCleanerPass = async () => {
+    SoundSystem.playClick();
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/admin/cleaner/run', { method: 'POST' });
+      const data = await safeJson(res);
+      if (res?.ok && data?.success) {
+        SoundSystem.playSuccess();
+        setFeedbackMsg({ type: 'success', text: data.message });
+        fetchAllSuperData();
+      } else {
+        SoundSystem.playError();
+        setFeedbackMsg({ type: 'error', text: data?.detail || 'Failed to trigger cleaner pass.' });
+      }
+    } catch (e) {
+      SoundSystem.playError();
+      setFeedbackMsg({ type: 'error', text: 'Error connecting to backend.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRunScrapers = async () => {
+    SoundSystem.playClick();
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/admin/scrapers/run', { method: 'POST' });
+      const data = await safeJson(res);
+      if (res?.ok && data?.success) {
+        SoundSystem.playSuccess();
+        setFeedbackMsg({ type: 'success', text: data.message });
+        fetchAllSuperData();
+      } else {
+        SoundSystem.playError();
+        setFeedbackMsg({ type: 'error', text: data?.detail || 'Failed to trigger scrapers.' });
+      }
+    } catch (e) {
+      SoundSystem.playError();
+      setFeedbackMsg({ type: 'error', text: 'Error connecting to backend.' });
     } finally {
       setLoading(false);
     }
@@ -360,6 +422,15 @@ export default function SuperAdminDashboard({
           >
             <Database size={15} />
             <span>Deep Job Lineage ({deepJobsTotal})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveSuperTab('scrapers')}
+            className={`btn-tactile ${activeSuperTab === 'scrapers' ? 'btn-tactile-primary' : 'btn-tactile-ghost'}`}
+            style={{ padding: '8px 14px', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Radio size={15} />
+            <span>Scrapers & Cleaner ({ingestionRuns.length})</span>
           </button>
 
           <button 
@@ -680,6 +751,121 @@ export default function SuperAdminDashboard({
                   <tr>
                     <td colSpan={8} style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
                       No jobs ingested yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 2B. SCRAPERS & CLEANER OPERATIONS TAB */}
+      {activeSuperTab === 'scrapers' && (
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', background: 'rgba(20, 26, 48, 0.85)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Radio size={20} color="#c084fc" />
+                <span>Scraper Ingestion & 2-Tier Cleaner Operations</span>
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
+                Real-time scraper health, scheduled ingestion runs, adaptive polling telemetry, and deadline expiration cleanup.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={handleRunCleanerPass} 
+                disabled={loading}
+                className="btn-tactile btn-tactile-amber" 
+                style={{ padding: '9px 16px', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Sparkles size={16} />
+                <span>⚡ Run Expiration & Cleanup Pass</span>
+              </button>
+
+              <button 
+                onClick={handleRunScrapers} 
+                disabled={loading}
+                className="btn-tactile btn-tactile-primary" 
+                style={{ padding: '9px 16px', fontSize: '0.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={16} className={loading ? "spin-icon" : ""} />
+                <span>🔄 Trigger Scraper Ingestion</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Health Status Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            {Object.keys(scraperHealth).length > 0 ? (
+              Object.entries(scraperHealth).map(([sourceKey, healthObj]) => (
+                <div key={sourceKey} style={{ padding: '16px', borderRadius: '14px', background: 'rgba(15, 23, 42, 0.8)', border: `1px solid ${healthObj?.healthy ? 'rgba(52, 211, 153, 0.3)' : 'rgba(244, 63, 94, 0.4)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#ffffff', textTransform: 'capitalize' }}>
+                      {sourceKey.replace('_', ' ')}
+                    </span>
+                    <span style={{ 
+                      background: healthObj?.healthy ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)', 
+                      color: healthObj?.healthy ? '#34d399' : '#fb7185',
+                      padding: '2px 10px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 800 
+                    }}>
+                      {healthObj?.healthy ? 'HEALTHY' : 'DEGRADED'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                    Consecutive Failures: <strong style={{ color: healthObj?.consecutive_failures > 0 ? '#fb7185' : '#34d399' }}>{healthObj?.consecutive_failures || 0}</strong>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '14px', color: '#94a3b8', fontSize: '0.8rem' }}>Scraper health telemetry loading...</div>
+            )}
+          </div>
+
+          {/* Ingestion Runs Log Table */}
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 12px' }}>
+            📋 Recent Ingestion Runs Log ({ingestionRuns.length})
+          </h4>
+          <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left', color: '#f8fafc' }}>
+              <thead>
+                <tr style={{ background: 'rgba(15, 23, 42, 0.9)', color: '#94a3b8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <th style={{ padding: '10px 14px' }}>Started At</th>
+                  <th style={{ padding: '10px 14px' }}>Source</th>
+                  <th style={{ padding: '10px 14px' }}>Status</th>
+                  <th style={{ padding: '10px 14px' }}>Seen / New / Updated</th>
+                  <th style={{ padding: '10px 14px' }}>Details / Errors</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ingestionRuns.length > 0 ? (
+                  ingestionRuns.map((run) => (
+                    <tr key={run.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>{run.started_at ? new Date(run.started_at).toLocaleString() : 'N/A'}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 700, color: '#c084fc' }}>{run.source}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ 
+                          background: run.status === 'success' ? 'rgba(16, 185, 129, 0.2)' : run.status === 'partial' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(244, 63, 94, 0.2)',
+                          color: run.status === 'success' ? '#34d399' : run.status === 'partial' ? '#fbbf24' : '#fb7185',
+                          padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase'
+                        }}>
+                          {run.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#e2e8f0', fontWeight: 700 }}>
+                        <span style={{ color: '#94a3b8' }}>{run.jobs_seen || 0} seen</span> / <span style={{ color: '#34d399' }}>+{run.jobs_new || 0} new</span> / <span style={{ color: '#38bdf8' }}>~{run.jobs_updated || 0} upd</span>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#94a3b8', fontSize: '0.75rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {run.error_detail || 'No errors reported'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
+                      No ingestion runs logged yet.
                     </td>
                   </tr>
                 )}

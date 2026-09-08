@@ -39,7 +39,7 @@ from backend.app.db.models import (
     TailoredResumeModel, EmailLogModel, InterviewPrepModel, OutcomeDiagnosisModel, 
     OutcomeEventModel, SubscriptionModel, PaymentOrderModel, LearningResourceModel, InterviewQuestionBankModel,
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
-    AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel,
+    AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel, IngestionRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache, SupportQueryModel,
     AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel
 )
@@ -93,6 +93,7 @@ from backend.app.agents.agent7_outcome_intelligence import get_outcome_diagnoses
 from backend.app.agents.outcome_tracker import check_and_log_status_transition, compute_outcome_metrics
 from backend.app.agents.learning_and_questions_seed import seed_learning_resources_and_questions
 from backend.app.agents.super_admin_auditor_agent import run_super_admin_audit
+from backend.app.agents.cleaner import cleanup_expired_jobs, notify_candidates_of_expired_jobs
 
 # Security & Compliance Modules
 from backend.app.security.encryption import encrypt_field, decrypt_field
@@ -8066,6 +8067,82 @@ def lift_emergency_admin_lockdown_endpoint(
         "success": True,
         "message": "Emergency Admin Lockdown lifted. Admin access restored.",
         "lifted_by": super_admin.email
+    }
+
+
+# ============================================================================
+# SUPER ADMIN SCRAPER & CLEANER OPERATIONS ENDPOINTS
+# ============================================================================
+
+@app.get("/api/admin/scrapers/ingestion-runs")
+def get_admin_ingestion_runs(request: Request, limit: int = 50, db: Session = Depends(get_db)):
+    admin_user = _require_admin_user(request, db, required_tier="commander")
+    runs = db.query(IngestionRunModel).order_by(IngestionRunModel.started_at.desc()).limit(limit).all()
+    return {
+        "success": True,
+        "runs": [
+            {
+                "id": r.id,
+                "source": r.source,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                "status": r.status,
+                "jobs_seen": r.jobs_seen,
+                "jobs_new": r.jobs_new,
+                "jobs_updated": r.jobs_updated,
+                "error_detail": r.error_detail
+            }
+            for r in runs
+        ]
+    }
+
+
+@app.post("/api/admin/cleaner/run")
+def trigger_admin_cleaner_pass(request: Request, db: Session = Depends(get_db)):
+    admin_user = _require_admin_user(request, db, required_tier="commander", permission_key="cleanup_expired_jobs")
+    
+    clean_res = cleanup_expired_jobs(db, retention_days=14)
+    notif_count = notify_candidates_of_expired_jobs(db)
+    
+    audit = AdminAuditLogModel(
+        admin_email=admin_user.email,
+        action="manual_cleaner_run",
+        details=f"Triggered manual 2-tier cleaner pass. Newly expired: {clean_res['newly_expired']}, Preserved archived: {clean_res['archived']}, Deleted orphaned: {clean_res['deleted']}, Candidate notifications sent: {notif_count}.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Cleaner pass executed successfully. {clean_res['newly_expired']} newly expired, {clean_res['archived']} archived preserved, {clean_res['deleted']} orphaned deleted.",
+        "results": clean_res,
+        "notifications_sent": notif_count
+    }
+
+
+@app.post("/api/admin/scrapers/run")
+def trigger_admin_scrapers_run(request: Request, db: Session = Depends(get_db)):
+    admin_user = _require_admin_user(request, db, required_tier="commander", permission_key="run_scrapers")
+    
+    # Run scrapers and log metrics
+    mnc_res = run_mnc_scanner(db=db)
+    intern_res = run_india_internships_scraper(db=db)
+    
+    audit = AdminAuditLogModel(
+        admin_email=admin_user.email,
+        action="manual_scraper_run",
+        details=f"Triggered manual scraper run for MNC scanner and India internship scraper.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Manual scraper ingestion run completed successfully.",
+        "mnc_results": mnc_res,
+        "internship_results": intern_res
     }
 
 
