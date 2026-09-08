@@ -1324,6 +1324,16 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                     )
                     posted_iso = parse_relative_date_to_iso(item.get("source_posted_at") or item.get("posted_date"))
 
+                    deadline_raw = item.get("application_deadline") or item.get("closingDate") or item.get("expires_at")
+                    deadline_dt = None
+                    if deadline_raw:
+                        d_iso = parse_relative_date_to_iso(str(deadline_raw))
+                        if d_iso:
+                            try:
+                                deadline_dt = datetime.datetime.fromisoformat(d_iso.replace("Z", "+00:00"))
+                            except Exception:
+                                deadline_dt = None
+
                     if not existing:
                         consecutive_known = 0
                         raw_apply = item["apply_url"]
@@ -1360,6 +1370,7 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                             apply_email=item.get("apply_email", ""),
                             posted_date=posted_iso or "",
                             source_posted_at=posted_iso,
+                            application_deadline=deadline_dt,
                             content_hash=chash,
                             source=f"{company_name} Official Portal",
                             source_category="mnc",
@@ -1548,7 +1559,10 @@ def revalidate_stale_links(db: Session) -> None:
                 job.link_checked_at = datetime.datetime.now(datetime.timezone.utc)
                 job.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
 
-                if link_status == "dead":
+                from backend.app.agents.cleaner import check_expiration
+                if check_expiration(job) == "expired":
+                    job.status = "expired"
+                elif link_status == "dead":
                     if job.status == "active":
                         job.status = "stale"
                         job.link_status = "stale"
@@ -1565,6 +1579,15 @@ def revalidate_stale_links(db: Session) -> None:
                 logger.error(f"Error processing link revalidation result: {e}")
 
     db.commit()
+
+    # Execute 2-tier cleaner pass & notifications
+    from backend.app.agents.cleaner import cleanup_expired_jobs, notify_candidates_of_expired_jobs
+    try:
+        cleanup_res = cleanup_expired_jobs(db)
+        notify_candidates_of_expired_jobs(db)
+        logger.info(f"Revalidation cleanup pass result: {cleanup_res}")
+    except Exception as e:
+        logger.error(f"Error in revalidation cleanup pass: {e}")
 
 
 def get_mnc_scan_status(db: Session) -> Dict[str, Any]:

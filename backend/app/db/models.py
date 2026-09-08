@@ -75,6 +75,7 @@ class JobModel(Base):
     apply_email = Column(String, default="", nullable=True) # Direct recruiter email for email outreach
     posted_date = Column(String, default="")
     expires_at = Column(DateTime, nullable=True)
+    application_deadline = Column(DateTime, nullable=True, index=True)
     source = Column(String, index=True, default="manual") # internshala, naukri, instahyre, cutshort, wellfound, linkedin, etc.
     source_category = Column(String, index=True, default="startup") # startup vs mnc
     source_trust_tier = Column(String, index=True, default="tier1_verified") # tier1_verified, tier2_curated, tier3_aggregator
@@ -181,6 +182,8 @@ class ApplicationModel(Base):
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     match = relationship("MatchModel", back_populates="application")
+    job = relationship("JobModel")
+    profile = relationship("ProfileModel")
     events = relationship("ApplicationEventModel", back_populates="application", cascade="all, delete-orphan")
 
 class ApplicationEventModel(Base):

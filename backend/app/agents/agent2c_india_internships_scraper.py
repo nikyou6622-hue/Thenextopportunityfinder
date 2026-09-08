@@ -748,6 +748,16 @@ def store_jobs_batch(
                 chash = compute_content_hash(desc, stipend, duration, ppo)
                 posted_iso = parse_relative_date_to_iso(data.get("source_posted_at") or data.get("posted_date"))
 
+                deadline_raw = data.get("application_deadline") or data.get("end_date") or data.get("apply_by")
+                deadline_dt = None
+                if deadline_raw:
+                    d_iso = parse_relative_date_to_iso(str(deadline_raw))
+                    if d_iso:
+                        try:
+                            deadline_dt = dt.datetime.fromisoformat(d_iso.replace("Z", "+00:00"))
+                        except Exception:
+                            deadline_dt = None
+
                 model = existing_ext.get(ext_id) or existing_fp.get(fp)
                 if model is None:
                     consecutive_known = 0
@@ -756,6 +766,7 @@ def store_jobs_batch(
                         job_fingerprint=fp,
                         content_hash=chash,
                         source_posted_at=posted_iso,
+                        application_deadline=deadline_dt,
                         source_category="internship_india",
                         role_type="internship",
                         posted_date=posted_iso or dt.date.today().isoformat(),
@@ -770,6 +781,8 @@ def store_jobs_batch(
                     model.last_seen_at = dt.datetime.now(dt.timezone.utc)
                     if posted_iso and not model.source_posted_at:
                         model.source_posted_at = posted_iso
+                    if deadline_dt:
+                        model.application_deadline = deadline_dt
 
                     if model.content_hash != chash:
                         consecutive_known = 0

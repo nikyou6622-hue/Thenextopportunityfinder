@@ -206,5 +206,25 @@ Before building or maintaining HTML parsers, all target platforms were audited f
 - Incremental Early-Stopping: Scrapers stop paginating/batching once `N=10` consecutive already-known `job_fingerprint`s are hit.
 - `IngestionRunModel` (`ingestion_runs` table): Logs `source`, `started_at`, `finished_at`, `status` ("success" | "partial" | "failed"), `jobs_seen`, `jobs_new`, `jobs_updated`, and `error_detail`.
 - Health Check (`GET /api/scrapers/health`): Flags any source with 3+ consecutive `failed` or `partial` runs.
-- Daily Automation: `.github/workflows/daily-ingest.yml` executes scrapers, logs to `ingestion_runs`, revalidates stale links, and exits non-zero if a source returns `failed`.
+
+--------------------------------------------------------------------------------
+10. DEADLINE EXTRACTION AUDIT & 2-TIER CLEANER ARCHITECTURE SPECIFICATION
+--------------------------------------------------------------------------------
+- Application Deadline Availability per Source:
+  * MNC ATS Scanner (Greenhouse/Lever): Postings rare specify strict expiration dates in API responses. Unknown deadlines remain `null` (zero-hallucination, never inferred).
+  * MNC ATS Scanner (Ashby): `validThrough` / `jobClosingDate` parsed into ISO timestamp `application_deadline` when present.
+  * Unstop Portal: `application_end_date` / `registration_end_date` extracted into ISO timestamp `application_deadline`.
+  * Internshala: Detail page "Apply By DD MMM' YY" parsed into ISO timestamp `application_deadline`.
+
+- Cleaner Architecture (`backend/app/agents/cleaner.py`):
+  * `check_expiration(job)`: If `application_deadline` is set and `now > application_deadline`, job transitions to `status = "expired"`. Null deadlines remain `"active"`.
+  * 2-Tier Safe Retention (`cleanup_expired_jobs(db, retention_days=14)`):
+    - Tier 1 (Referenced Jobs): Any job referenced in `matches` (`MatchModel.job_id`) OR `applications` (`ApplicationModel.job_id`) is NEVER hard-deleted. It is archived (`status = "expired"`), preserving candidate match & application history.
+    - Tier 2 (Orphaned Jobs): Unreferenced jobs (0 matches AND 0 applications) older than 14 days (`last_seen_at < cutoff`) are safely hard-deleted to prevent database bloat.
+  * Candidate Notification (`notify_candidates_of_expired_jobs(db)`):
+    - When a tracked job expires, active applications (`matched`, `tailored`, `pending_manual_review`, `link_opened`) are set to `status = "archived"` with explanatory notes, and an `EmailLogModel` entry is logged.
+  * Lifecycle Integration & CI/CD:
+    - Link revalidation (`revalidate_stale_links()`) triggers expiration checks and cleaner pass.
+    - Scheduled daily via `.github/workflows/daily-ingest.yml` in step "Run Cleaner Expiration & 2-Tier Cleanup Pass".
 # ==============================================================================
+

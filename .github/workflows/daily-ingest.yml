@@ -77,6 +77,24 @@ jobs:
           print('Link revalidation complete.')
           "
 
+      - name: Run Cleaner Expiration & 2-Tier Cleanup Pass
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from backend.app.db.database import SessionLocal
+          from backend.app.agents.cleaner import cleanup_expired_jobs, notify_candidates_of_expired_jobs
+
+          db = SessionLocal()
+          print('Executing 2-tier cleaner pass...')
+          stats = cleanup_expired_jobs(db, retention_days=14)
+          notified = notify_candidates_of_expired_jobs(db)
+          db.close()
+          print(f'Cleaner pass complete: {stats}, Candidate notifications sent: {notified}')
+          "
+
       - name: Audit Scraper Health (Fail Workflow if Source Status == 'failed')
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
