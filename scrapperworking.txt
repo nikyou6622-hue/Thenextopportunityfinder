@@ -1,0 +1,163 @@
+# ==============================================================================
+# NEXTOPPORTUNITYFIND — SCRAPER & INGESTION ARCHITECTURE SPECIFICATION
+# File: scrapperworking.txt
+# Purpose: Comprehensive Reference Manual for Scrapers, MNC Scanners, Internships,
+#          Deduplication, Classification, Link Validation, and Matching Logic.
+# ==============================================================================
+
+--------------------------------------------------------------------------------
+1. SYSTEM OVERVIEW & SCRAPER AGENTS SUMMARY
+--------------------------------------------------------------------------------
+The NextOpportunityFind scraping architecture is modular, multi-tiered, and zero-hallucination guaranteed.
+It consists of 3 main autonomous scraping and ingestion agents:
+
+1. agent2b_mnc_scanner.py (Direct ATS MNC & Unicorn Scanner)
+   - Scope: Top MNCs (Google, Stripe, Cloudflare, Figma, Coinbase, Palantir, Datadog, etc.)
+   - ATS Integrations: Greenhouse Boards API, Lever Postings API, Ashby API, Workday Career Portals, SmartRecruiters.
+   - Access Method: Direct REST APIs & structured JSON endpoints (no API keys required).
+   - Ingestion: Parses role title, location, job description, required skills, and direct ATS apply URLs.
+
+2. agent2c_india_internships_scraper.py (India Internship & Early-Career Hub)
+   - Scope: Curated Indian tech internships & PPO roles.
+   - Platforms: Unstop (API/HTML parsing), Cuvette (HTML card & badge parsing), Internshala.
+   - Features: Stipend extraction, duration parsing, PPO identification, skill badge parsing, and region filtering.
+
+3. agent2d_global_jobs_scraper.py (Multi-ATS & Public Guest Search Aggregator)
+   - Scope: Global remote & tech aggregator.
+   - Platforms: FreeHire aggregated public API/HTML (Greenhouse/Lever/Workday requisitions) & LinkedIn public guest search.
+   - Features: Salary benchmark lookup via salary_intelligence.py, workplace type classification.
+
+
+--------------------------------------------------------------------------------
+2. DEDUPLICATION ENGINE & SHA-256 FINGERPRINTING
+--------------------------------------------------------------------------------
+To prevent duplicate job listings caused by dynamic tracking parameters in apply URLs or multi-run scrapes, all scrapers use a deterministic SHA-256 fingerprinting system.
+
+- SHA-256 Fingerprint Formula:
+  job_fingerprint = hashlib.sha256(f"{company.strip().lower()}::{role_title.strip().lower()}::{location.strip().lower()}".encode("utf-8")).hexdigest()[:16]
+
+- Ingestion Deduplication Workflow (in agent2c, agent2b, agent2d):
+  1. Calculate `external_id` (MD5/SHA string of platform URL or ID).
+  2. Calculate `job_fingerprint` using normalized string: `company::title::location`.
+  3. Perform dual-lookup in Database (`JobModel`):
+     - Query existing records by `external_id.in_(ids)` OR `job_fingerprint.in_(fps)`.
+  4. If match exists: Update existing `JobModel` row (prevents insert bloat).
+  5. If match does not exist: Create new `JobModel` row.
+  6. Endpoint In-Memory Safety: Endpoints like `/api/internships/india` also perform in-memory deduplication on query output by `(company, role_title, location)`.
+
+
+--------------------------------------------------------------------------------
+3. ROLE CLASSIFICATION & TECHNICAL SANITY FILTERING
+--------------------------------------------------------------------------------
+File: backend/app/agents/source_router.py
+Function: `is_technical_role(role_title: str, description: Optional[str] = "") -> bool`
+
+The system strictly enforces that non-technical roles do NOT leak into tech feeds.
+
+- Strict Word-Boundary Technical Pattern:
+  tech_title_pattern = r"\b(developer|engineer|architect|programmer|software|backend|frontend|fullstack|full-stack|devops|qa|sde|ai|ml|data scientist|data engineer|cloud engineer)\b"
+  Uses `re.search()` with word boundaries `\b` to prevent false positives (e.g. prevents "ai" in "fundraising" from incorrectly setting `has_tech_title = True`).
+
+- Non-Technical Patterns (`NON_TECHNICAL_ROLE_PATTERNS`):
+  Matches non-tech titles via regex with word boundaries:
+  - Recruitment Consultant, Graphic Design, Visual Designer, Customer Service/Support,
+  - Campus Ambassador (Internship/Programme), HR / Human Resources, Recruiter,
+  - Event Management, Influencer Marketing, Fundraising, Business Development (Sales),
+  - Reel Editor, LinkedIn Outreach, Marketing, Retail Operations, Social Media Marketing,
+  - Sales and Marketing, Brand Management, Content Writing, Business Administration, Inside Sales.
+
+- Evaluation Hierarchy:
+  1. If title matches `NON_TECHNICAL_ROLE_PATTERNS`, `is_technical_role()` returns `False` IMMEDIATELY unless there are at least 2 distinct technical corroborating terms in full text (e.g. Python, Docker, PostgreSQL).
+  2. If title matches `tech_title_pattern` with word boundaries, returns `True`.
+  3. If title is neutral, requires at least 1 technical corroborating term in description.
+
+
+--------------------------------------------------------------------------------
+4. LINK LIFECYCLE VERIFICATION & DEAD LINK EXCLUSION
+--------------------------------------------------------------------------------
+File: backend/app/db/models.py & backend/app/main.py
+Field: `JobModel.link_status` ("live", "dead", "redirected", "unchecked")
+
+- Link Revalidation (`revalidate_stale_links()`):
+  1. Performs HTTP HEAD/GET request to `apply_url` with modern browser `User-Agent` and timeout.
+  2. Follows redirects to obtain `apply_url_resolved`.
+  3. If response is 404/410, or redirects to a generic "job expired / not found" page, sets `link_status = "dead"` and `status = "removed"`.
+  4. If response is 2xx/3xx, sets `link_status = "live"`.
+
+- Endpoint Enforcement:
+  All feed endpoints (`/api/internships/india`, `/api/jobs`, `/api/matches`) filter out dead links:
+  Query: `db.query(JobModel).filter(JobModel.status == "active", JobModel.link_status != "dead")`
+  Result: Dead links are completely suppressed from rendering on the frontend.
+
+
+--------------------------------------------------------------------------------
+5. MATCH SCORING & PROPORTIONAL SKILL WEIGHTING
+--------------------------------------------------------------------------------
+File: backend/app/agents/agent3_matching.py & backend/app/main.py
+Function: `compute_match(profile: Dict, job: Dict) -> Dict`
+
+Composite Score Formula:
+  match_score = (
+      0.40 * skill_overlap_score +
+      0.25 * domain_fit_score +
+      0.15 * location_fit_score +
+      0.20 * semantic_sim_score
+  )
+
+- Deterministic Set Intersection (`compute_skill_match`):
+  Normalizes candidate skills and job required skills via `normalize_skill_list()`.
+  Matched skills MUST be present in both candidate profile and job requirements (zero-hallucination guarantee).
+
+- Dynamic Proportionality:
+  - When 0% skills match: `skill_score = 0.0`. Total score evaluates to ~44.0% (and is capped at max 45.0%).
+  - When 100% skills match: `skill_score = 100.0`. Total score evaluates to ~84.0%.
+  - Full Score Spread: ~40.0 points proportional range between 0% and 100% skill match (prevents score compression into narrow bands).
+
+
+--------------------------------------------------------------------------------
+6. API ENDPOINT INTEGRATION & RESPONSE STRUCTURE
+--------------------------------------------------------------------------------
+Endpoint: `GET /api/internships/india` (backend/app/main.py)
+Filters:
+  - `JobModel.status == "active"`
+  - `JobModel.link_status != "dead"`
+  - Role contains "intern" or source in `["internshala", "unstop", "cuvette"]`
+  - `is_technical_role(j.role_title, j.description) == True`
+  - `is_india_relevant(j.location, j.description, j.company) == True`
+
+Response Item Schema:
+{
+  "id": "int-db-142",
+  "job_id": 142,
+  "title": "AI Web Development Intern",
+  "role_title": "AI Web Development",
+  "company": "Skillumni",               # Real scraped company name (no TechCorp fallbacks)
+  "source": "unstop",
+  "platform": "Unstop",
+  "location": "Bengaluru, India",
+  "stipend": "₹35,000 - ₹60,000 / month",
+  "duration": "3-6 Months",
+  "ppo_offered": true,
+  "posted_date": "2026-09-01",
+  "description": "AI Web Development Internship at Skillumni...", # Full real description text
+  "skills_required": ["Python", "React", "FastAPI"],
+  "matched_skills": ["Python", "React"],
+  "matched_count": 2,
+  "required_count": 3,
+  "skill_match_percentage": 66.7,
+  "match_score": 70.7,
+  "apply_url": "https://unstop.com/o/...",
+  "verified": true
+}
+
+
+--------------------------------------------------------------------------------
+7. SUMMARY FOR SUBAGENTS & MAINTENANCE
+--------------------------------------------------------------------------------
+- When writing or updating scrapers:
+  Always calculate `job_fingerprint` using `hashlib.sha256(f"{company.strip().lower()}::{role_title.strip().lower()}::{location.strip().lower()}".encode()).hexdigest()[:16]`.
+- Always check `JobModel.job_fingerprint` before creating new DB records.
+- Always include `"description"` and `"company"` in endpoint response dictionaries.
+- Never use loose substring match on short words like `"ai"` or `"ml"`; always use regex word boundaries `\b`.
+- Ensure endpoints filter out `JobModel.link_status == "dead"`.
+# ==============================================================================
