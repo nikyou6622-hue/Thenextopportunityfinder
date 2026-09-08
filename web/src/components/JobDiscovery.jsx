@@ -682,6 +682,11 @@ export default function JobDiscovery({
                                 🌐 Aggregated
                               </span>
                             )}
+                            {job.is_remote_global && (
+                              <span style={{ background: 'rgba(99, 102, 241, 0.25)', border: '1px solid rgba(99, 102, 241, 0.4)', color: isAmber ? '#3730a3' : '#c7d2fe', padding: '1px 7px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                🌍 Remote — Global
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -31,7 +31,8 @@ try:
     from backend.app.agents.source_router import (
         normalize_job_url,
         classify_source_platform,
-        resolve_and_validate_apply_url
+        resolve_and_validate_apply_url,
+        classify_india_relevance
     )
 except ImportError:
     from backend.app.utils.skill_normalizer import extract_skills_from_text
@@ -40,7 +41,8 @@ except ImportError:
     from backend.agent.source_router import (
         normalize_job_url,
         classify_source_platform,
-        resolve_and_validate_apply_url
+        resolve_and_validate_apply_url,
+        classify_india_relevance
     )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "phonepe.com",
         "careers_url": "https://www.phonepe.com/careers/",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/phonepe/jobs",
@@ -101,6 +104,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "meesho.io",
         "careers_url": "https://meesho.io/careers",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://api.lever.co/v0/postings/meesho",
@@ -112,6 +116,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "inmobi.com",
         "careers_url": "https://www.inmobi.com/company/careers",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/inmobi/jobs",
@@ -123,6 +128,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "postman.com",
         "careers_url": "https://www.postman.com/careers/",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/postman/jobs",
@@ -134,6 +140,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "cred.club",
         "careers_url": "https://cred.club/careers",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://api.lever.co/v0/postings/cred",
@@ -145,6 +152,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "cloudflare.com",
         "careers_url": "https://www.cloudflare.com/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/cloudflare/jobs",
@@ -156,6 +164,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "stripe.com",
         "careers_url": "https://stripe.com/jobs",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/stripe/jobs",
@@ -167,6 +176,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "figma.com",
         "careers_url": "https://www.figma.com/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/figma/jobs",
@@ -178,6 +188,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "coinbase.com",
         "careers_url": "https://www.coinbase.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/coinbase/jobs",
@@ -189,6 +200,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "palantir.com",
         "careers_url": "https://www.palantir.com/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://api.lever.co/v0/postings/palantir",
@@ -200,6 +212,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "datadoghq.com",
         "careers_url": "https://www.datadoghq.com/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs",
@@ -211,6 +224,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "gitlab.com",
         "careers_url": "https://about.gitlab.com/jobs/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/gitlab/jobs",
@@ -222,6 +236,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "hashicorp.com",
         "careers_url": "https://www.hashicorp.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/hashicorp/jobs",
@@ -233,6 +248,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "doordash.com",
         "careers_url": "https://careers.doordash.com/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/doordash/jobs",
@@ -244,6 +260,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "robinhood.com",
         "careers_url": "https://robinhood.com/us/en/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/robinhood/jobs",
@@ -255,6 +272,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "infosys.com",
         "careers_url": "https://www.infosys.com/careers.html",
         "company_tier": "large_it_services",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
@@ -281,6 +299,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "hcltech.com",
         "careers_url": "https://www.hcltech.com/careers",
         "company_tier": "large_it_services",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
@@ -307,6 +326,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "tcs.com",
         "careers_url": "https://www.tcs.com/careers",
         "company_tier": "large_it_services",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
@@ -333,6 +353,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "accenture.com",
         "careers_url": "https://www.accenture.com/in-en/careers",
         "company_tier": "consulting",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
@@ -359,6 +380,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "cognizant.com",
         "careers_url": "https://careers.cognizant.com/global/en",
         "company_tier": "large_it_services",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 2.0,
         "requires_js": True,
         "api_endpoint": None,
@@ -385,6 +407,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "groww.in",
         "careers_url": "https://groww.in/careers",
         "company_tier": "indian_unicorn",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/groww/jobs",
@@ -396,6 +419,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "thoughtworks.com",
         "careers_url": "https://www.thoughtworks.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "india_heavy",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/thoughtworks/jobs",
@@ -407,6 +431,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "rubrik.com",
         "careers_url": "https://www.rubrik.com/company/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/rubrik/jobs",
@@ -418,6 +443,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "databricks.com",
         "careers_url": "https://www.databricks.com/company/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/databricks/jobs",
@@ -429,6 +455,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "snowflake.com",
         "careers_url": "https://www.snowflake.com/en/company/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/snowflake/jobs",
@@ -440,6 +467,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "splunk.com",
         "careers_url": "https://www.splunk.com/en_us/careers.html",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/splunk/jobs",
@@ -451,6 +479,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "twilio.com",
         "careers_url": "https://www.twilio.com/en-us/company/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/twilio/jobs",
@@ -462,6 +491,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "okta.com",
         "careers_url": "https://www.okta.com/company/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/okta/jobs",
@@ -473,6 +503,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "mongodb.com",
         "careers_url": "https://www.mongodb.com/company/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/mongodb/jobs",
@@ -484,6 +515,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "elastic.co",
         "careers_url": "https://www.elastic.co/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/elastic/jobs",
@@ -495,6 +527,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "sentry.io",
         "careers_url": "https://sentry.io/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/sentry/jobs",
@@ -506,6 +539,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "confluent.io",
         "careers_url": "https://www.confluent.io/careers/",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/confluent/jobs",
@@ -517,6 +551,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "canonical.com",
         "careers_url": "https://canonical.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/canonical/jobs",
@@ -528,6 +563,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "rippling.com",
         "careers_url": "https://www.rippling.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/rippling/jobs",
@@ -539,6 +575,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "notion.so",
         "careers_url": "https://www.notion.so/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/notion/jobs",
@@ -550,6 +587,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "airtable.com",
         "careers_url": "https://airtable.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/airtable/jobs",
@@ -561,6 +599,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "retool.com",
         "careers_url": "https://retool.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/retool/jobs",
@@ -572,6 +611,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "vercel.com",
         "careers_url": "https://vercel.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/vercel/jobs",
@@ -583,6 +623,7 @@ MNC_TARGET_CONFIG: List[Dict[str, Any]] = [
         "domain_name": "supabase.com",
         "careers_url": "https://supabase.com/careers",
         "company_tier": "global_tech",
+        "location_profile": "global_tech",
         "rate_limit_seconds": 1.0,
         "requires_js": False,
         "api_endpoint": "https://boards-api.greenhouse.io/v1/boards/supabase/jobs",
@@ -1258,9 +1299,253 @@ def adapter_health_check(config: Dict[str, Any]) -> Dict[str, Any]:
     return health_info
 
 
+def _scan_single_company_target(config: Dict[str, Any], force_scan: bool) -> Dict[str, Any]:
+    from backend.app.db.database import SessionLocal
+    from backend.app.utils.date_parser import parse_relative_date_to_iso, compute_content_hash
+    from backend.app.db.models import IngestionRunModel, JobModel, MNCScanLogModel
+
+    db = SessionLocal()
+    company_name = config["company"]
+    careers_url = config["careers_url"]
+    rate_limit = config.get("rate_limit_seconds", 1.0)
+    
+    res = {
+        "company": company_name,
+        "status": "success",
+        "listings_found": 0,
+        "error_message": None,
+        "http_success": False,
+        "data_success": False
+    }
+
+    try:
+        if not force_scan:
+            recent_cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=RECENT_SCAN_THRESHOLD_HOURS)
+            recent_log = db.query(MNCScanLogModel).filter(
+                and_(
+                    MNCScanLogModel.company == company_name,
+                    MNCScanLogModel.status == "success",
+                    MNCScanLogModel.run_at >= recent_cutoff
+                )
+            ).first()
+            
+            if recent_log:
+                res["status"] = "skipped_recent"
+                res["error_message"] = f"Recent scan at {recent_log.run_at}"
+                return res
+
+        allowed, reason = check_robots_allowed(careers_url)
+        if not allowed and not force_scan:
+            res["status"] = "skipped_robots"
+            res["error_message"] = reason
+            log_entry = MNCScanLogModel(
+                company=company_name,
+                run_at=datetime.datetime.now(datetime.timezone.utc),
+                status="skipped_robots",
+                listings_found=0,
+                error_message=f"Robots.txt disallowed: {reason}",
+                extra_data=json.dumps({"reason": reason})
+            )
+            db.add(log_entry)
+            db.commit()
+            return res
+
+        status_info: Dict[str, Any] = {"http_success": False, "data_success": False, "error": None}
+        discovered_items = []
+        data_method = config.get("data_access_method")
+        
+        if data_method == "api":
+            discovered_items, status_info = fetch_direct_ats_api(config)
+        elif data_method == "playwright_js":
+            discovered_items, status_info = fetch_playwright_js_postings(config)
+        elif data_method == "html_scrape":
+            scraper_map = {
+                "Deloitte": fetch_deloitte_postings,
+                "Wipro": fetch_wipro_postings,
+                "Capgemini": fetch_capgemini_postings,
+            }
+            scraper_func = scraper_map.get(company_name)
+            if scraper_func:
+                discovered_items, status_info = scraper_func(config)
+
+        http_success = status_info.get("http_success", False)
+        data_success = status_info.get("data_success", False)
+        res["http_success"] = http_success
+        res["data_success"] = data_success
+
+        discovered_items = [
+            item for item in discovered_items 
+            if item.get("apply_url") and item["apply_url"] != config.get("careers_url")
+        ]
+
+        if not discovered_items and config.get("seed_jobs"):
+            discovered_items = config["seed_jobs"]
+            data_success = True
+            http_success = True
+
+        if not data_success and not discovered_items:
+            if http_success:
+                error_msg = "HTTP request succeeded but no data parsed (DATA_FAILURE)"
+                status = "data_failure"
+            else:
+                error_msg = f"HTTP request failed: {status_info.get('error', 'Unknown error')}"
+                status = "http_failure"
+            res["status"] = status
+            res["error_message"] = error_msg
+        else:
+            scan_start_time = datetime.datetime.now(datetime.timezone.utc)
+            seen_ext_ids_in_batch = set()
+            company_jobs_seen = 0
+            company_jobs_updated = 0
+            company_jobs_added = 0
+            consecutive_known = 0
+            max_consecutive_known = 10
+
+            for item in discovered_items:
+                if consecutive_known >= max_consecutive_known:
+                    break
+
+                # India Relevance & Remote-Global Ingestion Filter
+                is_rel, is_rg = classify_india_relevance(item.get("location", ""), item.get("description", ""))
+                if not is_rel:
+                    continue
+
+                ext_id = item["external_id"]
+                fp = item.get("job_fingerprint") or ext_id
+                if ext_id in seen_ext_ids_in_batch:
+                    continue
+                seen_ext_ids_in_batch.add(ext_id)
+
+                existing = db.query(JobModel).filter(
+                    or_(JobModel.external_id == ext_id, JobModel.job_fingerprint == fp)
+                ).first()
+
+                chash = compute_content_hash(
+                    item.get("description", ""),
+                    item.get("salary_range", ""),
+                    item.get("duration", ""),
+                    bool(item.get("ppo_offered"))
+                )
+                posted_iso = parse_relative_date_to_iso(item.get("source_posted_at") or item.get("posted_date"))
+
+                deadline_raw = item.get("application_deadline") or item.get("closingDate") or item.get("expires_at")
+                deadline_dt = None
+                if deadline_raw:
+                    d_iso = parse_relative_date_to_iso(str(deadline_raw))
+                    if d_iso:
+                        try:
+                            deadline_dt = datetime.datetime.fromisoformat(d_iso.replace("Z", "+00:00"))
+                        except Exception:
+                            deadline_dt = None
+
+                if not existing:
+                    consecutive_known = 0
+                    raw_apply = item["apply_url"]
+                    url_norm = normalize_job_url(raw_apply)
+                    platform = classify_source_platform(url_norm, item.get("apply_email", ""))
+                    
+                    if "greenhouse.io" in url_norm or "lever.co" in url_norm or "ashbyhq.com" in url_norm:
+                        resolved_url, link_status = url_norm, "active"
+                    else:
+                        resolved_url, link_status = resolve_and_validate_apply_url(url_norm, check_live=False)
+                    
+                    authenticity_flags = check_authenticity_flags(item, db)
+                    
+                    job_obj = JobModel(
+                        company=company_name,
+                        role_title=item["role_title"],
+                        location=item["location"],
+                        location_type=item.get("location_type", "On-site"),
+                        remote=item.get("remote", True),
+                        is_remote_global=is_rg,
+                        required_skills=item.get("required_skills", []),
+                        domain=item.get("domain", "Technology"),
+                        role_type=item.get("role_type", "Full-time"),
+                        description=item.get("description", ""),
+                        apply_url=url_norm,
+                        apply_url_raw=raw_apply,
+                        apply_url_resolved=resolved_url or url_norm,
+                        link_status="active",
+                        link_checked_at=datetime.datetime.now(datetime.timezone.utc),
+                        source_platform=platform.value,
+                        apply_email=item.get("apply_email", ""),
+                        posted_date=posted_iso or "",
+                        source_posted_at=posted_iso,
+                        application_deadline=deadline_dt,
+                        content_hash=chash,
+                        source=f"{company_name} Official Portal",
+                        source_category="mnc",
+                        company_tier=config.get("company_tier", "large_it_services"),
+                        external_id=ext_id,
+                        job_fingerprint=fp,
+                        authenticity_flags=authenticity_flags if authenticity_flags else None,
+                        first_seen_at=datetime.datetime.now(datetime.timezone.utc),
+                        last_seen_at=datetime.datetime.now(datetime.timezone.utc),
+                        status="active"
+                    )
+                    db.add(job_obj)
+                    company_jobs_added += 1
+                else:
+                    company_jobs_seen += 1
+                    existing.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
+                    existing.is_remote_global = is_rg
+                    if posted_iso and not existing.source_posted_at:
+                        existing.source_posted_at = posted_iso
+
+                    if existing.content_hash != chash:
+                        consecutive_known = 0
+                        existing.content_hash = chash
+                        existing.description = item.get("description") or existing.description
+                        existing.required_skills = item.get("required_skills") or existing.required_skills
+                        company_jobs_updated += 1
+                    else:
+                        consecutive_known += 1
+
+            db.commit()
+            res["new_jobs_added"] = company_jobs_added
+            res["status"] = "success"
+
+            ingest_run = IngestionRunModel(
+                source=f"mnc:{company_name.lower().replace(' ', '_')}",
+                started_at=scan_start_time,
+                finished_at=datetime.datetime.now(datetime.timezone.utc),
+                status="success",
+                jobs_seen=company_jobs_seen,
+                jobs_new=company_jobs_added,
+                jobs_updated=company_jobs_updated,
+                error_detail=None
+            )
+            db.add(ingest_run)
+            db.commit()
+
+        log_entry = MNCScanLogModel(
+            company=company_name,
+            run_at=datetime.datetime.now(datetime.timezone.utc),
+            status=res["status"],
+            listings_found=res["new_jobs_added"],
+            error_message=res["error_message"],
+            extra_data=json.dumps({
+                "http_success": res["http_success"],
+                "data_success": res["data_success"]
+            })
+        )
+        db.add(log_entry)
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        res["status"] = "failed"
+        res["error_message"] = str(e)
+    finally:
+        db.close()
+
+    return res
+
+
 def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
     """
-    Executes MNC opportunity scan pipeline across monitored portals with real data access.
+    Executes MNC opportunity scan pipeline across monitored portals in parallel.
+    Uses ThreadPoolExecutor(max_workers=8) for high throughput.
     """
     active_companies = get_active_companies()
     scan_summary = {
@@ -1274,282 +1559,28 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
         "new_jobs_added": 0,
         "company_details": []
     }
-    
-    for config in active_companies:
-        company_name = config["company"]
-        careers_url = config["careers_url"]
-        rate_limit = config.get("rate_limit_seconds", 2.0)
-        
-        # Check for recent successful scan unless force_scan is True
-        if not force_scan:
-            recent_cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=RECENT_SCAN_THRESHOLD_HOURS)
-            recent_log = db.query(MNCScanLogModel).filter(
-                and_(
-                    MNCScanLogModel.company == company_name,
-                    MNCScanLogModel.status == "success",
-                    MNCScanLogModel.run_at >= recent_cutoff
-                )
-            ).first()
-            
-            if recent_log:
-                logger.info(f"Skipping {company_name} - recent successful scan at {recent_log.run_at}")
-                scan_summary["skipped_recent"] += 1
-                scan_summary["company_details"].append({
-                    "company": company_name,
-                    "status": "skipped_recent",
-                    "listings_found": 0,
-                    "error_message": f"Recent scan at {recent_log.run_at}"
-                })
-                continue
 
-        # 1. Robots.txt Compliance Check
-        allowed, reason = check_robots_allowed(careers_url)
-        if not allowed and not force_scan:
-            logger.info(f"Skipping {company_name} due to robots.txt restriction: {reason}")
-            scan_summary["skipped_robots"] += 1
-            log_entry = MNCScanLogModel(
-                company=company_name,
-                run_at=datetime.datetime.now(datetime.timezone.utc),
-                status="skipped_robots",
-                listings_found=0,
-                error_message=f"Robots.txt disallowed: {reason}",
-                extra_data=json.dumps({"reason": reason})
-            )
-            db.add(log_entry)
-            db.commit()
-            scan_summary["company_details"].append({
-                "company": company_name,
-                "status": "skipped_robots",
-                "listings_found": 0,
-                "error_message": reason
-            })
-            continue
-
-        # 2. Rate Limiting Sleep
-        time.sleep(rate_limit)
-
-        # 3. Discovery: Real data access with proper status tracking
-        company_jobs_added = 0
-        status = "success"
-        error_msg = None
-        http_success = False
-        data_success = False
-        status_info: Dict[str, Any] = {"http_success": False, "data_success": False, "error": None}
-
-        try:
-            discovered_items = []
-            data_method = config.get("data_access_method")
-            
-            if data_method == "api":
-                discovered_items, status_info = fetch_direct_ats_api(config)
-            elif data_method == "playwright_js":
-                discovered_items, status_info = fetch_playwright_js_postings(config)
-            elif data_method == "html_scrape":
-                scraper_map = {
-                    "Deloitte": fetch_deloitte_postings,
-                    "Wipro": fetch_wipro_postings,
-                    "Capgemini": fetch_capgemini_postings,
-                }
-                scraper_func = scraper_map.get(company_name)
-                if scraper_func:
-                    discovered_items, status_info = scraper_func(config)
-            
-            http_success = status_info.get("http_success", False)
-            data_success = status_info.get("data_success", False)
-            
-            # Validate all apply_urls are specific postings
-            discovered_items = [
-                item for item in discovered_items 
-                if item.get("apply_url") and item["apply_url"] != config.get("careers_url")
-            ]
-            
-            # Fallback to verified enterprise seed_jobs if scraping yielded 0 items
-            if not discovered_items and config.get("seed_jobs"):
-                discovered_items = config["seed_jobs"]
-                data_success = True
-                http_success = True
-
-            if not data_success and not discovered_items:
-                # Distinguish HTTP_SUCCESS from DATA_SUCCESS
-                if http_success:
-                    error_msg = "HTTP request succeeded but no data parsed (DATA_FAILURE)"
-                    status = "data_failure"
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        future_to_config = {
+            executor.submit(_scan_single_company_target, config, force_scan): config
+            for config in active_companies
+        }
+        for future in as_completed(future_to_config):
+            try:
+                res = future.result()
+                scan_summary["company_details"].append(res)
+                st = res.get("status")
+                if st == "success":
+                    scan_summary["successful_scans"] += 1
+                    scan_summary["new_jobs_added"] += res.get("new_jobs_added", 0)
+                elif st == "skipped_recent":
+                    scan_summary["skipped_recent"] += 1
+                elif st == "skipped_robots":
+                    scan_summary["skipped_robots"] += 1
                 else:
-                    error_msg = f"HTTP request failed: {status_info.get('error', 'Unknown error')}"
-                    status = "http_failure"
-                
-                logger.warning(f"{company_name}: {error_msg}")
-                
-                # Check if this is an anomaly (previously had jobs)
-                previous_job_count = db.query(JobModel).filter(
-                    JobModel.company == company_name,
-                    JobModel.source_category == "mnc",
-                    JobModel.status == "active"
-                ).count()
-                
-                if previous_job_count > 0:
-                    logger.error(f"ANOMALY: {company_name} previously had {previous_job_count} active jobs, now returning zero")
-                    error_msg += f" (ANOMALY: previously had {previous_job_count} active jobs)"
-            else:
-                from backend.app.utils.date_parser import parse_relative_date_to_iso, compute_content_hash
-                from backend.app.db.models import IngestionRunModel
-                
-                scan_start_time = datetime.datetime.now(datetime.timezone.utc)
-                seen_ext_ids_in_batch = set()
-                company_jobs_seen = 0
-                company_jobs_updated = 0
-                consecutive_known = 0
-                max_consecutive_known = 10
-
-                for item in discovered_items:
-                    if consecutive_known >= max_consecutive_known:
-                        logger.info(f"{company_name}: Early-stopping after {max_consecutive_known} consecutive known job fingerprints.")
-                        break
-
-                    ext_id = item["external_id"]
-                    fp = item.get("job_fingerprint") or ext_id
-                    if ext_id in seen_ext_ids_in_batch:
-                        continue
-                    seen_ext_ids_in_batch.add(ext_id)
-
-                    existing = db.query(JobModel).filter(
-                        or_(JobModel.external_id == ext_id, JobModel.job_fingerprint == fp)
-                    ).first()
-
-                    chash = compute_content_hash(
-                        item.get("description", ""),
-                        item.get("salary_range", ""),
-                        item.get("duration", ""),
-                        bool(item.get("ppo_offered"))
-                    )
-                    posted_iso = parse_relative_date_to_iso(item.get("source_posted_at") or item.get("posted_date"))
-
-                    deadline_raw = item.get("application_deadline") or item.get("closingDate") or item.get("expires_at")
-                    deadline_dt = None
-                    if deadline_raw:
-                        d_iso = parse_relative_date_to_iso(str(deadline_raw))
-                        if d_iso:
-                            try:
-                                deadline_dt = datetime.datetime.fromisoformat(d_iso.replace("Z", "+00:00"))
-                            except Exception:
-                                deadline_dt = None
-
-                    if not existing:
-                        consecutive_known = 0
-                        raw_apply = item["apply_url"]
-                        url_norm = normalize_job_url(raw_apply)
-                        platform = classify_source_platform(url_norm, item.get("apply_email", ""))
-                        
-                        if "greenhouse.io" in url_norm or "lever.co" in url_norm or "ashbyhq.com" in url_norm:
-                            resolved_url, link_status = url_norm, "active"
-                        else:
-                            resolved_url, link_status = resolve_and_validate_apply_url(url_norm, check_live=False)
-                        
-                        initial_status = "active"
-                        initial_link_status = "active"
-                        
-                        # Check authenticity flags
-                        authenticity_flags = check_authenticity_flags(item, db)
-                        
-                        job_obj = JobModel(
-                            company=company_name,
-                            role_title=item["role_title"],
-                            location=item["location"],
-                            location_type=item.get("location_type", "On-site"),
-                            remote=item.get("remote", True),
-                            required_skills=item.get("required_skills", []),
-                            domain=item.get("domain", "Technology"),
-                            role_type=item.get("role_type", "Full-time"),
-                            description=item.get("description", ""),
-                            apply_url=url_norm,
-                            apply_url_raw=raw_apply,
-                            apply_url_resolved=resolved_url or url_norm,
-                            link_status=initial_link_status,
-                            link_checked_at=datetime.datetime.now(datetime.timezone.utc),
-                            source_platform=platform.value,
-                            apply_email=item.get("apply_email", ""),
-                            posted_date=posted_iso or "",
-                            source_posted_at=posted_iso,
-                            application_deadline=deadline_dt,
-                            content_hash=chash,
-                            source=f"{company_name} Official Portal",
-                            source_category="mnc",
-                            company_tier=config.get("company_tier", "large_it_services"),
-                            external_id=ext_id,
-                            job_fingerprint=fp,
-                            authenticity_flags=authenticity_flags if authenticity_flags else None,
-                            first_seen_at=datetime.datetime.now(datetime.timezone.utc),
-                            last_seen_at=datetime.datetime.now(datetime.timezone.utc),
-                            status=initial_status
-                        )
-                        db.add(job_obj)
-                        company_jobs_added += 1
-                    else:
-                        company_jobs_seen += 1
-                        existing.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
-                        if posted_iso and not existing.source_posted_at:
-                            existing.source_posted_at = posted_iso
-
-                        if existing.content_hash != chash:
-                            consecutive_known = 0
-                            existing.content_hash = chash
-                            existing.description = item.get("description") or existing.description
-                            existing.required_skills = item.get("required_skills") or existing.required_skills
-                            company_jobs_updated += 1
-                        else:
-                            consecutive_known += 1
-
-                db.commit()
-                scan_summary["successful_scans"] += 1
-                scan_summary["new_jobs_added"] += company_jobs_added
-                status = "success"
-
-                # Log IngestionRunModel entry
-                ingest_run = IngestionRunModel(
-                    source=f"mnc:{company_name.lower().replace(' ', '_')}",
-                    started_at=scan_start_time,
-                    finished_at=datetime.datetime.now(datetime.timezone.utc),
-                    status="success",
-                    jobs_seen=company_jobs_seen,
-                    jobs_new=company_jobs_added,
-                    jobs_updated=company_jobs_updated,
-                    error_detail=None
-                )
-                db.add(ingest_run)
-                db.commit()
-
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error scanning MNC portal for {company_name}: {e}")
-            status = "failed"
-            error_msg = str(e)
-            scan_summary["failed_scans"] += 1
-
-        # Record scan audit log with proper status distinction
-        log_entry = MNCScanLogModel(
-            company=company_name,
-            run_at=datetime.datetime.now(datetime.timezone.utc),
-            status=status,
-            listings_found=company_jobs_added,
-            error_message=error_msg,
-            extra_data=json.dumps({
-                "http_success": http_success,
-                "data_success": data_success,
-                "anomaly": "ANOMALY" in (error_msg or ""),
-                "status_code": status_info.get("status_code")
-            })
-        )
-        db.add(log_entry)
-        db.commit()
-
-        scan_summary["company_details"].append({
-            "company": company_name,
-            "status": status,
-            "listings_found": company_jobs_added,
-            "error_message": error_msg,
-            "http_success": http_success,
-            "data_success": data_success
-        })
+                    scan_summary["failed_scans"] += 1
+            except Exception as ex:
+                scan_summary["failed_scans"] += 1
 
     # Re-validate stale links with grace period
     revalidate_stale_links(db)

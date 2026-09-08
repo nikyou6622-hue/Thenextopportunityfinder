@@ -42,14 +42,14 @@ def render_page_html(
             # Wait for specific selector if provided
             if wait_selector:
                 try:
-                    page.wait_for_selector(wait_selector, timeout=8000)
+                    page.wait_for_selector(wait_selector, timeout=3000)
                 except Exception as se:
                     logger.warning(f"Selector '{wait_selector}' not found within timeout on {url}: {se}")
             
             # Scroll down to trigger lazy loading
             for i in range(scroll_pages):
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                time.sleep(1.0)
+                time.sleep(0.4)
             
             html = page.content()
             browser.close()

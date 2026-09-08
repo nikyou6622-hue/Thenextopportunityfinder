@@ -38,7 +38,8 @@ from backend.app.agents.agent3_matching import compute_match
 from backend.app.agents.source_router import (
     normalize_job_url,
     classify_source_platform,
-    resolve_and_validate_apply_url
+    resolve_and_validate_apply_url,
+    classify_india_relevance
 )
 
 logger = logging.getLogger("internship_agent")
@@ -738,6 +739,10 @@ def store_jobs_batch(
                     logger.info(f"Early-stopping batch store: Hit {max_consecutive_known} consecutive known job fingerprints.")
                     break
 
+                is_rel, is_rg = classify_india_relevance(data.get("location", ""), data.get("description", ""))
+                if not is_rel:
+                    continue
+
                 fp = data.get("job_fingerprint") or compute_job_fingerprint(data)
                 ext_id = data.get("external_id")
                 desc = data.get("description", "")
@@ -767,6 +772,7 @@ def store_jobs_batch(
                         content_hash=chash,
                         source_posted_at=posted_iso,
                         application_deadline=deadline_dt,
+                        is_remote_global=is_rg,
                         source_category="internship_india",
                         role_type="internship",
                         posted_date=posted_iso or dt.date.today().isoformat(),

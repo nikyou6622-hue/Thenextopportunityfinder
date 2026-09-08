@@ -246,6 +246,32 @@ File: backend/app/utils/js_renderer.py & backend/app/agents/agent2b_mnc_scanner.
 - Censorship Removal & Scale Benchmark:
   * Cleared hardcoded `UNRELIABLE_COMPANIES = set()` in `main.py`.
   * High-volume ingestion benchmark: Live database scale achieved 1,582 ACTIVE REAL JOBS across 39 verified direct target boards with 0% fake data or generic fallbacks.
+
+--------------------------------------------------------------------------------
+12. INDIA LOCATION INGESTION FILTERING, REMOTE-GLOBAL TAGGING & PARALLEL THROUGHPUT
+--------------------------------------------------------------------------------
+File: backend/app/agents/source_router.py, agent2b_mnc_scanner.py, agent2c, agent2d
+
+- Centralized Location Evaluator (`classify_india_relevance`):
+  * Strict India keywords allowlist: `india`, `bengaluru`, `bangalore`, `mumbai`, `delhi`, `gurgaon`, `gurugram`, `noida`, `pune`, `hyderabad`, `chennai`, `kolkata`, `ahmedabad`, `jaipur`, `kochi`, `trivandrum`, `indore`, `chandigarh`, `guwahati`, `bhubaneswar`, `coimbatore`, `mysore`, `remote india`, `remote - india`, `india (remote)`.
+  * Excluded foreign locations: US, UK, Germany, France, Japan, Australia, Singapore, etc.
+  * Ingestion-time enforcement: Non-matching foreign roles (e.g. "Remote - USA", "Tokyo, Japan") are skipped before DB insertion across all 3 scrapers.
+
+- Remote-Global Candidate Tagging (`JobModel.is_remote_global`):
+  * Worldwide remote postings open to India candidates without region lockouts are kept active and flagged with `is_remote_global = True`.
+  * Displayed on frontend with a distinct `🌍 Remote — Global` badge separating them from direct India postings.
+
+- Target Profile Categorization (`MNC_TARGET_CONFIG`):
+  * Annotated all 39 target configs with `"location_profile"`: `"india_heavy"` (PhonePe, Meesho, InMobi, CRED, Postman, Groww, Infosys, TCS, HCLTech, Accenture, Cognizant, Wipro, Capgemini, Deloitte) vs `"global_tech"` (Cloudflare, Stripe, Figma, Datadog, GitLab, Vercel, Supabase, etc.).
+
+- Parallel ATS Target Scraping Throughput:
+  * Refactored `run_mnc_scan()` to execute independent target board fetches concurrently using `ThreadPoolExecutor(max_workers=8)`.
+  * Greenhouse/Lever/Ashby targets bypass Playwright and use fast JSON APIs directly; Playwright Chromium is strictly reserved for Workday/JS dynamic portals.
+
+- Retroactive Soft-Delete Cleanup Results:
+  * Soft-deleted 1,236 foreign non-India listings (`status = 'admin_removed'`, `removed_at = NOW()`). Zero jobs hard-deleted.
+  * Active DB listings updated from 1,582 to **346 high-relevance jobs** (276 direct India postings + 70 Remote-Global candidate postings).
 # ==============================================================================
+
 
 

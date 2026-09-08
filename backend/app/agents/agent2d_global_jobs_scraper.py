@@ -253,9 +253,12 @@ def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str =
     return results[:limit]
 
 
+from backend.app.agents.source_router import classify_apply_url, classify_india_relevance
+
 def get_combined_global_feed(query: str = "", location: str = "", source_filter: str = "all", limit: int = 20) -> List[Dict[str, Any]]:
     """
     Combines FreeHire multi-ATS and LinkedIn public guest feeds with salary intelligence.
+    Enforces India location relevance filtering on global aggregator feeds.
     """
     all_jobs: List[Dict[str, Any]] = []
     
@@ -269,6 +272,10 @@ def get_combined_global_feed(query: str = "", location: str = "", source_filter:
     seen = set()
     unified: List[Dict[str, Any]] = []
     for j in all_jobs:
+        is_rel, is_rg = classify_india_relevance(j.get("location", ""), j.get("description", ""))
+        if not is_rel:
+            continue
+        j["is_remote_global"] = is_rg
         key = f"{j['title'].lower().strip()}_{normalize_company_name(j['company'])}"
         if key not in seen:
             seen.add(key)

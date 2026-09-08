@@ -681,41 +681,71 @@ def is_technical_role(role_title: str, description: Optional[str] = "") -> bool:
     return tech_hits >= 1
 
 
-INDIAN_CITIES_AND_REGIONS = [
-    "india", "bengaluru", "bangalore", "hyderabad", "gurugram", "gurgaon", "noida", 
-    "delhi", "ncr", "mumbai", "pune", "chennai", "kolkata", "ahmedabad", "jaipur", 
-    "kochi", "trivandrum", "indore", "chandigarh", "guwahati", "bhubaneswar", 
-    "coimbatore", "mysore", "remote (india)", "work from home"
+INDIA_LOCATION_KEYWORDS = [
+    'india', 'bengaluru', 'bangalore', 'mumbai', 'delhi', 'gurgaon', 'gurugram',
+    'noida', 'pune', 'hyderabad', 'chennai', 'kolkata', 'ahmedabad', 'jaipur',
+    'kochi', 'trivandrum', 'indore', 'chandigarh', 'guwahati', 'bhubaneswar',
+    'coimbatore', 'mysore', 'remote india', 'remote - india', 'india (remote)',
+    'work from home india'
 ]
+
+EXCLUDED_FOREIGN_LOCATIONS = [
+    'us', 'usa', 'united states', 'canada', 'uk', 'united kingdom', 'germany', 
+    'france', 'australia', 'japan', 'brazil', 'latam', 'emea', 'poland', 'spain', 
+    'italy', 'netherlands', 'singapore', 'ireland', 'switzerland', 'sweden', 
+    'israel', 'china', 'taiwan', 'south korea', 'mexico', 'austria', 'norway',
+    'denmark', 'finland', 'new zealand', 'philippines', 'vietnam', 'thailand',
+    'singapore', 'hong kong', 'san francisco', 'new york', 'london', 'tokyo', 'paris',
+    'berlin', 'sydney', 'toronto', 'vancouver', 'seoul', 'dublin', 'austin', 'seattle',
+    'chicago', 'boston', 'los angeles', 'amsterdam', 'zurich', 'barcelona', 'madrid',
+    'ca', 'ny', 'tx', 'fl', 'wa', 'il', 'ma', 'nc', 'ga', 'co', 'va', 'or', 'az', 'pa', 'nj'
+]
+
+def classify_india_relevance(location: Optional[str] = "", description: Optional[str] = "") -> Tuple[bool, bool]:
+    """
+    Returns (is_relevant, is_remote_global).
+    - is_relevant=True if location is India-based OR Remote-Global candidate (no foreign lockouts).
+    - is_remote_global=True if it is a worldwide remote role open to India candidates.
+    """
+    if not location:
+        return False, False
+        
+    loc_lower = str(location).lower().strip()
+    
+    # 1. Explicit India location match
+    if any(k in loc_lower for k in INDIA_LOCATION_KEYWORDS):
+        return True, False
+
+    # 2. Check for explicit foreign location / region tag
+    has_foreign_tag = False
+    for f in EXCLUDED_FOREIGN_LOCATIONS:
+        if len(f) <= 2:
+            if re.search(rf"\b{f}\b", loc_lower):
+                has_foreign_tag = True
+                break
+        else:
+            if f in loc_lower:
+                has_foreign_tag = True
+                break
+                
+    if has_foreign_tag:
+        return False, False
+
+    # 3. Remote-Global Candidate check (labeled distinctively)
+    if any(term in loc_lower for term in ['remote', 'worldwide', 'global', 'home based', 'anywhere']):
+        return True, True
+
+    # 4. Description check fallback if location is missing/generic
+    desc_lower = str(description or "").lower()
+    if any(k in desc_lower for k in ['bengaluru', 'bangalore', 'mumbai', 'delhi', 'gurgaon', 'hyderabad', 'chennai', 'pune']):
+        return True, False
+
+    return False, False
 
 def is_india_relevant(location: Optional[str] = "", description: Optional[str] = "", company: Optional[str] = "") -> bool:
     """
-    Universal India relevance classifier applicable across all scrapers (Tier 1, Tier 2, Tier 3).
-    Ensures non-India, non-English-market jobs (e.g. Spanish-language Latin America, UK local)
-    are excluded from default India-focused feeds unless explicitly marked as global remote.
+    Universal India relevance classifier returning True if job is India-based OR Remote-Global candidate.
     """
-    loc_str = str(location or "").lower()
-    desc_str = str(description or "").lower()
-    comp_str = str(company or "").lower()
-    full_text = f"{loc_str} {comp_str} {desc_str}"
+    is_rel, _ = classify_india_relevance(location, description)
+    return is_rel
 
-    # Explicit India mention or Indian city/region match
-    if any(city in loc_str for city in INDIAN_CITIES_AND_REGIONS):
-        return True
-
-    # Check for Spanish / Latin America non-English market listings without India reference
-    is_spanish = any(w in full_text for w in ["desarrollador", "rekluti", "caribe hilton", "san juan"])
-    if is_spanish and "india" not in loc_str:
-        return False
-
-    # Check for UK local or non-remote overseas specific locations without India
-    is_overseas_local = any(loc in loc_str for loc in ["aberdeen", "london, uk", "paris, france", "seoul", "tokyo", "berlin", "madrid"])
-    if is_overseas_local and "india" not in loc_str and "remote" not in loc_str:
-        return False
-
-    # Generic Global Remote listings are allowed if marked Remote
-    if "remote" in loc_str or "work from home" in loc_str:
-        return True
-
-    # Default fallback: check if India or Indian tech hub is mentioned in description
-    return any(city in full_text for city in INDIAN_CITIES_AND_REGIONS)
