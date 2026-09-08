@@ -1291,16 +1291,41 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                     logger.error(f"ANOMALY: {company_name} previously had {previous_job_count} active jobs, now returning zero")
                     error_msg += f" (ANOMALY: previously had {previous_job_count} active jobs)"
             else:
+                from backend.app.utils.date_parser import parse_relative_date_to_iso, compute_content_hash
+                from backend.app.db.models import IngestionRunModel
+                
+                scan_start_time = datetime.datetime.now(datetime.timezone.utc)
                 seen_ext_ids_in_batch = set()
+                company_jobs_seen = 0
+                company_jobs_updated = 0
+                consecutive_known = 0
+                max_consecutive_known = 10
+
                 for item in discovered_items:
+                    if consecutive_known >= max_consecutive_known:
+                        logger.info(f"{company_name}: Early-stopping after {max_consecutive_known} consecutive known job fingerprints.")
+                        break
+
                     ext_id = item["external_id"]
+                    fp = item.get("job_fingerprint") or ext_id
                     if ext_id in seen_ext_ids_in_batch:
                         continue
                     seen_ext_ids_in_batch.add(ext_id)
 
-                    existing = db.query(JobModel).filter(JobModel.external_id == ext_id).first()
+                    existing = db.query(JobModel).filter(
+                        or_(JobModel.external_id == ext_id, JobModel.job_fingerprint == fp)
+                    ).first()
+
+                    chash = compute_content_hash(
+                        item.get("description", ""),
+                        item.get("salary_range", ""),
+                        item.get("duration", ""),
+                        bool(item.get("ppo_offered"))
+                    )
+                    posted_iso = parse_relative_date_to_iso(item.get("source_posted_at") or item.get("posted_date"))
 
                     if not existing:
+                        consecutive_known = 0
                         raw_apply = item["apply_url"]
                         url_norm = normalize_job_url(raw_apply)
                         platform = classify_source_platform(url_norm, item.get("apply_email", ""))
@@ -1315,9 +1340,6 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                         
                         # Check authenticity flags
                         authenticity_flags = check_authenticity_flags(item, db)
-                        
-                        # Use source_posted_at only if provided, else leave null
-                        source_posted_at = item.get("source_posted_at")
                         
                         job_obj = JobModel(
                             company=company_name,
@@ -1336,13 +1358,14 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                             link_checked_at=datetime.datetime.now(datetime.timezone.utc),
                             source_platform=platform.value,
                             apply_email=item.get("apply_email", ""),
-                            posted_date=source_posted_at or "",  # Null or string
-                            source_posted_at=source_posted_at,
+                            posted_date=posted_iso or "",
+                            source_posted_at=posted_iso,
+                            content_hash=chash,
                             source=f"{company_name} Official Portal",
                             source_category="mnc",
                             company_tier=config.get("company_tier", "large_it_services"),
                             external_id=ext_id,
-                            job_fingerprint=item.get("job_fingerprint", ext_id),
+                            job_fingerprint=fp,
                             authenticity_flags=authenticity_flags if authenticity_flags else None,
                             first_seen_at=datetime.datetime.now(datetime.timezone.utc),
                             last_seen_at=datetime.datetime.now(datetime.timezone.utc),
@@ -1350,11 +1373,39 @@ def run_mnc_scan(db: Session, force_scan: bool = False) -> Dict[str, Any]:
                         )
                         db.add(job_obj)
                         company_jobs_added += 1
+                    else:
+                        company_jobs_seen += 1
+                        existing.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
+                        if posted_iso and not existing.source_posted_at:
+                            existing.source_posted_at = posted_iso
+
+                        if existing.content_hash != chash:
+                            consecutive_known = 0
+                            existing.content_hash = chash
+                            existing.description = item.get("description") or existing.description
+                            existing.required_skills = item.get("required_skills") or existing.required_skills
+                            company_jobs_updated += 1
+                        else:
+                            consecutive_known += 1
 
                 db.commit()
                 scan_summary["successful_scans"] += 1
                 scan_summary["new_jobs_added"] += company_jobs_added
                 status = "success"
+
+                # Log IngestionRunModel entry
+                ingest_run = IngestionRunModel(
+                    source=f"mnc:{company_name.lower().replace(' ', '_')}",
+                    started_at=scan_start_time,
+                    finished_at=datetime.datetime.now(datetime.timezone.utc),
+                    status="success",
+                    jobs_seen=company_jobs_seen,
+                    jobs_new=company_jobs_added,
+                    jobs_updated=company_jobs_updated,
+                    error_detail=None
+                )
+                db.add(ingest_run)
+                db.commit()
 
         except Exception as e:
             db.rollback()

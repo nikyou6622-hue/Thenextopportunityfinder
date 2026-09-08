@@ -5891,6 +5891,7 @@ def get_india_internships_endpoint(
             "ppo_offered": True,
             "tier2_3_friendly": True,
             "posted_date": j.posted_date or "Recently",
+            "source_posted_at": j.source_posted_at,
             "description": j.description or f"{j.role_title} position at {j.company or 'Verified Company'}.",
             "skills_required": req_skills_list,
             "required_skills": req_skills_list,
@@ -5931,6 +5932,104 @@ def get_internship_stats_endpoint(db: Session = Depends(get_db)):
         "avg_stipend": "₹45,000 / month",
         "ppo_conversion_rate": "85%",
         "top_hiring_hubs": ["Bengaluru", "Gurugram", "Remote", "Hyderabad", "Pune", "Mumbai"]
+    }
+
+@app.get("/api/scrapers/health")
+@app.get("/scrapers/health")
+def get_scraper_health_endpoint(db: Session = Depends(get_db)):
+    """
+    Health check flagging any scraper source with 3+ consecutive failed or partial runs.
+    """
+    from backend.app.db.models import IngestionRunModel
+
+    sources = [r[0] for r in db.query(IngestionRunModel.source).distinct().all()]
+    flagged_sources = []
+    source_statuses = []
+
+    for src in sources:
+        runs = db.query(IngestionRunModel).filter(
+            IngestionRunModel.source == src
+        ).order_by(IngestionRunModel.started_at.desc()).limit(10).all()
+
+        consecutive_bad = 0
+        for r in runs:
+            if r.status in ("failed", "partial"):
+                consecutive_bad += 1
+            else:
+                break
+
+        is_flagged = consecutive_bad >= 3
+        if is_flagged:
+            flagged_sources.append(src)
+
+        last_run = runs[0] if runs else None
+        source_statuses.append({
+            "source": src,
+            "consecutive_failures": consecutive_bad,
+            "last_run_at": last_run.started_at.isoformat() if last_run and last_run.started_at else None,
+            "last_status": last_run.status if last_run else "no_runs",
+            "is_flagged": is_flagged,
+            "error_detail": last_run.error_detail if last_run and is_flagged else None
+        })
+
+    overall_status = "unhealthy" if flagged_sources else "healthy"
+    return {
+        "overall_status": overall_status,
+        "total_sources_monitored": len(sources),
+        "flagged_sources_count": len(flagged_sources),
+        "flagged_sources": flagged_sources,
+        "source_details": source_statuses
+    }
+
+@app.get("/api/scrapers/schedules")
+@app.get("/scrapers/schedules")
+def get_adaptive_schedules_endpoint(
+    high_churn_threshold: float = 10.0,
+    db: Session = Depends(get_db)
+):
+    """
+    Computes adaptive polling schedules per source based on rolling 7-run average new job ingestion rate.
+    """
+    from backend.app.db.models import IngestionRunModel
+
+    sources = [r[0] for r in db.query(IngestionRunModel.source).distinct().all()]
+    schedules = []
+
+    for src in sources:
+        recent_runs = db.query(IngestionRunModel).filter(
+            IngestionRunModel.source == src,
+            IngestionRunModel.status.in_(["success", "partial"])
+        ).order_by(IngestionRunModel.started_at.desc()).limit(7).all()
+
+        if recent_runs:
+            avg_new = sum(r.jobs_new for r in recent_runs) / len(recent_runs)
+        else:
+            avg_new = 0.0
+
+        if avg_new >= high_churn_threshold:
+            category = "high_churn"
+            recommended_interval_hours = 4
+            cron = "0 */4 * * *"
+        elif avg_new >= 2.0:
+            category = "moderate"
+            recommended_interval_hours = 12
+            cron = "0 */12 * * *"
+        else:
+            category = "slow_moving"
+            recommended_interval_hours = 24
+            cron = "0 0 * * *"
+
+        schedules.append({
+            "source": src,
+            "rolling_avg_new_jobs_per_run": round(avg_new, 2),
+            "category": category,
+            "recommended_interval_hours": recommended_interval_hours,
+            "recommended_cron": cron
+        })
+
+    return {
+        "high_churn_threshold": high_churn_threshold,
+        "schedules": schedules
     }
 
 @app.post("/api/internships/india/refresh")

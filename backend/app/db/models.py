@@ -83,6 +83,7 @@ class JobModel(Base):
     external_id = Column(String, unique=True, index=True, nullable=True)
     source_posted_at = Column(String, nullable=True)
     job_fingerprint = Column(String, unique=True, index=True, nullable=True)
+    content_hash = Column(String, index=True, nullable=True)
     authenticity_flags = Column(JSON, default=list, nullable=True)
     first_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     last_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -90,6 +91,19 @@ class JobModel(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     matches = relationship("MatchModel", back_populates="job", cascade="all, delete-orphan")
+
+class IngestionRunModel(Base):
+    __tablename__ = "ingestion_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, index=True, nullable=False)
+    started_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String, index=True, default="success") # success, partial, failed
+    jobs_seen = Column(Integer, default=0)
+    jobs_new = Column(Integer, default=0)
+    jobs_updated = Column(Integer, default=0)
+    error_detail = Column(Text, nullable=True)
 
 class TailoredResumeModel(Base):
     __tablename__ = "resumes_tailored"

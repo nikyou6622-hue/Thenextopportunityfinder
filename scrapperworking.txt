@@ -157,7 +157,54 @@ Response Item Schema:
 - When writing or updating scrapers:
   Always calculate `job_fingerprint` using `hashlib.sha256(f"{company.strip().lower()}::{role_title.strip().lower()}::{location.strip().lower()}".encode()).hexdigest()[:16]`.
 - Always check `JobModel.job_fingerprint` before creating new DB records.
-- Always include `"description"` and `"company"` in endpoint response dictionaries.
-- Never use loose substring match on short words like `"ai"` or `"ml"`; always use regex word boundaries `\b`.
 - Ensure endpoints filter out `JobModel.link_status == "dead"`.
+
+--------------------------------------------------------------------------------
+8. SITEMAP & UNLISTED JSON FEED AUDIT FINDINGS (PER SOURCE)
+--------------------------------------------------------------------------------
+Before building or maintaining HTML parsers, all target platforms were audited for unlisted JSON APIs and sitemap.xml <lastmod> timestamps:
+
+1. Greenhouse Boards API (Tier 1 Direct ATS)
+   - API Endpoint: `https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs`
+   - JSON Feed Available: YES (Direct JSON, no auth required).
+   - Timestamp Fields: `updated_at` / `created_at` in ISO format.
+   - Sitemap: `https://boards.greenhouse.io/sitemap.xml` available with `<lastmod>`.
+
+2. Lever Postings API (Tier 1 Direct ATS)
+   - API Endpoint: `https://api.lever.co/v0/postings/{company}`
+   - JSON Feed Available: YES (Direct JSON, no auth required).
+   - Timestamp Fields: `createdAt` (epoch milliseconds / ISO).
+   - Sitemap: Lever posts indexed under `https://jobs.lever.co/sitemap.xml`.
+
+3. Ashby API (Tier 1 Direct ATS)
+   - API Endpoint: `https://api.ashbyhq.com/posting-api/job-board/{board_name}`
+   - JSON Feed Available: YES (Direct JSON).
+   - Timestamp Fields: `publishedAt` / `createdAt`.
+
+4. Unstop Internship Portal (Tier 2 Curated)
+   - API Endpoint: `https://unstop.com/api/public/opportunity/search-result`
+   - JSON Feed Available: YES (Unlisted public REST endpoint returning JSON payload).
+   - Timestamp Fields: `posted_on` or relative time string ("Posted 3 hours ago").
+   - Sitemap: `https://unstop.com/sitemap.xml` with `<lastmod>`.
+
+5. Cuvette Platform (Tier 2 Curated)
+   - Method: HTML Card parsing (`.job-card`, `div[data-testid='job-card']`).
+   - JSON Endpoint: Internal GraphQL endpoint requires session cookies; HTML card parsing maintained.
+   - Timestamp Fields: Parsed relative text ("2 days ago") -> converted via `parse_relative_date_to_iso()`.
+
+6. LinkedIn Public Guest Search (Tier 3 Aggregator)
+   - Endpoint: `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search`
+   - HTML/JSON: HTML snippet returned without authentication.
+   - Timestamp Fields: `<time datetime="YYYY-MM-DD">` tags extracted directly into `source_posted_at`.
+
+--------------------------------------------------------------------------------
+9. FRESHNESS, CONTENT-HASH & INGESTION HEALTH SPECIFICATION
+--------------------------------------------------------------------------------
+- `source_posted_at`: Real source posting timestamp. Left `null` if unprovided (never substituted with `discovered_at`).
+- `content_hash`: SHA-256 string `hashlib.sha256(f"{description}::{stipend}::{duration}::{ppo}".encode()).hexdigest()[:16]`.
+  When `job_fingerprint` matches an existing record but `content_hash` differs, updated fields are saved without inserting duplicates.
+- Incremental Early-Stopping: Scrapers stop paginating/batching once `N=10` consecutive already-known `job_fingerprint`s are hit.
+- `IngestionRunModel` (`ingestion_runs` table): Logs `source`, `started_at`, `finished_at`, `status` ("success" | "partial" | "failed"), `jobs_seen`, `jobs_new`, `jobs_updated`, and `error_detail`.
+- Health Check (`GET /api/scrapers/health`): Flags any source with 3+ consecutive `failed` or `partial` runs.
+- Daily Automation: `.github/workflows/daily-ingest.yml` executes scrapers, logs to `ingestion_runs`, revalidates stale links, and exits non-zero if a source returns `failed`.
 # ==============================================================================

@@ -202,21 +202,21 @@ def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str =
             
             resp = requests.get(url, params=params, headers=headers, timeout=5)
             if resp.status_code == 200 and len(resp.text) > 200:
-                titles = re.findall(r'<h3 class="base-search-card__title[^"]*">\s*([^<]+)\s*</h3>', resp.text)
-                companies = re.findall(r'<h4 class="base-search-card__subtitle[^"]*">\s*<a[^>]*>\s*([^<]+)\s*</a>', resp.text)
-                locations = re.findall(r'<span class="job-search-card__location">\s*([^<]+)\s*</span>', resp.text)
-                links = re.findall(r'<a class="base-card__full-link[^"]*"\s+href="([^"]+)"', resp.text)
+                datetime_tags = re.findall(r'<time[^>]*datetime="([^"]+)"', resp.text)
                 
                 fetched_count = min(len(titles), len(companies), len(locations))
                 if fetched_count == 0:
                     break # Real data exhausted
                     
+                from backend.app.utils.date_parser import parse_relative_date_to_iso
                 for i in range(fetched_count):
                     co = companies[i].strip()
                     t = titles[i].strip()
                     loc = locations[i].strip()
                     link = links[i] if i < len(links) else f"https://www.linkedin.com/jobs/search?keywords={query}"
                     clean_link = re.sub(r'\?.*$', '', link)
+                    raw_dt = datetime_tags[i] if i < len(datetime_tags) else None
+                    posted_iso = parse_relative_date_to_iso(raw_dt)
                     
                     results.append({
                         "id": f"li_{hashlib.md5(clean_link.encode()).hexdigest()[:10]}",
@@ -228,7 +228,8 @@ def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str =
                         "description": f"{t} opportunity at {co} in {loc}. Discover direct hiring requisitions via verified LinkedIn public job postings.",
                         "skills": ["Software Engineering", "Problem Solving", "System Architecture"],
                         "seniority": "Mid",
-                        "posted_date": "Recent",
+                        "posted_date": posted_iso or "Recent",
+                        "source_posted_at": posted_iso,
                         "workplace_type": "Onsite/Hybrid",
                         "salary_benchmark": lookup_salary_benchmark(co, t, loc)
                     })

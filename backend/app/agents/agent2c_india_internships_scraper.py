@@ -689,15 +689,23 @@ def deduplicate_listings(listings: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 # Batch Store
 # ============================================================================
 
+# ============================================================================
+# Batch Store
+# ============================================================================
+
 def store_jobs_batch(
     factory: sessionmaker,
     jobs: List[Dict[str, Any]],
     profile_id: Optional[int]
 ) -> Tuple[int, int]:
-    """Upserts listings. Saves all URL validation fields."""
+    """Upserts listings. Saves all URL validation fields and logs ingestion metrics."""
     if not jobs:
         return 0, 0
     
+    from backend.app.utils.date_parser import parse_relative_date_to_iso, compute_content_hash
+    from backend.app.db.models import IngestionRunModel
+    
+    started_at = dt.datetime.now(dt.timezone.utc)
     # Deduplicate before storage
     jobs = deduplicate_listings(jobs)
     
@@ -720,26 +728,55 @@ def store_jobs_batch(
             
             profile = db.get(ProfileModel, profile_id) if profile_id else None
             
-            created, updated = 0, 0
+            created, updated, seen_count = 0, 0, 0
+            all_jobs = []
+            consecutive_known = 0
+            max_consecutive_known = 10
             
             for data in jobs:
+                if consecutive_known >= max_consecutive_known:
+                    logger.info(f"Early-stopping batch store: Hit {max_consecutive_known} consecutive known job fingerprints.")
+                    break
+
                 fp = data.get("job_fingerprint") or compute_job_fingerprint(data)
                 ext_id = data.get("external_id")
+                desc = data.get("description", "")
+                stipend = data.get("stipend", "")
+                duration = data.get("duration", "")
+                ppo = bool(data.get("ppo_offered") or data.get("ppo_available"))
+
+                chash = compute_content_hash(desc, stipend, duration, ppo)
+                posted_iso = parse_relative_date_to_iso(data.get("source_posted_at") or data.get("posted_date"))
 
                 model = existing_ext.get(ext_id) or existing_fp.get(fp)
                 if model is None:
+                    consecutive_known = 0
                     model = JobModel(
                         external_id=ext_id,
                         job_fingerprint=fp,
+                        content_hash=chash,
+                        source_posted_at=posted_iso,
                         source_category="internship_india",
                         role_type="internship",
-                        posted_date=dt.date.today().isoformat(),
+                        posted_date=posted_iso or dt.date.today().isoformat(),
                         created_at=dt.datetime.now(dt.timezone.utc),
+                        first_seen_at=dt.datetime.now(dt.timezone.utc),
+                        last_seen_at=dt.datetime.now(dt.timezone.utc),
                     )
                     db.add(model)
                     created += 1
                 else:
-                    updated += 1
+                    seen_count += 1
+                    model.last_seen_at = dt.datetime.now(dt.timezone.utc)
+                    if posted_iso and not model.source_posted_at:
+                        model.source_posted_at = posted_iso
+
+                    if model.content_hash != chash:
+                        consecutive_known = 0
+                        model.content_hash = chash
+                        updated += 1
+                    else:
+                        consecutive_known += 1
                 
                 model.job_fingerprint = fp
 
@@ -804,7 +841,7 @@ def store_jobs_batch(
                         "description": job.description,
                         "is_technical": job.is_technical
                     })
-                    match = match_map.get(job.id)
+                    match = match_map.get(job.id) if 'match_map' in locals() else None
                     
                     if match is None:
                         new_matches.append(MatchModel(
@@ -827,11 +864,38 @@ def store_jobs_batch(
                 if new_matches:
                     db.bulk_save_objects(new_matches)
             
+            # Write run metric row
+            run_metric = IngestionRunModel(
+                source="india_internships",
+                started_at=started_at,
+                finished_at=dt.datetime.now(dt.timezone.utc),
+                status="success",
+                jobs_seen=seen_count,
+                jobs_new=created,
+                jobs_updated=updated,
+                error_detail=None
+            )
+            db.add(run_metric)
             db.commit()
             return created, updated
         except Exception as e:
             db.rollback()
             logger.error(f"store_jobs_batch failed: {e}", exc_info=True)
+            try:
+                fail_metric = IngestionRunModel(
+                    source="india_internships",
+                    started_at=started_at,
+                    finished_at=dt.datetime.now(dt.timezone.utc),
+                    status="failed",
+                    jobs_seen=0,
+                    jobs_new=0,
+                    jobs_updated=0,
+                    error_detail=str(e)
+                )
+                db.add(fail_metric)
+                db.commit()
+            except Exception:
+                pass
             raise
 
 # ============================================================================

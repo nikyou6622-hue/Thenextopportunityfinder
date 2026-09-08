@@ -1202,6 +1202,32 @@ export default function JobDiscovery({
 
                       {/* Tag Badges */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                        {(() => {
+                          const spAt = job.source_posted_at;
+                          if (!spAt) return null;
+                          const pDate = new Date(spAt);
+                          if (isNaN(pDate.getTime())) return null;
+                          const diffMs = new Date().getTime() - pDate.getTime();
+                          const is24h = diffMs >= 0 && diffMs <= 24 * 60 * 60 * 1000;
+                          if (!is24h) return null;
+                          return (
+                            <span style={{
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              color: '#FFFFFF',
+                              borderRadius: '9999px',
+                              padding: '3px 10px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)'
+                            }}>
+                              ⚡ Posted Today
+                            </span>
+                          );
+                        })()}
+
                         <span style={{
                           background: isAmber ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.18)',
                           color: isAmber ? '#0F172A' : '#FFFFFF',

@@ -1,0 +1,109 @@
+name: Daily Automated Job Ingestion & Link Validation Pipeline
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  daily-job-ingestion:
+    name: Execute Scrapers, Revalidate Stale Links & Log Health Metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Daily Ingestion Pipeline (MNC, India Internships, Global Jobs)
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from backend.app.db.database import SessionLocal
+          from backend.app.agents.agent2c_india_internships_scraper import run_india_internships_pipeline
+          from backend.app.agents.agent2b_mnc_scanner import run_mnc_scanner
+          from backend.app.agents.agent2d_global_jobs_scraper import get_combined_global_feed
+
+          db = SessionLocal()
+          print('--- Step 1: Running India Internship Scraper ---')
+          try:
+              run_india_internships_pipeline(db, max_items_per_source=50)
+          except Exception as e:
+              print(f'India Internship Scraper error: {e}')
+
+          print('--- Step 2: Running MNC Scanner ---')
+          try:
+              run_mnc_scanner(db)
+          except Exception as e:
+              print(f'MNC Scanner error: {e}')
+
+          print('--- Step 3: Running Global Jobs Scraper ---')
+          try:
+              get_combined_global_feed(limit=50)
+          except Exception as e:
+              print(f'Global Jobs Scraper error: {e}')
+
+          db.close()
+          print('Ingestion execution completed.')
+          "
+
+      - name: Revalidate Stale Job Links
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from backend.app.db.database import SessionLocal
+          from backend.app.agents.agent2b_mnc_scanner import revalidate_stale_links
+
+          db = SessionLocal()
+          print('Revalidating active links older than 3 days...')
+          revalidate_stale_links(db, max_age_days=3)
+          db.close()
+          print('Link revalidation complete.')
+          "
+
+      - name: Audit Scraper Health (Fail Workflow if Source Status == 'failed')
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL || secrets.SUPABSE }}
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from backend.app.db.database import SessionLocal
+          from backend.app.db.models import IngestionRunModel
+
+          db = SessionLocal()
+          sources = [r[0] for r in db.query(IngestionRunModel.source).distinct().all()]
+          failed_sources = []
+
+          for src in sources:
+              last_run = db.query(IngestionRunModel).filter(
+                  IngestionRunModel.source == src
+              ).order_by(IngestionRunModel.started_at.desc()).first()
+
+              if last_run and last_run.status == 'failed':
+                  failed_sources.append(src)
+                  print(f'FAILED SOURCE DETECTED: {src} -> {last_run.error_detail}')
+
+          db.close()
+          if failed_sources:
+              print(f'Daily Ingestion Failed! The following sources returned failure: {failed_sources}')
+              sys.exit(1)
+          else:
+              print('Scraper health audit passed. All sources healthy.')
+          "
