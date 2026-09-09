@@ -3977,6 +3977,7 @@ def get_matches(
     if existing_match_count < 50:
         try:
             from backend.app.agents.agent3_matching import compute_match
+            from backend.app.utils.skill_normalizer import extract_skills_from_text
             active_catalog_jobs = db.query(JobModel).filter(JobModel.status == "active").all()
             prof_dict = {
                 "name": profile.name or "",
@@ -4077,7 +4078,7 @@ def get_matches(
         clean_comp = re.sub(r'\s+', ' ', (job.company or '').strip().lower())
         clean_role = re.sub(r'\s+', ' ', (job.role_title or '').strip().lower())
         role_key = f"{clean_comp}::{clean_role}"
-        if role_key and role_key != "::" and role_key in seen_role_keys:
+        if clean_comp and clean_role and role_key in seen_role_keys:
             continue
 
         # Sanity check: Exclude non-technical roles
