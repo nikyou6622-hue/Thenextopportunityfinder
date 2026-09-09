@@ -88,11 +88,40 @@ class JobModel(Base):
     content_hash = Column(String, index=True, nullable=True)
     authenticity_flags = Column(JSON, default=list, nullable=True)
     first_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    last_seen_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     status = Column(String, default="active", index=True) # active, stale, removed
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    # Agent 7 — Job Quality & Enrichment Agent Owned Columns (Nullable)
+    quality_score = Column(Float, nullable=True, index=True)
+    tech_stack_score = Column(Float, nullable=True)
+    seniority_score = Column(Float, nullable=True)
+    remote_score = Column(Float, nullable=True)
+    perks_score = Column(Float, nullable=True)
+    competition_score = Column(Float, nullable=True)
+    quality_tags = Column(JSON, default=list, nullable=True)
+    cluster_id = Column(String, index=True, nullable=True)
+    offers_equity = Column(Boolean, default=False, nullable=True)
+    offers_visa_sponsorship = Column(Boolean, default=False, nullable=True)
+    offers_relocation = Column(Boolean, default=False, nullable=True)
+    offers_bonus = Column(Boolean, default=False, nullable=True)
+    offers_education_stipend = Column(Boolean, default=False, nullable=True)
+    offers_flexible_timing = Column(Boolean, default=False, nullable=True)
+    perks_raw = Column(JSON, default=dict, nullable=True)
+    applicant_count = Column(Integer, nullable=True)
+    days_since_posting = Column(Integer, nullable=True)
+    competition_index = Column(Float, nullable=True)
 
     matches = relationship("MatchModel", back_populates="job", cascade="all, delete-orphan")
+
+class Agent7RunModel(Base):
+    __tablename__ = "agent7_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String, index=True, default="running") # success, partial, failed
+    jobs_scored = Column(Integer, default=0)
+    jobs_enriched = Column(Integer, default=0)
+    error_detail = Column(Text, nullable=True)
 
 class IngestionRunModel(Base):
     __tablename__ = "ingestion_runs"
