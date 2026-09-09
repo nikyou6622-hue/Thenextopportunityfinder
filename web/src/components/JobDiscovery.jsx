@@ -58,7 +58,7 @@ export default function JobDiscovery({
   const domains = ['all', ...new Set(safeMatches.map(m => m.job?.domain).filter(Boolean))];
 
   const getJobMatchScore = useCallback((m) => {
-    if (!m) return 75;
+    if (!m) return 20;
     if (typeof m.match_score === 'number' && m.match_score > 0) {
       return m.match_score;
     }
@@ -68,13 +68,13 @@ export default function JobDiscovery({
     }
 
     if (!profile || !profile.skills || profile.skills.length === 0) {
-      return 75;
+      return 20;
     }
 
     const userSkills = (Array.isArray(profile?.skills) ? profile.skills : []).map(s => String(s).toLowerCase().trim());
     const requiredSkills = (job.required_skills || job.tech_stack || []).map(s => String(s).toLowerCase().trim());
 
-    if (requiredSkills.length === 0) return 75;
+    if (requiredSkills.length === 0) return 20;
 
     const matchCount = requiredSkills.filter(req =>
       userSkills.some(usr => usr.includes(req) || req.includes(usr))
@@ -82,9 +82,9 @@ export default function JobDiscovery({
 
     const ratio = matchCount / requiredSkills.length;
     if (matchCount > 0) {
-      return Math.min(99, Math.round(70 + ratio * 28));
+      return Math.min(99, Math.round(50 + ratio * 48));
     }
-    return 75;
+    return 20;
   }, [profile]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,9 +104,12 @@ export default function JobDiscovery({
       (job.required_skills || job.tech_stack || []).some(s => String(s).toLowerCase().includes(qLower));
 
     const domainMatch = filterDomain === 'all' || (job.domain || '').toLowerCase() === filterDomain.toLowerCase();
-    const scoreMatch = getJobMatchScore(m) >= minScore;
+    const scoreMatch = getJobMatchScore(m) >= (minScore > 0 ? minScore : 25);
     return matchesSearch && domainMatch && scoreMatch;
   }).sort((a, b) => getJobMatchScore(b) - getJobMatchScore(a));
+
+  const strongMatches = useMemo(() => filteredMatches.filter(m => getJobMatchScore(m) >= 50), [filteredMatches, getJobMatchScore]);
+  const secondaryMatches = useMemo(() => filteredMatches.filter(m => getJobMatchScore(m) >= 25 && getJobMatchScore(m) < 50), [filteredMatches, getJobMatchScore]);
 
   const totalPages = Math.ceil(filteredMatches.length / itemsPerPage) || 1;
   const paginatedMatches = filteredMatches.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

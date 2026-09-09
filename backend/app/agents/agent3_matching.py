@@ -200,6 +200,11 @@ def compute_match(
     location_score = calculate_location_fit(profile.get("location", {}), job.get("location", "Remote"), job.get("remote", True))
     semantic_score = calculate_semantic_sim(profile.get("raw_resume_text", ""), job.get("description", ""))
 
+    # Fallback cap for zero skill overlap: prevent default fallbacks (domain=75, semantic=70) from inflating zero-skill jobs to ~48
+    if skill_score == 0:
+        domain_score = min(domain_score, 25.0)
+        semantic_score = min(semantic_score, 15.0)
+
     composite_score = (
         0.40 * skill_score +
         0.25 * domain_score +
