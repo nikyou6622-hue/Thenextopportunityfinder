@@ -1607,6 +1607,10 @@ def _scan_single_company_target(config: Dict[str, Any], force_scan: bool) -> Dic
                     
                     authenticity_flags = check_authenticity_flags(item, db)
                     
+                    skills_list = item.get("required_skills", [])
+                    if not skills_list:
+                        skills_list = extract_skills_from_text(f"{item.get('role_title', '')} {item.get('description', '')}")
+
                     job_obj = JobModel(
                         company=company_name,
                         role_title=item["role_title"],
@@ -1614,7 +1618,7 @@ def _scan_single_company_target(config: Dict[str, Any], force_scan: bool) -> Dic
                         location_type=item.get("location_type", "On-site"),
                         remote=item.get("remote", True),
                         is_remote_global=is_rg,
-                        required_skills=item.get("required_skills", []),
+                        required_skills=skills_list,
                         domain=item.get("domain", "Technology"),
                         role_type=item.get("role_type", "Full-time"),
                         description=item.get("description", ""),
@@ -1647,6 +1651,8 @@ def _scan_single_company_target(config: Dict[str, Any], force_scan: bool) -> Dic
                     existing.is_remote_global = is_rg
                     if posted_iso and not existing.source_posted_at:
                         existing.source_posted_at = posted_iso
+                    if not existing.required_skills:
+                        existing.required_skills = extract_skills_from_text(f"{existing.role_title or ''} {existing.description or ''}")
 
                     if existing.content_hash != chash:
                         consecutive_known = 0

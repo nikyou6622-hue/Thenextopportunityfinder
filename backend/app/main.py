@@ -3993,10 +3993,11 @@ def get_matches(
                     continue
                 if not is_technical_role(j.role_title or "", j.description or ""):
                     continue
+                j_skills = j.required_skills or extract_skills_from_text(f"{j.role_title or ''} {j.description or ''}")
                 res = compute_match(prof_dict, {
                     "company": j.company,
                     "role_title": j.role_title,
-                    "required_skills": j.required_skills or [],
+                    "required_skills": j_skills,
                     "domain": j.domain,
                     "location": j.location,
                     "remote": j.remote,
