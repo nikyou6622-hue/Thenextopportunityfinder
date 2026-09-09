@@ -75,6 +75,7 @@ import {
 import SoundSystem from './characters/SoundEffects';
 import CharacterSpeechBubble from './characters/CharacterSpeechBubble';
 import { LexiCharacter, NovaCharacter } from './characters/CharacterUniverse';
+import MatchResultsSummary from './MatchResultsSummary';
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -1072,11 +1073,16 @@ export default function ResumeAnalyzer({
     showToast(`Reordered ${sectionKey.toUpperCase()} section`, 'info');
   }, [customSectionOrder, updateFormData, showToast]);
 
+  const [lastMatchSession, setLastMatchSession] = useState(null);
+
   // Upload handler
-  const handleFileInputChange = useCallback((e) => {
+  const handleFileInputChange = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (file && onUpload) {
-      onUpload(file);
+      const res = await onUpload(file);
+      if (res && res.match_session_id) {
+        setLastMatchSession(res);
+      }
     }
   }, [onUpload]);
 
@@ -1738,6 +1744,24 @@ export default function ResumeAnalyzer({
         </div>
 
       </div>
+
+      {/* Real-time Match Results Summary Component */}
+      {(lastMatchSession || formData?.match_session_id) && (
+        <MatchResultsSummary
+          matchSessionId={lastMatchSession?.match_session_id || formData?.match_session_id}
+          totalJobs={lastMatchSession?.total_jobs ?? formData?.total_jobs ?? 0}
+          totalInternships={lastMatchSession?.total_internships ?? formData?.total_internships ?? 0}
+          atsScore={atsResult?.score || formData?.ats_score}
+          onNavigateToDiscovery={(type, sessionId) => {
+            if (onNavigate) {
+              onNavigate(type === 'internships' ? 'internships' : 'jobs', { match_session: sessionId });
+            }
+          }}
+          onOpenSettings={() => {
+            if (onNavigate) onNavigate('settings');
+          }}
+        />
+      )}
 
       {/* Mode 1: Editor & ATS Split View */}
       {viewMode === VIEW_MODES.SPLIT && (

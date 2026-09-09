@@ -23,6 +23,7 @@ export default function PostSignupResumeModal({
   onUploadResume, 
   onSeedDemo,
   onTriggerCelebration,
+  onNavigate,
   candidateName = 'Candidate'
 }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -99,48 +100,25 @@ export default function PostSignupResumeModal({
           exit={{ opacity: 0, scale: 0.92, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           style={{
-            background: 'linear-gradient(135deg, rgba(19, 20, 36, 0.98) 0%, rgba(13, 14, 26, 0.98) 100%)',
-            border: '1px solid rgba(124, 58, 237, 0.35)',
-            borderRadius: '28px',
-            width: '100%',
-            maxWidth: '620px',
-            padding: '32px 30px',
             position: 'relative',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 50px rgba(124, 58, 237, 0.25)',
-            maxHeight: '90vh',
-            overflowY: 'auto'
+            width: '100%',
+            maxWidth: '680px',
+            background: 'linear-gradient(135deg, rgba(20, 26, 48, 0.96) 0%, rgba(13, 17, 32, 0.98) 100%)',
+            border: '1px solid rgba(124, 58, 237, 0.4)',
+            borderRadius: '28px',
+            padding: '36px 32px',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 40px rgba(124, 58, 237, 0.25)',
+            overflow: 'hidden'
           }}
         >
-          {/* Ambient Glow Orbs */}
-          <div style={{
-            position: 'absolute',
-            top: '-80px',
-            right: '-80px',
-            width: '280px',
-            height: '280px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255, 90, 95, 0.25) 0%, rgba(124, 58, 237, 0.2) 50%, transparent 70%)',
-            filter: 'blur(50px)',
-            pointerEvents: 'none'
-          }} />
-
-          {/* Hidden File Input */}
-          <input 
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".pdf,.docx,.doc,.txt"
-            style={{ display: 'none' }}
-          />
-
-          {/* Close Button */}
+          {/* Close button */}
           <button
             onClick={onClose}
             style={{
               position: 'absolute',
               top: '20px',
               right: '20px',
-              background: 'rgba(255, 255, 255, 0.06)',
+              background: 'rgba(255, 255, 255, 0.08)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: '50%',
               width: '36px',
@@ -150,12 +128,21 @@ export default function PostSignupResumeModal({
               justifyContent: 'center',
               color: '#94A3B8',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              zIndex: 10
+              zIndex: 10,
+              transition: 'all 0.2s ease'
             }}
           >
             <X size={18} />
           </button>
+
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".pdf,.docx,.txt"
+            style={{ display: 'none' }}
+          />
 
           {activeFile ? (
             <StagedResumeProcessor
@@ -163,7 +150,15 @@ export default function PostSignupResumeModal({
               onUploadResume={onUploadResume}
               onTriggerCelebration={onTriggerCelebration}
               onCancel={() => setActiveFile(null)}
-              onComplete={onClose}
+              onNavigate={onNavigate}
+              onComplete={(result) => {
+                if (result && result.match_session) {
+                  if (onNavigate) {
+                    onNavigate(result.type === 'internships' ? 'internships' : 'jobs', { match_session: result.match_session });
+                  }
+                }
+                onClose();
+              }}
             />
           ) : (
             <>

@@ -74,6 +74,47 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
 
+  // Match Session Filter state
+  const [matchSessionId, setMatchSessionId] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('match_session') || null;
+  });
+  const [sessionInternshipIds, setSessionInternshipIds] = useState(null);
+
+  useEffect(() => {
+    if (!matchSessionId) {
+      setSessionInternshipIds(null);
+      return;
+    }
+    let isMounted = true;
+    async function fetchMatchSession() {
+      try {
+        const res = await apiFetch(`/api/match-session/${matchSessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.matched_internship_ids) && isMounted) {
+            setSessionInternshipIds(new Set(data.matched_internship_ids));
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching match session in internship hub:", err);
+      }
+    }
+    fetchMatchSession();
+    return () => { isMounted = false; };
+  }, [matchSessionId]);
+
+  const clearMatchSessionFilter = () => {
+    setMatchSessionId(null);
+    setSessionInternshipIds(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('match_session');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('all');
@@ -417,9 +458,12 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
       // Remote
       const matchRemote = !remoteOnly || locLower.includes('remote') || Boolean(item.remote);
 
-      return matchSearch && matchCity && matchDomain && matchSource && matchStipend && matchPpo && matchRemote;
+      // Match Session
+      const matchSession = !sessionInternshipIds || sessionInternshipIds.has(item.id) || sessionInternshipIds.has(item.job_id);
+
+      return matchSearch && matchCity && matchDomain && matchSource && matchStipend && matchPpo && matchRemote && matchSession;
     });
-  }, [internships, DEFAULT_INTERNSHIPS, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly]);
+  }, [internships, DEFAULT_INTERNSHIPS, searchTerm, selectedCity, selectedDomain, selectedSource, minStipend, ppoOnly, remoteOnly, sessionInternshipIds]);
 
   const getDynamicMatchScore = useCallback((item) => {
     if (typeof item.match_score === 'number' && item.match_score > 0) {
@@ -455,6 +499,45 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+      
+      {/* Match Session Filter Banner */}
+      {matchSessionId && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%)',
+          border: '1px solid rgba(52, 211, 153, 0.45)',
+          borderRadius: '16px',
+          padding: '14px 22px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 24px -10px rgba(16, 185, 129, 0.3)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#F8FAFC', fontSize: '0.92rem', fontWeight: 700 }}>
+            <Award className="w-5 h-5 text-emerald-400" />
+            <span>
+              Showing <strong style={{ color: '#34D399', fontSize: '1rem' }}>{sortedList.length}</strong> internships matched to your uploaded resume
+            </span>
+          </div>
+          <button
+            onClick={clearMatchSessionFilter}
+            style={{
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#F8FAFC',
+              borderRadius: '10px',
+              padding: '7px 16px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Clear filter (Show all internships)
+          </button>
+        </div>
+      )}
       
       {/* -------------------------------------------------------------------------- */}
       {/* HEADER BANNER WITH SCRAPER TRIGGER */}

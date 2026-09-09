@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import SoundSystem from './characters/SoundEffects';
 import { LexiCharacter } from './characters/CharacterUniverse';
+import MatchResultsSummary from './MatchResultsSummary';
 
 export default function StagedResumeProcessor({ 
   file, 
@@ -506,46 +507,24 @@ export default function StagedResumeProcessor({
         </motion.div>
       )}
 
-      {/* --- MATCH SUMMARY COUNTS BANNER --- */}
+      {/* --- MATCH SUMMARY COUNTS & ROUTING --- */}
       {stageStatus[3] === 'completed' && !errorMsg && (
-        <div style={{
-          background: 'rgba(16, 185, 129, 0.12)',
-          border: '1px solid rgba(16, 185, 129, 0.35)',
-          borderRadius: '16px',
-          padding: '14px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Award size={20} color="#34D399" />
-            <div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#FFFFFF' }}>
-                We found {jobMatchesCount} job matches and {internshipMatchesCount} internship matches for you — {strongMatchesCount} are strong matches (75%+ fit).
-              </div>
-              <div style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: '2px' }}>
-                {isBackgroundSearching ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#A78BFA' }}>
-                    <RefreshCw size={12} className="animate-spin" />
-                    Still searching full catalog (47 matches found so far)...
-                  </span>
-                ) : (
-                  <span>✓ Full catalog search completed across 3,000+ postings</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSkipToJobs}
-            className="btn-tactile btn-tactile-emerald"
-            style={{ padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800 }}
-          >
-            <span>View All Matches →</span>
-          </button>
-        </div>
+        <MatchResultsSummary
+          matchSessionId={parsedData?.match_session_id}
+          totalJobs={parsedData?.total_jobs ?? jobMatchesCount}
+          totalInternships={parsedData?.total_internships ?? internshipMatchesCount}
+          atsScore={atsScoreData?.score}
+          onNavigateToDiscovery={(type, sessionId) => {
+            if (onNavigate) {
+              onNavigate(type === 'internships' ? 'internships' : 'jobs', { match_session: sessionId });
+            } else if (onComplete) {
+              onComplete({ match_session: sessionId, type });
+            }
+          }}
+          onOpenSettings={() => {
+            if (onNavigate) onNavigate('settings');
+          }}
+        />
       )}
 
     </motion.div>

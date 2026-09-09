@@ -48,6 +48,47 @@ export default function JobDiscovery({
   const [purgeNotice, setPurgeNotice] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Match Session Filter state
+  const [matchSessionId, setMatchSessionId] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('match_session') || null;
+  });
+  const [sessionJobIds, setSessionJobIds] = useState(null);
+
+  useEffect(() => {
+    if (!matchSessionId) {
+      setSessionJobIds(null);
+      return;
+    }
+    let isMounted = true;
+    async function fetchMatchSession() {
+      try {
+        const res = await apiFetch(`/api/match-session/${matchSessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.matched_job_ids) && isMounted) {
+            setSessionJobIds(new Set(data.matched_job_ids));
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching match session:", err);
+      }
+    }
+    fetchMatchSession();
+    return () => { isMounted = false; };
+  }, [matchSessionId]);
+
+  const clearMatchSessionFilter = () => {
+    setMatchSessionId(null);
+    setSessionJobIds(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('match_session');
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
+
   // Global Tech (FreeHire & LinkedIn) Live Feed State
   const [globalJobs, setGlobalJobs] = useState([]);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
@@ -92,7 +133,7 @@ export default function JobDiscovery({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterDomain, minScore, itemsPerPage]);
+  }, [searchQuery, filterDomain, minScore, itemsPerPage, matchSessionId]);
 
   const filteredMatches = safeMatches.filter(m => {
     const job = m.job || m;
@@ -105,7 +146,8 @@ export default function JobDiscovery({
 
     const domainMatch = filterDomain === 'all' || (job.domain || '').toLowerCase() === filterDomain.toLowerCase();
     const scoreMatch = getJobMatchScore(m) >= (minScore > 0 ? minScore : 25);
-    return matchesSearch && domainMatch && scoreMatch;
+    const sessionMatch = !sessionJobIds || sessionJobIds.has(job.id) || sessionJobIds.has(m.id) || sessionJobIds.has(m.job_id);
+    return matchesSearch && domainMatch && scoreMatch && sessionMatch;
   }).sort((a, b) => getJobMatchScore(b) - getJobMatchScore(a));
 
   const strongMatches = useMemo(() => filteredMatches.filter(m => getJobMatchScore(m) >= 50), [filteredMatches, getJobMatchScore]);
@@ -253,6 +295,45 @@ export default function JobDiscovery({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
+      {/* Match Session Active Filter Banner */}
+      {matchSessionId && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.22) 0%, rgba(99, 102, 241, 0.12) 100%)',
+          border: '1px solid rgba(129, 140, 248, 0.45)',
+          borderRadius: '16px',
+          padding: '14px 22px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 24px -10px rgba(79, 70, 229, 0.3)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#F8FAFC', fontSize: '0.92rem', fontWeight: 700 }}>
+            <Award className="w-5 h-5 text-indigo-400" />
+            <span>
+              Showing <strong style={{ color: '#818CF8', fontSize: '1rem' }}>{filteredMatches.length}</strong> jobs matched to your uploaded resume
+            </span>
+          </div>
+          <button
+            onClick={clearMatchSessionFilter}
+            style={{
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#F8FAFC',
+              borderRadius: '10px',
+              padding: '7px 16px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            Clear filter (Show all jobs)
+          </button>
+        </div>
+      )}
+
       {/* Live Freshness & Verification Status Bar */}
       <div className="glass-panel" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderLeft: '4px solid #10b981' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -32,6 +32,11 @@ class ProfileSchema(BaseModel):
     ats_score_breakdown: Optional[Dict[str, Any]] = None
     disclaimer: Optional[str] = "NextOpportunityFind Resume Quality Score is an internal algorithmic benchmark and does not guarantee specific ATS behavior across proprietary systems like Workday, Taleo, or iCIMS."
     raw_resume_text: Optional[str] = None
+    match_session_id: Optional[int] = None
+    total_jobs: Optional[int] = 0
+    total_internships: Optional[int] = 0
+    matched_job_ids: Optional[List[int]] = []
+    matched_internship_ids: Optional[List[int]] = []
 
 class JobSchema(BaseModel):
     id: Optional[int] = None

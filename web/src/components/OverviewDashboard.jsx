@@ -437,6 +437,7 @@ export default function OverviewDashboard({
           if (onSeedDemo) await onSeedDemo();
         }}
         onTriggerCelebration={onTriggerCelebration}
+        onNavigate={onNavigate}
         candidateName={displayName}
       />
 

@@ -41,7 +41,7 @@ from backend.app.db.models import (
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
     AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel, IngestionRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache, SupportQueryModel,
-    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel
+    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel, MatchSessionModel
 )
 
 from backend.app.services.error_notifier import capture_and_alert_error
@@ -2637,6 +2637,9 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
     scored_count = 0
     match_rows_to_upsert = []
 
+    matched_job_ids = []
+    matched_internship_ids = []
+
     for job in jobs:
         job_dict = {
             "company": job.company,
@@ -2651,6 +2654,18 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
         }
         match_result = compute_match(profile_dict, job_dict, outcome_feedback_signals=outcome_signals)
         scored_count += 1
+
+        if match_result["match_score"] >= MIN_QUALIFIED_MATCH_THRESHOLD:
+            is_internship = (
+                getattr(job, "source_category", "") == "internship_india" or 
+                getattr(job, "role_type", "") == "internship" or 
+                getattr(job, "source", "") == "internshala" or
+                "intern" in (job.role_title or "").lower()
+            )
+            if is_internship:
+                matched_internship_ids.append(job.id)
+            else:
+                matched_job_ids.append(job.id)
 
         if profile.id:
             match_rows_to_upsert.append({
@@ -2676,10 +2691,30 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
         bulk_upsert_matches(db, match_rows_to_upsert)
     timings['response_prep'] = round(time.time() - t4, 5)
 
+    # Stage 6: Persist match session record
+    match_session = None
+    try:
+        match_session = MatchSessionModel(
+            user_id=getattr(profile, "user_id", None),
+            profile_id=profile.id if profile else None,
+            resume_id=f"resume_{profile.id}_{int(time.time())}" if profile else None,
+            matched_job_ids=matched_job_ids,
+            matched_internship_ids=matched_internship_ids,
+            total_jobs=len(matched_job_ids),
+            total_internships=len(matched_internship_ids)
+        )
+        db.add(match_session)
+        db.commit()
+        db.refresh(match_session)
+    except Exception as ex_sess:
+        logger.warning(f"Error persisting match_session: {ex_sess}")
+        db.rollback()
+
     timings['total'] = round(time.time() - total_start, 5)
 
     logger.info(f"MATCH_TIMING: {timings}")
-    logger.info(f"MATCH_CONTEXT: jobs_fetched={len(jobs)}, jobs_scored={scored_count}, skills_extracted={len(skills_extracted)}")
+    logger.info(f"MATCH_CONTEXT: jobs_fetched={len(jobs)}, jobs_scored={scored_count}, skills_extracted={len(skills_extracted)}, matched_jobs={len(matched_job_ids)}, matched_internships={len(matched_internship_ids)}")
+    return match_session
 
 
 def run_matching_pipeline_background(profile_id: int):
@@ -3136,6 +3171,7 @@ async def upload_resume(
     db.refresh(profile)
 
     # Synchronously purge unreferenced stale matches and compute fresh job matches for this candidate profile
+    match_session = None
     try:
         active_match_ids = [m[0] for m in db.query(ApplicationModel.match_id).filter(ApplicationModel.profile_id == profile.id, ApplicationModel.match_id.isnot(None)).all() if m[0] is not None]
         delete_q = db.query(MatchModel).filter(MatchModel.profile_id == profile.id)
@@ -3143,7 +3179,7 @@ async def upload_resume(
             delete_q = delete_q.filter(~MatchModel.id.in_(active_match_ids))
         delete_q.delete(synchronize_session=False)
         db.commit()
-        run_matching_pipeline(db, profile)
+        match_session = run_matching_pipeline(db, profile)
     except Exception as e:
         logger.warning(f"Synchronous matching pipeline execution notice: {e}")
 
@@ -3192,7 +3228,12 @@ async def upload_resume(
         "ats_score": quality_eval.get("quality_score", 75.0),
         "ats_score_breakdown": quality_eval,
         "disclaimer": BENCHMARK_DISCLAIMER,
-        "raw_resume_text": raw_text
+        "raw_resume_text": raw_text,
+        "match_session_id": getattr(match_session, "id", None),
+        "total_jobs": getattr(match_session, "total_jobs", 0),
+        "total_internships": getattr(match_session, "total_internships", 0),
+        "matched_job_ids": getattr(match_session, "matched_job_ids", []),
+        "matched_internship_ids": getattr(match_session, "matched_internship_ids", [])
     }
     return ProfileSchema(**res_dict)
 
@@ -3968,6 +4009,24 @@ async def import_jobs_file(file: UploadFile = File(...), db: Session = Depends(g
         logger.error(f"Error importing jobs file: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
+@app.get("/api/match-session/{session_id}")
+@app.get("/api/matches/session/{session_id}")
+def get_match_session_by_id(session_id: int, db: Session = Depends(get_db)):
+    sess = db.query(MatchSessionModel).filter(MatchSessionModel.id == session_id).first()
+    if not sess:
+        raise HTTPException(status_code=404, detail="Match session not found")
+    return {
+        "id": sess.id,
+        "user_id": sess.user_id,
+        "profile_id": sess.profile_id,
+        "resume_id": sess.resume_id,
+        "matched_job_ids": sess.matched_job_ids or [],
+        "matched_internship_ids": sess.matched_internship_ids or [],
+        "total_jobs": sess.total_jobs or 0,
+        "total_internships": sess.total_internships or 0,
+        "created_at": sess.created_at.isoformat() if sess.created_at else None
+    }
+
 UNRELIABLE_COMPANIES = set()  # Unblocked via Playwright JS rendering and direct ATS verification
 
 @app.get("/api/jobs", response_model=List[JobSchema])
@@ -3976,6 +4035,7 @@ def get_jobs(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None),
+    match_session_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Surfaces job opportunities, filtering out dead links, invalid URLs, and unreliable sources by default. Supports page/limit pagination."""
@@ -3989,6 +4049,13 @@ def get_jobs(
             JobModel.apply_url != "#",
             ~JobModel.apply_url.contains("staletest")
         )
+    if match_session_id:
+        sess = db.query(MatchSessionModel).filter(MatchSessionModel.id == match_session_id).first()
+        if sess and sess.matched_job_ids:
+            query = query.filter(JobModel.id.in_(sess.matched_job_ids))
+        elif sess:
+            query = query.filter(JobModel.id == -1)
+
     if search:
         pattern = f"%{search}%"
         query = query.filter(
@@ -5373,6 +5440,7 @@ def list_india_internships_endpoint(
     remote_only: bool = False,
     search: Optional[str] = None,
     sort_by: str = "match_score",
+    match_session_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -5389,6 +5457,13 @@ def list_india_internships_endpoint(
         search_query=search,
         sort_by=sort_by
     )
+    if match_session_id and results:
+        sess = db.query(MatchSessionModel).filter(MatchSessionModel.id == match_session_id).first()
+        if sess and sess.matched_internship_ids is not None:
+            allowed_set = set(sess.matched_internship_ids)
+            results = [r for r in results if (r.get("id") in allowed_set or r.get("job_id") in allowed_set)]
+        elif sess:
+            results = []
     if not results:
         try:
             run_india_internship_scan(db)

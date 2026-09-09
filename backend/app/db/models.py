@@ -112,6 +112,19 @@ class JobModel(Base):
 
     matches = relationship("MatchModel", back_populates="job", cascade="all, delete-orphan")
 
+class MatchSessionModel(Base):
+    __tablename__ = "match_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
+    resume_id = Column(String, nullable=True)
+    matched_job_ids = Column(JSON, default=list)
+    matched_internship_ids = Column(JSON, default=list)
+    total_jobs = Column(Integer, default=0)
+    total_internships = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
 class Agent7RunModel(Base):
     __tablename__ = "agent7_runs"
 

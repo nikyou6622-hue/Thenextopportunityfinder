@@ -184,14 +184,22 @@ export default function App() {
     }
   });
 
-  const setActiveTab = (tab, keepQuery = false) => {
+  const setActiveTab = (tab, paramsObj = null) => {
     setActiveTabState(tab);
     try {
       if (tab === 'home') {
         window.history.replaceState(null, '', '/');
       } else {
-        const search = (keepQuery || tab === 'auth') ? window.location.search : '';
-        window.history.replaceState(null, '', `/${tab}${search}`);
+        let searchStr = (paramsObj === true || tab === 'auth') ? window.location.search : '';
+        if (paramsObj && typeof paramsObj === 'object') {
+          const urlParams = new URLSearchParams(searchStr);
+          Object.entries(paramsObj).forEach(([k, v]) => {
+            if (v !== undefined && v !== null) urlParams.set(k, String(v));
+            else urlParams.delete(k);
+          });
+          searchStr = urlParams.toString() ? `?${urlParams.toString()}` : '';
+        }
+        window.history.replaceState(null, '', `/${tab}${searchStr}`);
       }
     } catch {}
   };
