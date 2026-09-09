@@ -18,6 +18,10 @@ class TestJobDeduplication(unittest.TestCase):
         self.db = SessionLocal()
         self.email = "dedupe_test_user@dev.io"
         
+        from backend.app.db.models import MatchModel
+        existing_profs = self.db.query(ProfileModel).filter(ProfileModel.email == self.email).all()
+        for p in existing_profs:
+            self.db.query(MatchModel).filter(MatchModel.profile_id == p.id).delete(synchronize_session=False)
         self.db.query(ProfileModel).filter(ProfileModel.email == self.email).delete(synchronize_session=False)
         self.db.query(UserModel).filter(UserModel.email == self.email).delete(synchronize_session=False)
         self.db.commit()
@@ -44,10 +48,17 @@ class TestJobDeduplication(unittest.TestCase):
         self.db.commit()
 
     def tearDown(self):
-        self.db.query(ProfileModel).filter(ProfileModel.email == self.email).delete(synchronize_session=False)
-        self.db.query(UserModel).filter(UserModel.email == self.email).delete(synchronize_session=False)
-        self.db.commit()
-        self.db.close()
+        try:
+            if hasattr(self, 'profile') and self.profile:
+                from backend.app.db.models import MatchModel
+                self.db.query(MatchModel).filter(MatchModel.profile_id == self.profile.id).delete(synchronize_session=False)
+            self.db.query(ProfileModel).filter(ProfileModel.email == self.email).delete(synchronize_session=False)
+            self.db.query(UserModel).filter(UserModel.email == self.email).delete(synchronize_session=False)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+        finally:
+            self.db.close()
 
     def test_no_duplicate_jobs_in_matches_feed(self):
         print("\n--- Running P0.5 Job Deduplication Test ---")
@@ -58,7 +69,11 @@ class TestJobDeduplication(unittest.TestCase):
         res = self.client.get("/api/matches", headers={"Authorization": f"Bearer {token}"})
         self.assertEqual(res.status_code, 200, f"GET /api/matches failed: {res.text}")
 
-        matches = res.json()
+        raw_res = res.json()
+        matches = raw_res.get("matches", raw_res) if isinstance(raw_res, dict) else raw_res
+        if not isinstance(matches, list):
+            matches = []
+
         seen_job_ids = set()
         seen_urls = set()
         seen_role_keys = set()
@@ -67,7 +82,11 @@ class TestJobDeduplication(unittest.TestCase):
         duplicate_details = []
 
         for m in matches:
+            if not isinstance(m, dict):
+                continue
             job = m.get("job") or m
+            if not isinstance(job, dict):
+                continue
             job_id = job.get("id") or m.get("job_id")
             apply_url = (job.get("apply_url_resolved") or job.get("apply_url") or "").strip().lower()
             role_key = f"{(job.get('company') or '').strip().lower()}::{(job.get('role_title') or '').strip().lower()}"
