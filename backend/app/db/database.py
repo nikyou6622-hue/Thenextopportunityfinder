@@ -26,8 +26,8 @@ def is_cloud_environment():
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if os.getenv("USE_SQLITE_TEST") == "1":
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-elif not SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./test.db"
+elif not SQLALCHEMY_DATABASE_URL:
     SQLALCHEMY_DATABASE_URL = DEFAULT_SUPABASE_URL
 
 if ":6543/" in SQLALCHEMY_DATABASE_URL:
@@ -119,6 +119,56 @@ def run_auto_migrations():
                         if c_name not in columns:
                             conn.execute(text(f"ALTER TABLE subscriptions ADD COLUMN {c_name} {c_type}"))
                     conn.commit()
+                if "jobs" in tables:
+                    columns = [row[1] for row in conn.execute(text("PRAGMA table_info(jobs)")).fetchall()]
+                    agent7_cols = [
+                        ("apply_url_raw", "VARCHAR"),
+                        ("apply_url_resolved", "VARCHAR"),
+                        ("link_status", "VARCHAR DEFAULT 'live'"),
+                        ("link_checked_at", "DATETIME"),
+                        ("source_platform", "VARCHAR DEFAULT 'unknown'"),
+                        ("apply_email", "VARCHAR"),
+                        ("posted_date", "VARCHAR"),
+                        ("expires_at", "DATETIME"),
+                        ("application_deadline", "DATETIME"),
+                        ("source", "VARCHAR DEFAULT 'manual'"),
+                        ("source_category", "VARCHAR DEFAULT 'startup'"),
+                        ("source_trust_tier", "VARCHAR DEFAULT 'tier1_verified'"),
+                        ("is_technical", "BOOLEAN DEFAULT 1"),
+                        ("is_remote_global", "BOOLEAN DEFAULT 0"),
+                        ("company_tier", "VARCHAR DEFAULT 'startup_ecosystem'"),
+                        ("external_id", "VARCHAR"),
+                        ("source_posted_at", "VARCHAR"),
+                        ("job_fingerprint", "VARCHAR"),
+                        ("content_hash", "VARCHAR"),
+                        ("authenticity_flags", "JSON DEFAULT '[]'"),
+                        ("first_seen_at", "DATETIME"),
+                        ("quality_score", "FLOAT"),
+                        ("tech_stack_score", "FLOAT"),
+                        ("seniority_score", "FLOAT"),
+                        ("remote_score", "FLOAT"),
+                        ("perks_score", "FLOAT"),
+                        ("competition_score", "FLOAT"),
+                        ("quality_tags", "JSON DEFAULT '[]'"),
+                        ("cluster_id", "VARCHAR"),
+                        ("offers_equity", "BOOLEAN DEFAULT 0"),
+                        ("offers_visa_sponsorship", "BOOLEAN DEFAULT 0"),
+                        ("offers_relocation", "BOOLEAN DEFAULT 0"),
+                        ("offers_bonus", "BOOLEAN DEFAULT 0"),
+                        ("offers_education_stipend", "BOOLEAN DEFAULT 0"),
+                        ("offers_flexible_timing", "BOOLEAN DEFAULT 0"),
+                        ("perks_raw", "JSON DEFAULT '[]'"),
+                        ("applicant_count", "INTEGER"),
+                        ("days_since_posting", "INTEGER"),
+                        ("competition_index", "FLOAT")
+                    ]
+                    for c_name, c_type in agent7_cols:
+                        if c_name not in columns:
+                            try:
+                                conn.execute(text(f"ALTER TABLE jobs ADD COLUMN {c_name} {c_type}"))
+                            except Exception:
+                                pass
+                    conn.commit()
             else:
                 # PostgreSQL auto-migrations for Supabase Cloud with isolated statement protection
                 ddl_statements = [
@@ -138,7 +188,25 @@ def run_auto_migrations():
                     "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP;",
                     "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS valid_until TIMESTAMP;",
                     "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_id VARCHAR;",
-                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount_paid DOUBLE PRECISION DEFAULT 0.0;"
+                    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS amount_paid DOUBLE PRECISION DEFAULT 0.0;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS quality_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tech_stack_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS seniority_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS remote_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS perks_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS competition_score DOUBLE PRECISION;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS quality_tags JSONB DEFAULT '[]'::jsonb;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cluster_id VARCHAR;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_equity BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_visa_sponsorship BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_relocation BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_bonus BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_education_stipend BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS offers_flexible_timing BOOLEAN DEFAULT FALSE;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS perks_raw JSONB DEFAULT '[]'::jsonb;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS applicant_count INTEGER;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS days_since_posting INTEGER;",
+                    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS competition_index DOUBLE PRECISION;"
                 ]
                 for stmt in ddl_statements:
                     try:
