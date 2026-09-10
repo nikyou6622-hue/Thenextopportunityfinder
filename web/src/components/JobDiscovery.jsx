@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import apiFetch from '../lib/apiClient';
+import ProcessingState from './ProcessingState';
 import { 
   Search, 
   ExternalLink, 
@@ -578,11 +579,16 @@ export default function JobDiscovery({
                 </button>
               </div>
             ) : loading ? (
-              <div style={{ gridColumn: '1 / -1', padding: '50px 20px', textAlign: 'center' }}>
-                <RefreshCw size={32} color="#818cf8" style={{ animation: 'spin 1.5s linear infinite', margin: '0 auto 16px' }} />
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
-                  Evaluating 3,000+ Active Database Listings Against Your Resume...
-                </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <ProcessingState
+                  label="Searching live openings & matching opportunities"
+                  scope="inline"
+                  actionType="discovery_search"
+                  character="nova"
+                  timeoutMs={60000}
+                  isProcessing={loading}
+                  onRetry={onRefreshData || onDiscover}
+                />
               </div>
             ) : filteredMatches.length === 0 ? (
               <div style={{ gridColumn: '1 / -1' }}>

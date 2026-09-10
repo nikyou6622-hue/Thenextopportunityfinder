@@ -41,7 +41,7 @@ from backend.app.db.models import (
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
     AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel, IngestionRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache, SupportQueryModel,
-    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel, MatchSessionModel, ScrapeUsageLogModel
+    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel, MatchSessionModel, ScrapeUsageLogModel, ProcessingWaitLogModel
 )
 
 from backend.app.services.error_notifier import capture_and_alert_error
@@ -275,6 +275,20 @@ def auto_migrate_sqlite():
                     created_at DATETIME
                 );
                 """)
+
+                # Processing wait logs table migration
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS processing_wait_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    action_type VARCHAR NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    outcome VARCHAR NOT NULL,
+                    scope VARCHAR DEFAULT 'inline',
+                    user_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+                """)
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_processing_wait_logs_action_type ON processing_wait_logs(action_type);")
 
                 conn.commit()
                 conn.close()
@@ -8806,6 +8820,91 @@ def trigger_admin_scrapers_run(request: Request, db: Session = Depends(get_db)):
         "mnc_results": mnc_res,
         "internship_results": intern_res
     }
+
+
+# ============================================================================
+# PROCESSING WAIT STATE TELEMETRY ENDPOINTS
+# ============================================================================
+class ProcessingWaitLogRequest(BaseModel):
+    action_type: str
+    duration_ms: int
+    outcome: str # "success", "error", "timeout"
+    scope: Optional[str] = "inline"
+    user_id: Optional[int] = None
+
+@app.post("/api/telemetry/processing-wait-log")
+def log_processing_wait_telemetry_endpoint(
+    req: ProcessingWaitLogRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        outcome = req.outcome.lower() if req.outcome and req.outcome.lower() in ("success", "error", "timeout") else "error"
+        scope = req.scope.lower() if req.scope and req.scope.lower() in ("inline", "fullpage") else "inline"
+        
+        log_entry = ProcessingWaitLogModel(
+            action_type=req.action_type[:64] if req.action_type else "unknown",
+            duration_ms=max(0, req.duration_ms),
+            outcome=outcome,
+            scope=scope,
+            user_id=req.user_id,
+            created_at=datetime.datetime.now(datetime.timezone.utc)
+        )
+        db.add(log_entry)
+        db.commit()
+        return {
+            "status": "success", 
+            "logged": True, 
+            "action_type": req.action_type, 
+            "duration_ms": req.duration_ms,
+            "outcome": outcome
+        }
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Failed to log processing wait telemetry: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/telemetry/processing-wait-summary")
+def get_processing_wait_telemetry_summary_endpoint(
+    db: Session = Depends(get_db)
+):
+    try:
+        logs = db.query(ProcessingWaitLogModel).order_by(ProcessingWaitLogModel.id.desc()).limit(200).all()
+        summary = {}
+        for l in logs:
+            if l.action_type not in summary:
+                summary[l.action_type] = {
+                    "total_runs": 0,
+                    "outcomes": {"success": 0, "error": 0, "timeout": 0},
+                    "durations": []
+                }
+            summary[l.action_type]["total_runs"] += 1
+            if l.outcome in summary[l.action_type]["outcomes"]:
+                summary[l.action_type]["outcomes"][l.outcome] += 1
+            summary[l.action_type]["durations"].append(l.duration_ms)
+        
+        for k, v in summary.items():
+            if v["durations"]:
+                v["avg_duration_ms"] = round(sum(v["durations"]) / len(v["durations"]), 2)
+                v["max_duration_ms"] = max(v["durations"])
+                v["min_duration_ms"] = min(v["durations"])
+            del v["durations"]
+            
+        return {
+            "status": "success", 
+            "metrics": summary, 
+            "recent_logs": [
+                {
+                    "id": l.id,
+                    "action_type": l.action_type,
+                    "duration_ms": l.duration_ms,
+                    "outcome": l.outcome,
+                    "scope": l.scope,
+                    "created_at": l.created_at.isoformat() if l.created_at else None
+                } for l in logs[:20]
+            ]
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 # ============================================================================

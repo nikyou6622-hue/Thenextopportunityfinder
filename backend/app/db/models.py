@@ -546,4 +546,16 @@ class ScrapeUsageLogModel(Base):
     ip_address = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
 
+class ProcessingWaitLogModel(Base):
+    __tablename__ = "processing_wait_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action_type = Column(String, index=True, nullable=False) # e.g. "ats_scoring", "discovery_search", "cv_tailoring", "pdf_export"
+    duration_ms = Column(Integer, nullable=False)
+    outcome = Column(String, index=True, nullable=False) # "success", "error", "timeout"
+    scope = Column(String, default="inline") # "inline", "fullpage"
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
+
+
 

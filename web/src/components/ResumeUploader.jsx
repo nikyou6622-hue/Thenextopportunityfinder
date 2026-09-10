@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ProcessingState from './ProcessingState';
 import { 
   UploadCloud, 
   FileText, 
@@ -197,41 +198,52 @@ export default function ResumeUploader({ profile, onUpload, onUpdateProfile, onS
             Upload your existing resume to extract structured profile JSON schema (skills, roles, experience, projects, and education).
           </p>
 
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleFileDrop}
-            style={{
-              border: '2px dashed rgba(99, 102, 241, 0.4)',
-              borderRadius: '12px',
-              padding: '36px 20px',
-              textAlign: 'center',
-              background: 'rgba(99, 102, 241, 0.04)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <input 
-              type="file" 
-              accept=".pdf,.docx,.txt" 
-              onChange={handleFileDrop} 
-              id="resume-file-input" 
-              style={{ display: 'none' }} 
+          {loading ? (
+            <ProcessingState
+              label="Analyzing your resume"
+              scope="inline"
+              actionType="ats_scoring"
+              character="lexi"
+              timeoutMs={30000}
+              isProcessing={loading}
             />
-            <label htmlFor="resume-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <div style={{ background: 'rgba(99, 102, 241, 0.15)', padding: '12px', borderRadius: '50%', color: '#a5b4fc' }}>
-                <FileText size={28} />
-              </div>
-              <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                {loading ? "Parsing Resume..." : "Click or drag resume file here"}
-              </span>
-              <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
-                Supports PDF, DOCX, TXT (Max 10MB)
-              </span>
-              <span style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
-                💡 For best results, upload a PDF — other formats may reduce ATS parsing accuracy.
-              </span>
-            </label>
-          </div>
+          ) : (
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleFileDrop}
+              style={{
+                border: '2px dashed rgba(99, 102, 241, 0.4)',
+                borderRadius: '12px',
+                padding: '36px 20px',
+                textAlign: 'center',
+                background: 'rgba(99, 102, 241, 0.04)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <input 
+                type="file" 
+                accept=".pdf,.docx,.txt" 
+                onChange={handleFileDrop} 
+                id="resume-file-input" 
+                style={{ display: 'none' }} 
+              />
+              <label htmlFor="resume-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'rgba(99, 102, 241, 0.15)', padding: '12px', borderRadius: '50%', color: '#a5b4fc' }}>
+                  <FileText size={28} />
+                </div>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  Click or drag resume file here
+                </span>
+                <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+                  Supports PDF, DOCX, TXT (Max 10MB)
+                </span>
+                <span style={{ fontSize: '0.76rem', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
+                  💡 For best results, upload a PDF — other formats may reduce ATS parsing accuracy.
+                </span>
+              </label>
+            </div>
+          )}
 
           <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>No resume file handy?</span>
