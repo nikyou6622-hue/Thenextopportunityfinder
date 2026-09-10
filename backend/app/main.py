@@ -4925,7 +4925,8 @@ def get_compliance_registry_endpoint(request: Request, db: Session = Depends(get
 @app.get("/api/resume/export")
 @app.post("/api/resume/export/{profile_id}")
 @app.post("/api/resume/export")
-def export_candidate_resume(
+async def export_candidate_resume(
+    request: Request,
     profile_id: Optional[int] = None, 
     format: str = Query("pdf"), 
     template: str = Query("modern"),
@@ -4933,34 +4934,109 @@ def export_candidate_resume(
 ):
     """
     Generates downloadable ATS resumes in PDF, DOCX, Markdown (MD), LaTeX (TEX), JSON, or TXT format.
-    Supports templates: modern, classic, minimal, executive, ats_safe.
+    Supports live editor payloads via POST body for immediate, zero-latency export of user-modified resumes.
     """
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
-    if not profile:
-        profile = get_active_profile(db)
-        if not profile:
-            raise HTTPException(status_code=404, detail="Profile not found")
+    body_data = None
+    if request.method == "POST":
+        try:
+            body_bytes = await request.body()
+            if body_bytes:
+                body_data = json.loads(body_bytes.decode('utf-8'))
+        except Exception as e:
+            logger.warning(f"Could not parse POST body for resume export: {e}")
 
-    prof_dict = {
-        "id": profile.id if profile else 1,
-        "name": profile.name if profile and profile.name else "Candidate Name",
-        "email": profile.email if profile and profile.email else "",
-        "phone": profile.phone if profile and profile.phone else "",
-        "location": profile.location if profile and profile.location else {},
-        "skills": profile.skills if profile and profile.skills else [],
-        "summary": profile.summary if profile and profile.summary else "",
-        "past_roles": profile.past_roles if profile and profile.past_roles else [],
-        "experience_list": profile.experience_list if profile and profile.experience_list else (profile.past_roles if profile else []),
-        "education": profile.education if profile and profile.education else [],
-        "education_list": profile.education_list if profile and profile.education_list else (profile.education if profile else []),
-        "projects": profile.projects if profile and profile.projects else []
-    }
+    prof_dict = None
+
+    # Priority 1: Direct JSON payload from user's live Resume & ATS Studio editor
+    if body_data and isinstance(body_data, dict) and any(k in body_data for k in ["name", "summary", "skills", "experience_list", "education"]):
+        prof_dict = dict(body_data)
+    else:
+        # Priority 2: Fetch profile from DB for specific profile_id or authenticated active user
+        profile = None
+        if profile_id:
+            profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
+        if not profile:
+            profile = get_active_profile(db, request=request)
+
+        if profile:
+            prof_dict = {
+                "id": profile.id,
+                "name": profile.name or "Candidate Name",
+                "email": profile.email or "",
+                "phone": profile.phone or "",
+                "location": profile.location or {},
+                "skills": profile.skills or [],
+                "summary": profile.summary or "",
+                "past_roles": profile.past_roles or [],
+                "experience_list": profile.experience_list or profile.past_roles or [],
+                "education": profile.education or [],
+                "education_list": profile.education_list or profile.education or [],
+                "projects": profile.projects or []
+            }
+
+    if not prof_dict:
+        prof_dict = {
+            "name": "Candidate Name",
+            "email": "",
+            "phone": "",
+            "location": {},
+            "skills": [],
+            "summary": "",
+            "experience_list": [],
+            "education_list": [],
+            "projects": []
+        }
+
+    # Normalize fields
+    prof_dict["name"] = prof_dict.get("name") or "Candidate Name"
+    prof_dict["email"] = prof_dict.get("email") or ""
+    prof_dict["phone"] = prof_dict.get("phone") or ""
+    
+    loc = prof_dict.get("location")
+    if not loc or not isinstance(loc, dict):
+        city = prof_dict.get("city") or ""
+        country = prof_dict.get("country") or ""
+        state = prof_dict.get("state") or ""
+        loc = {"city": city, "country": country, "state": state}
+    prof_dict["location"] = loc
+
+    prof_dict["skills"] = prof_dict.get("skills") or []
+    prof_dict["summary"] = prof_dict.get("summary") or ""
+    
+    exp_list = prof_dict.get("experience_list") or prof_dict.get("past_roles") or prof_dict.get("experience") or []
+    prof_dict["experience_list"] = exp_list
+    
+    edu_list = prof_dict.get("education_list") or prof_dict.get("education") or []
+    prof_dict["education_list"] = edu_list
+    
+    prof_dict["projects"] = prof_dict.get("projects") or []
 
     fmt = (format or "pdf").lower()
     tmpl = (template or "modern").lower()
     meta_headers = get_export_metadata_headers(prof_dict)
-    name_str = (profile.name or "Candidate").replace(" ", "_")
+    name_str = (prof_dict.get("name") or "Candidate").replace(" ", "_")
     
+    # Auto-sync active candidate profile to DB in background if payload is provided
+    if body_data and isinstance(body_data, dict):
+        try:
+            active_p = get_active_profile(db, request=request)
+            if active_p:
+                if prof_dict.get("name"): active_p.name = prof_dict["name"]
+                if prof_dict.get("email"): active_p.email = prof_dict["email"]
+                if prof_dict.get("phone"): active_p.phone = prof_dict["phone"]
+                if prof_dict.get("summary"): active_p.summary = prof_dict["summary"]
+                if prof_dict.get("skills"): active_p.skills = prof_dict["skills"]
+                if prof_dict.get("experience_list"): 
+                    active_p.experience_list = prof_dict["experience_list"]
+                    active_p.past_roles = prof_dict["experience_list"]
+                if prof_dict.get("education_list"): 
+                    active_p.education_list = prof_dict["education_list"]
+                    active_p.education = prof_dict["education_list"]
+                if prof_dict.get("projects"): active_p.projects = prof_dict["projects"]
+                db.commit()
+        except Exception as err:
+            logger.warning(f"Failed to auto-sync profile payload to DB: {err}")
+
     if fmt == "pdf":
         pdf_bytes = generate_pdf_resume(prof_dict, template=tmpl)
         resp_headers = {

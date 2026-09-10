@@ -1112,18 +1112,18 @@ export default function ResumeAnalyzer({
 
   const executeDownload = useCallback(async (format) => {
     const fmt = (format || 'pdf').toLowerCase();
-    const profileId = formData.id;
     const templateId = selectedTemplateId || 'modern';
-    const endpoint = profileId 
-      ? `/api/resume/export/${profileId}?format=${fmt}&template=${templateId}`
-      : `/api/resume/export?format=${fmt}&template=${templateId}`;
+    const endpoint = `/api/resume/export?format=${fmt}&template=${templateId}`;
 
     try {
       showToast(`Generating ${fmt.toUpperCase()} export...`, 'info');
       const response = await fetch(endpoint, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
+        },
+        body: JSON.stringify(formData)
       });
       if (!response.ok) {
         throw new Error(`Export failed with status ${response.status}`);

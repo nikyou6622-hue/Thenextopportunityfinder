@@ -188,5 +188,35 @@ class TestResumeExportRegression(unittest.TestCase):
             elif fmt == "docx":
                 self.assertTrue(res.content.startswith(b'PK'))
 
+    def test_post_live_payload_export_endpoint(self):
+        """Test POST /api/resume/export endpoint with active editor JSON payload."""
+        live_payload = {
+            "name": "Aditya Sharma Live Editor",
+            "email": "aditya.live@example.com",
+            "phone": "+91 99999 88888",
+            "city": "Bengaluru",
+            "country": "India",
+            "summary": "Live editor profile exported directly from browser session without stale DB fallbacks.",
+            "skills": ["Python", "FastAPI", "React", "Docker"],
+            "experience_list": [
+                {
+                    "title": "Lead Architect",
+                    "company": "Live Cloud Systems",
+                    "description": "Engineered live export functionality with 100% data fidelity."
+                }
+            ],
+            "education": [
+                {
+                    "degree": "B.Tech",
+                    "field": "CS",
+                    "institution": "IIT Delhi"
+                }
+            ]
+        }
+        res = self.client.post("/api/resume/export?format=json&template=modern", json=live_payload)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Aditya Sharma Live Editor", res.text)
+        self.assertIn("Live Cloud Systems", res.text)
+
 if __name__ == "__main__":
     unittest.main()
