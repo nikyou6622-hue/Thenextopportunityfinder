@@ -1751,7 +1751,7 @@ export default function ResumeAnalyzer({
           matchSessionId={lastMatchSession?.match_session_id || formData?.match_session_id}
           totalJobs={lastMatchSession?.total_jobs ?? formData?.total_jobs ?? 0}
           totalInternships={lastMatchSession?.total_internships ?? formData?.total_internships ?? 0}
-          atsScore={atsResult?.score || formData?.ats_score}
+          atsScore={atsEvaluation?.totalScore || formData?.ats_score}
           onNavigateToDiscovery={(type, sessionId) => {
             if (onNavigate) {
               onNavigate(type === 'internships' ? 'internships' : 'jobs', { match_session: sessionId });
