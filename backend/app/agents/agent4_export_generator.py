@@ -118,6 +118,93 @@ class ResumeGenerationError(Exception):
 # Helper Functions
 # ============================================================================
 
+def sanitize_for_pdf(text: Any) -> str:
+    """
+    Sanitizes arbitrary text for ReportLab Standard Font (WinAnsiEncoding) PDF rendering.
+    Replaces non-WinAnsi Unicode characters (₹, smart quotes, em-dashes, bullets, math symbols)
+    with safe WinAnsi/ASCII equivalents.
+    """
+    if text is None:
+        return ""
+    s = str(text)
+    
+    replacements = {
+        '₹': 'Rs. ',
+        '“': '"',
+        '”': '"',
+        '‘': "'",
+        '’': "'",
+        '—': ' - ',
+        '–': ' - ',
+        '•': '_BULLET_',
+        '■': '_BULLET_',
+        '●': '_BULLET_',
+        '▪': '_BULLET_',
+        '…': '...',
+        '\u200b': '',   # Zero-width space
+        '\xa0': ' ',     # Non-breaking space
+        '™': '(TM)',
+        '®': '(R)',
+        '©': '(C)',
+    }
+    for orig, repl in replacements.items():
+        s = s.replace(orig, repl)
+        
+    cleaned_chars = []
+    for ch in s:
+        try:
+            ch.encode('latin-1')
+            cleaned_chars.append(ch)
+        except UnicodeEncodeError:
+            cleaned_chars.append('?')
+            
+    return "".join(cleaned_chars)
+
+
+def safe_xml_escape(text: Any) -> str:
+    """
+    Sanitizes unicode and XML-escapes text for ReportLab Paragraph flowables.
+    Prevents both UnicodeEncodeError in Standard Fonts and Expat XML parsing errors.
+    """
+    if text is None:
+        return ""
+    sanitized = sanitize_for_pdf(text)
+    escaped = escape(sanitized)
+    return escaped.replace('_BULLET_', '&bull;')
+
+
+def safe_tex_escape(text: Any) -> str:
+    """
+    Escapes LaTeX special characters in text strings.
+    """
+    if text is None:
+        return ""
+    s = str(text)
+    tex_replacements = [
+        ('\\', '\\textbackslash{}'),
+        ('%', '\\%'),
+        ('$', '\\$'),
+        ('&', '\\&'),
+        ('#', '\\#'),
+        ('_', '\\_'),
+        ('{', '\\{'),
+        ('}', '\\}'),
+        ('~', '\\textasciitilde{}'),
+        ('^', '\\textasciicircum{}'),
+        ('₹', 'Rs.~'),
+        ('•', '- '),
+        ('“', '"'),
+        ('”', '"'),
+        ('‘', "'"),
+        ('’', "'"),
+        ('—', '--'),
+        ('–', '-'),
+    ]
+    for orig, repl in tex_replacements:
+        s = s.replace(orig, repl)
+    return s
+
+
 def _get_section_order(profile: Dict[str, Any]) -> List[str]:
     """Returns validated section order from profile or adaptive default."""
     order = profile.get("section_order")
@@ -1056,13 +1143,13 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
         )
         
         # Header
-        name = escape(str(profile.get("name") or NEUTRAL_PLACEHOLDERS["name"]))
+        name = safe_xml_escape(profile.get("name") or NEUTRAL_PLACEHOLDERS["name"])
         story.append(Paragraph(name, name_style))
         
         # Contact info
-        email = escape(str(profile.get("email") or ""))
-        phone = escape(str(profile.get("phone") or ""))
-        location = escape(str(_format_location(profile)))
+        email = safe_xml_escape(profile.get("email") or "")
+        phone = safe_xml_escape(profile.get("phone") or "")
+        location = safe_xml_escape(_format_location(profile))
         
         contact_parts = [p for p in [email, phone, location] if p and p != NEUTRAL_PLACEHOLDERS["location"]]
         if not contact_parts:
@@ -1083,12 +1170,12 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
             if section == "summary":
                 story.append(Paragraph(SECTION_HEADERS['summary'], section_style))
                 summary = profile.get("summary") or NEUTRAL_PLACEHOLDERS["description"]
-                story.append(Paragraph(escape(summary), body_style))
+                story.append(Paragraph(safe_xml_escape(summary), body_style))
             
             elif section == "skills":
                 story.append(Paragraph(SECTION_HEADERS['skills'], section_style))
                 skills = _normalize_skills(profile.get("skills", []))
-                skills_text = ", ".join(escape(s) for s in skills) if skills else NEUTRAL_PLACEHOLDERS["skills"]
+                skills_text = ", ".join(safe_xml_escape(s) for s in skills) if skills else safe_xml_escape(NEUTRAL_PLACEHOLDERS["skills"])
                 story.append(Paragraph(skills_text, body_style))
             
             elif section == "experience":
@@ -1097,13 +1184,13 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
                 
                 if experience_list:
                     for exp in experience_list:
-                        title = escape(exp.get("title") or NEUTRAL_PLACEHOLDERS["title"])
-                        company = escape(exp.get("company") or NEUTRAL_PLACEHOLDERS["company"])
-                        duration = _format_duration(exp)
+                        title = safe_xml_escape(exp.get("title") or exp.get("role") or NEUTRAL_PLACEHOLDERS["title"])
+                        company = safe_xml_escape(exp.get("company") or NEUTRAL_PLACEHOLDERS["company"])
+                        duration = safe_xml_escape(_format_duration(exp))
                         
                         story.append(Paragraph(f"<b>{title}</b> - {company}{duration}", job_title_style))
                         
-                        description = escape(exp.get("description") or NEUTRAL_PLACEHOLDERS["description"])
+                        description = safe_xml_escape(exp.get("description") or NEUTRAL_PLACEHOLDERS["description"])
                         story.append(Paragraph(description, body_style))
                         
                         # Achievements
@@ -1112,17 +1199,17 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
                             story.append(Paragraph("<b>Key Achievements:</b>", body_style))
                             if isinstance(achievements, list):
                                 for achievement in achievements:
-                                    story.append(Paragraph(f"• {escape(str(achievement))}", body_style))
+                                    story.append(Paragraph(f"&bull; {safe_xml_escape(str(achievement))}", body_style))
                             elif achievements:
-                                story.append(Paragraph(f"• {escape(str(achievements))}", body_style))
+                                story.append(Paragraph(f"&bull; {safe_xml_escape(str(achievements))}", body_style))
                         
                         # Technologies
                         technologies = exp.get("technologies", [])
                         if technologies:
-                            tech_text = ", ".join(escape(t) for t in technologies)
+                            tech_text = ", ".join(safe_xml_escape(t) for t in technologies)
                             story.append(Paragraph(f"<b>Technologies:</b> {tech_text}", body_style))
                 else:
-                    story.append(Paragraph(f"• {NEUTRAL_PLACEHOLDERS['description']}", body_style))
+                    story.append(Paragraph(f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['description'])}", body_style))
             
             elif section == "projects":
                 story.append(Paragraph(SECTION_HEADERS['projects'], section_style))
@@ -1130,23 +1217,23 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
                 
                 if projects:
                     for proj in projects:
-                        title = escape(proj.get("title") or NEUTRAL_PLACEHOLDERS["project_title"])
-                        description = escape(proj.get("description") or NEUTRAL_PLACEHOLDERS["project_description"])
+                        title = safe_xml_escape(proj.get("title") or NEUTRAL_PLACEHOLDERS["project_title"])
+                        description = safe_xml_escape(proj.get("description") or NEUTRAL_PLACEHOLDERS["project_description"])
                         
                         story.append(Paragraph(f"<b>{title}</b>", job_title_style))
                         story.append(Paragraph(description, body_style))
                         
                         # Project URL
                         if proj.get("url"):
-                            story.append(Paragraph(f"Link: {escape(proj['url'])}", body_style))
+                            story.append(Paragraph(f"Link: {safe_xml_escape(proj['url'])}", body_style))
                         
                         # Project technologies
                         tech_stack = proj.get("technologies", [])
                         if tech_stack:
-                            tech_text = ", ".join(escape(t) for t in tech_stack)
+                            tech_text = ", ".join(safe_xml_escape(t) for t in tech_stack)
                             story.append(Paragraph(f"<b>Technologies:</b> {tech_text}", body_style))
                 else:
-                    story.append(Paragraph(f"• {NEUTRAL_PLACEHOLDERS['project_description']}", body_style))
+                    story.append(Paragraph(f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['project_description'])}", body_style))
             
             elif section == "education":
                 story.append(Paragraph(SECTION_HEADERS['education'], section_style))
@@ -1154,17 +1241,17 @@ def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> by
                 
                 if education_list:
                     for edu in education_list:
-                        degree = escape(edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"])
-                        field = escape(edu.get("field") or NEUTRAL_PLACEHOLDERS["field"])
-                        institution = escape(edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"])
+                        degree = safe_xml_escape(edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"])
+                        field = safe_xml_escape(edu.get("field") or NEUTRAL_PLACEHOLDERS["field"])
+                        institution = safe_xml_escape(edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"])
                         
-                        line = f"• {degree} in {field} - {institution}"
-                        if edu.get("graduation_year"):
-                            line += f" ({edu['graduation_year']})"
+                        line = f"&bull; {degree} in {field} - {institution}"
+                        if edu.get("graduation_year") or edu.get("year"):
+                            line += f" ({safe_xml_escape(edu.get('graduation_year') or edu.get('year'))})"
                         
                         story.append(Paragraph(line, body_style))
                 else:
-                    placeholder = f"• {NEUTRAL_PLACEHOLDERS['degree']} in {NEUTRAL_PLACEHOLDERS['field']} - {NEUTRAL_PLACEHOLDERS['institution']}"
+                    placeholder = f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['degree'])} in {safe_xml_escape(NEUTRAL_PLACEHOLDERS['field'])} - {safe_xml_escape(NEUTRAL_PLACEHOLDERS['institution'])}"
                     story.append(Paragraph(placeholder, body_style))
         
         doc.build(story)
@@ -1333,6 +1420,64 @@ Sincerely, \\\\
 """
 
 
+def generate_txt_resume(profile: Dict[str, Any]) -> str:
+    """
+    Generates clean plain text format resume.
+    """
+    name = profile.get("name") or NEUTRAL_PLACEHOLDERS["name"]
+    email = str(profile.get("email") or "")
+    phone = str(profile.get("phone") or "")
+    location = _format_location(profile)
+    summary = profile.get("summary") or NEUTRAL_PLACEHOLDERS["description"]
+    skills = _normalize_skills(profile.get("skills", []))
+    
+    txt_lines = [
+        name,
+        f"{email} | {phone} | {location}",
+        "=" * 60,
+        "",
+        "SUMMARY",
+        summary,
+        "",
+        "TECHNICAL SKILLS",
+        ", ".join(skills) if skills else NEUTRAL_PLACEHOLDERS["skills"],
+        "",
+        "WORK EXPERIENCE",
+    ]
+    
+    for exp in _get_experience_list(profile):
+        t = exp.get("title") or exp.get("role") or NEUTRAL_PLACEHOLDERS["title"]
+        c = exp.get("company") or NEUTRAL_PLACEHOLDERS["company"]
+        d = _format_duration(exp)
+        txt_lines.append(f"{t} - {c}{d}")
+        if exp.get("description"):
+            txt_lines.append(f"  {exp['description']}")
+        achievements = exp.get("achievements") or []
+        if isinstance(achievements, list):
+            for a in achievements:
+                txt_lines.append(f"  - {a}")
+        elif achievements:
+            txt_lines.append(f"  - {achievements}")
+        txt_lines.append("")
+        
+    txt_lines.append("EDUCATION")
+    for edu in _get_education_list(profile):
+        deg = edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"]
+        fld = edu.get("field") or NEUTRAL_PLACEHOLDERS["field"]
+        inst = edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"]
+        txt_lines.append(f"- {deg} in {fld} - {inst}")
+        
+    return "\n".join(txt_lines)
+
+
+def generate_json_resume(profile: Dict[str, Any]) -> str:
+    """
+    Generates structured JSON resume string.
+    """
+    import json
+    return json.dumps(profile, default=str, indent=2)
+
+
 # ============================================================================
 # Public API
 # ============================================================================
@@ -1351,7 +1496,7 @@ def generate_resume(profile: Dict[str, Any], format: str = "md", template: str =
     
     Args:
         profile: Dictionary containing resume data
-        format: Output format ("md", "docx", "pdf", or "tex")
+        format: Output format ("md", "docx", "pdf", "tex", "txt", "json")
         template: Visual template style ("modern", "classic", "minimal", "executive", "ats_safe")
         include_analysis: Whether to include content quality analysis
         
@@ -1361,14 +1506,18 @@ def generate_resume(profile: Dict[str, Any], format: str = "md", template: str =
     format = format.lower()
     
     # Generate content
-    if format == "md" or format == "markdown":
+    if format in ["md", "markdown"]:
         content = generate_md_resume(profile)
     elif format == "docx":
         content = generate_docx_resume(profile)
     elif format == "pdf":
-        content = generate_pdf_resume(profile)
-    elif format == "tex" or format == "latex":
+        content = generate_pdf_resume(profile, template=template)
+    elif format in ["tex", "latex"]:
         content = generate_tex_resume(profile, template=template)
+    elif format == "txt":
+        content = generate_txt_resume(profile)
+    elif format == "json":
+        content = generate_json_resume(profile)
     else:
         raise ValueError(f"Unsupported format: {format}")
     

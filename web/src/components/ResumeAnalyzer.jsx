@@ -1110,45 +1110,48 @@ export default function ResumeAnalyzer({
     URL.revokeObjectURL(url);
   }, [formData, selectedTemplateId]);
 
-  const executeDownload = useCallback((format) => {
+  const executeDownload = useCallback(async (format) => {
     const fmt = (format || 'pdf').toLowerCase();
-    const fileName = `${(formData.name || 'Candidate').replace(/\s+/g, '_')}_${selectedTemplateId.toUpperCase()}_ATS`;
+    const profileId = formData.id;
+    const templateId = selectedTemplateId || 'modern';
+    const endpoint = profileId 
+      ? `/api/resume/export/${profileId}?format=${fmt}&template=${templateId}`
+      : `/api/resume/export?format=${fmt}&template=${templateId}`;
 
-    if (fmt === 'pdf') {
-      // Direct print-to-PDF engine with @media print A4 formatting
-      window.print();
-    } else if (fmt === 'json') {
-      const jsonContent = JSON.stringify(formData, null, 2);
-      const blob = new Blob([jsonContent], { type: 'application/json' });
+    try {
+      showToast(`Generating ${fmt.toUpperCase()} export...`, 'info');
+      const response = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Export failed with status ${response.status}`);
+      }
+      const blob = await response.blob();
+      
+      let ext = fmt;
+      if (fmt === 'markdown') ext = 'md';
+      if (fmt === 'latex') ext = 'tex';
+      
+      const candidateName = (formData.name || 'Candidate').replace(/\s+/g, '_');
+      const fileName = `${candidateName}_${templateId.toUpperCase()}_Resume.${ext}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${fileName}.json`;
+      a.download = fileName;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } else if (fmt === 'txt') {
-      let txt = `${formData.name || 'Candidate Name'}\n${formData.email || ''} | ${formData.phone || ''} | ${formData.city || ''}, ${formData.country || ''}\n\n`;
-      txt += `SUMMARY\n${formData.summary || ''}\n\nSKILLS\n${(formData.skills || []).join(', ')}\n\nEXPERIENCE\n`;
-      (formData.experience_list || []).forEach(e => {
-        txt += `${e.title || e.role} - ${e.company} (${e.dates || '2023 - Present'})\n${e.description || ''}\n\n`;
-      });
-      txt += `EDUCATION\n`;
-      (formData.education || []).forEach(edu => {
-        txt += `${edu.degree} in ${edu.field} - ${edu.institution}\n`;
-      });
-      const blob = new Blob([txt], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      handleExportMarkdown();
+      
+      setExportPreflightModal(null);
+      showToast(`Exported ${fmt.toUpperCase()} Resume successfully!`, 'success');
+    } catch (err) {
+      console.error('Export download error:', err);
+      showToast(`Failed to export ${fmt.toUpperCase()}: ${err.message}`, 'error');
     }
-    setExportPreflightModal(null);
-    showToast(`Exported ${fmt.toUpperCase()} Resume successfully!`, 'success');
-  }, [formData, selectedTemplateId, handleExportMarkdown, showToast]);
+  }, [formData, selectedTemplateId, showToast]);
 
   const getMissingSections = useCallback(() => {
     const missing = [];

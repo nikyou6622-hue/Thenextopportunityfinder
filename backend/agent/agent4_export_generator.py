@@ -118,6 +118,93 @@ class ResumeGenerationError(Exception):
 # Helper Functions
 # ============================================================================
 
+def sanitize_for_pdf(text: Any) -> str:
+    """
+    Sanitizes arbitrary text for ReportLab Standard Font (WinAnsiEncoding) PDF rendering.
+    Replaces non-WinAnsi Unicode characters (₹, smart quotes, em-dashes, bullets, math symbols)
+    with safe WinAnsi/ASCII equivalents.
+    """
+    if text is None:
+        return ""
+    s = str(text)
+    
+    replacements = {
+        '₹': 'Rs. ',
+        '“': '"',
+        '”': '"',
+        '‘': "'",
+        '’': "'",
+        '—': ' - ',
+        '–': ' - ',
+        '•': '_BULLET_',
+        '■': '_BULLET_',
+        '●': '_BULLET_',
+        '▪': '_BULLET_',
+        '…': '...',
+        '\u200b': '',   # Zero-width space
+        '\xa0': ' ',     # Non-breaking space
+        '™': '(TM)',
+        '®': '(R)',
+        '©': '(C)',
+    }
+    for orig, repl in replacements.items():
+        s = s.replace(orig, repl)
+        
+    cleaned_chars = []
+    for ch in s:
+        try:
+            ch.encode('latin-1')
+            cleaned_chars.append(ch)
+        except UnicodeEncodeError:
+            cleaned_chars.append('?')
+            
+    return "".join(cleaned_chars)
+
+
+def safe_xml_escape(text: Any) -> str:
+    """
+    Sanitizes unicode and XML-escapes text for ReportLab Paragraph flowables.
+    Prevents both UnicodeEncodeError in Standard Fonts and Expat XML parsing errors.
+    """
+    if text is None:
+        return ""
+    sanitized = sanitize_for_pdf(text)
+    escaped = escape(sanitized)
+    return escaped.replace('_BULLET_', '&bull;')
+
+
+def safe_tex_escape(text: Any) -> str:
+    """
+    Escapes LaTeX special characters in text strings.
+    """
+    if text is None:
+        return ""
+    s = str(text)
+    tex_replacements = [
+        ('\\', '\\textbackslash{}'),
+        ('%', '\\%'),
+        ('$', '\\$'),
+        ('&', '\\&'),
+        ('#', '\\#'),
+        ('_', '\\_'),
+        ('{', '\\{'),
+        ('}', '\\}'),
+        ('~', '\\textasciitilde{}'),
+        ('^', '\\textasciicircum{}'),
+        ('₹', 'Rs.~'),
+        ('•', '- '),
+        ('“', '"'),
+        ('”', '"'),
+        ('‘', "'"),
+        ('’', "'"),
+        ('—', '--'),
+        ('–', '-'),
+    ]
+    for orig, repl in tex_replacements:
+        s = s.replace(orig, repl)
+    return s
+
+
 def _get_section_order(profile: Dict[str, Any]) -> List[str]:
     """Returns validated section order from profile or adaptive default."""
     order = profile.get("section_order")
@@ -931,10 +1018,10 @@ def _estimate_content_density(profile: Dict[str, Any]) -> int:
     return word_count
 
 
-def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
+def generate_pdf_resume(profile: Dict[str, Any], template: str = "modern") -> bytes:
     """
     Generates ATS-safe PDF format resume using ReportLab.
-    Includes intelligent font sizing for dense content.
+    Includes intelligent font sizing for dense content and template styling.
     """
     try:
         from reportlab.lib.pagesizes import letter
@@ -944,8 +1031,40 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         from reportlab.lib.units import inch
         
         _validate_profile(profile)
-        section_order = _get_section_order(profile)
+        section_order = profile.get("section_order") or _get_section_order(profile)
         
+        template_lower = (template or "modern").lower()
+        if template_lower == "classic":
+            accent_hex = "#0f172a"
+            sub_hex = "#334155"
+            font_title = "Times-Bold"
+            font_body = "Times-Roman"
+            align_val = 1 # Center
+        elif template_lower == "minimal":
+            accent_hex = "#334155"
+            sub_hex = "#64748b"
+            font_title = "Helvetica-Bold"
+            font_body = "Helvetica"
+            align_val = 0 # Left
+        elif template_lower == "executive":
+            accent_hex = "#7c2d12"
+            sub_hex = "#451a03"
+            font_title = "Times-Bold"
+            font_body = "Times-Roman"
+            align_val = 1 # Center
+        elif template_lower == "ats_safe":
+            accent_hex = "#000000"
+            sub_hex = "#000000"
+            font_title = "Helvetica-Bold"
+            font_body = "Helvetica"
+            align_val = 0 # Left
+        else: # modern
+            accent_hex = "#6366f1"
+            sub_hex = "#475569"
+            font_title = "Helvetica-Bold"
+            font_body = "Helvetica"
+            align_val = 0 # Left
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -963,7 +1082,7 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         content_density = _estimate_content_density(profile)
         body_font_size = PDF_NORMAL_FONT_SIZE
         
-        if content_density > PDF_DENSE_CONTENT_THRESHOLD:
+        if content_density > PDF_DENSE_CONTENT_THRESHOLD or template_lower in ["compact", "minimal", "ats_safe"]:
             # Scale down for dense content, but never below minimum
             body_font_size = max(PDF_MIN_FONT_SIZE, PDF_NORMAL_FONT_SIZE - 0.5)
         
@@ -971,28 +1090,31 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         name_style = ParagraphStyle(
             'NameStyle',
             parent=styles['Heading1'],
+            fontName=font_title,
             fontSize=20,
             leading=24,
-            textColor=colors.HexColor("#1e293b"),
-            alignment=1,
+            textColor=colors.HexColor(accent_hex),
+            alignment=align_val,
             spaceAfter=6
         )
         
         contact_style = ParagraphStyle(
             'ContactStyle',
             parent=styles['Normal'],
+            fontName=font_body,
             fontSize=9,
-            textColor=colors.HexColor("#475569"),
-            alignment=1,
+            textColor=colors.HexColor(sub_hex),
+            alignment=align_val,
             spaceAfter=10
         )
         
         section_style = ParagraphStyle(
             'SectionStyle',
             parent=styles['Heading2'],
+            fontName=font_title,
             fontSize=12,
             leading=16,
-            textColor=colors.HexColor("#0f172a"),
+            textColor=colors.HexColor(accent_hex),
             spaceBefore=10,
             spaceAfter=4
         )
@@ -1000,9 +1122,10 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         job_title_style = ParagraphStyle(
             'JobTitleStyle',
             parent=styles['Normal'],
+            fontName=font_title,
             fontSize=11,
             leading=14,
-            textColor=colors.HexColor("#1e293b"),
+            textColor=colors.HexColor("#1e293b" if template_lower != "ats_safe" else "#000000"),
             spaceBefore=6,
             spaceAfter=2
         )
@@ -1010,22 +1133,23 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         body_style = ParagraphStyle(
             'BodyStyle',
             parent=styles['Normal'],
+            fontName=font_body,
             fontSize=body_font_size,
             leading=body_font_size * 1.4,
-            textColor=colors.HexColor("#334155"),
+            textColor=colors.HexColor("#334155" if template_lower != "ats_safe" else "#000000"),
             leftIndent=18,
             spaceBefore=2,
             spaceAfter=4
         )
         
         # Header
-        name = escape(str(profile.get("name") or NEUTRAL_PLACEHOLDERS["name"]))
+        name = safe_xml_escape(profile.get("name") or NEUTRAL_PLACEHOLDERS["name"])
         story.append(Paragraph(name, name_style))
         
         # Contact info
-        email = escape(str(profile.get("email") or ""))
-        phone = escape(str(profile.get("phone") or ""))
-        location = escape(str(_format_location(profile)))
+        email = safe_xml_escape(profile.get("email") or "")
+        phone = safe_xml_escape(profile.get("phone") or "")
+        location = safe_xml_escape(_format_location(profile))
         
         contact_parts = [p for p in [email, phone, location] if p and p != NEUTRAL_PLACEHOLDERS["location"]]
         if not contact_parts:
@@ -1046,12 +1170,12 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
             if section == "summary":
                 story.append(Paragraph(SECTION_HEADERS['summary'], section_style))
                 summary = profile.get("summary") or NEUTRAL_PLACEHOLDERS["description"]
-                story.append(Paragraph(escape(summary), body_style))
+                story.append(Paragraph(safe_xml_escape(summary), body_style))
             
             elif section == "skills":
                 story.append(Paragraph(SECTION_HEADERS['skills'], section_style))
                 skills = _normalize_skills(profile.get("skills", []))
-                skills_text = ", ".join(escape(s) for s in skills) if skills else NEUTRAL_PLACEHOLDERS["skills"]
+                skills_text = ", ".join(safe_xml_escape(s) for s in skills) if skills else safe_xml_escape(NEUTRAL_PLACEHOLDERS["skills"])
                 story.append(Paragraph(skills_text, body_style))
             
             elif section == "experience":
@@ -1060,13 +1184,13 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
                 
                 if experience_list:
                     for exp in experience_list:
-                        title = escape(exp.get("title") or NEUTRAL_PLACEHOLDERS["title"])
-                        company = escape(exp.get("company") or NEUTRAL_PLACEHOLDERS["company"])
-                        duration = _format_duration(exp)
+                        title = safe_xml_escape(exp.get("title") or exp.get("role") or NEUTRAL_PLACEHOLDERS["title"])
+                        company = safe_xml_escape(exp.get("company") or NEUTRAL_PLACEHOLDERS["company"])
+                        duration = safe_xml_escape(_format_duration(exp))
                         
                         story.append(Paragraph(f"<b>{title}</b> - {company}{duration}", job_title_style))
                         
-                        description = escape(exp.get("description") or NEUTRAL_PLACEHOLDERS["description"])
+                        description = safe_xml_escape(exp.get("description") or NEUTRAL_PLACEHOLDERS["description"])
                         story.append(Paragraph(description, body_style))
                         
                         # Achievements
@@ -1075,17 +1199,17 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
                             story.append(Paragraph("<b>Key Achievements:</b>", body_style))
                             if isinstance(achievements, list):
                                 for achievement in achievements:
-                                    story.append(Paragraph(f"• {escape(str(achievement))}", body_style))
+                                    story.append(Paragraph(f"&bull; {safe_xml_escape(str(achievement))}", body_style))
                             elif achievements:
-                                story.append(Paragraph(f"• {escape(str(achievements))}", body_style))
+                                story.append(Paragraph(f"&bull; {safe_xml_escape(str(achievements))}", body_style))
                         
                         # Technologies
                         technologies = exp.get("technologies", [])
                         if technologies:
-                            tech_text = ", ".join(escape(t) for t in technologies)
+                            tech_text = ", ".join(safe_xml_escape(t) for t in technologies)
                             story.append(Paragraph(f"<b>Technologies:</b> {tech_text}", body_style))
                 else:
-                    story.append(Paragraph(f"• {NEUTRAL_PLACEHOLDERS['description']}", body_style))
+                    story.append(Paragraph(f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['description'])}", body_style))
             
             elif section == "projects":
                 story.append(Paragraph(SECTION_HEADERS['projects'], section_style))
@@ -1093,23 +1217,23 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
                 
                 if projects:
                     for proj in projects:
-                        title = escape(proj.get("title") or NEUTRAL_PLACEHOLDERS["project_title"])
-                        description = escape(proj.get("description") or NEUTRAL_PLACEHOLDERS["project_description"])
+                        title = safe_xml_escape(proj.get("title") or NEUTRAL_PLACEHOLDERS["project_title"])
+                        description = safe_xml_escape(proj.get("description") or NEUTRAL_PLACEHOLDERS["project_description"])
                         
                         story.append(Paragraph(f"<b>{title}</b>", job_title_style))
                         story.append(Paragraph(description, body_style))
                         
                         # Project URL
                         if proj.get("url"):
-                            story.append(Paragraph(f"Link: {escape(proj['url'])}", body_style))
+                            story.append(Paragraph(f"Link: {safe_xml_escape(proj['url'])}", body_style))
                         
                         # Project technologies
                         tech_stack = proj.get("technologies", [])
                         if tech_stack:
-                            tech_text = ", ".join(escape(t) for t in tech_stack)
+                            tech_text = ", ".join(safe_xml_escape(t) for t in tech_stack)
                             story.append(Paragraph(f"<b>Technologies:</b> {tech_text}", body_style))
                 else:
-                    story.append(Paragraph(f"• {NEUTRAL_PLACEHOLDERS['project_description']}", body_style))
+                    story.append(Paragraph(f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['project_description'])}", body_style))
             
             elif section == "education":
                 story.append(Paragraph(SECTION_HEADERS['education'], section_style))
@@ -1117,17 +1241,17 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
                 
                 if education_list:
                     for edu in education_list:
-                        degree = escape(edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"])
-                        field = escape(edu.get("field") or NEUTRAL_PLACEHOLDERS["field"])
-                        institution = escape(edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"])
+                        degree = safe_xml_escape(edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"])
+                        field = safe_xml_escape(edu.get("field") or NEUTRAL_PLACEHOLDERS["field"])
+                        institution = safe_xml_escape(edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"])
                         
-                        line = f"• {degree} in {field} - {institution}"
-                        if edu.get("graduation_year"):
-                            line += f" ({edu['graduation_year']})"
+                        line = f"&bull; {degree} in {field} - {institution}"
+                        if edu.get("graduation_year") or edu.get("year"):
+                            line += f" ({safe_xml_escape(edu.get('graduation_year') or edu.get('year'))})"
                         
                         story.append(Paragraph(line, body_style))
                 else:
-                    placeholder = f"• {NEUTRAL_PLACEHOLDERS['degree']} in {NEUTRAL_PLACEHOLDERS['field']} - {NEUTRAL_PLACEHOLDERS['institution']}"
+                    placeholder = f"&bull; {safe_xml_escape(NEUTRAL_PLACEHOLDERS['degree'])} in {safe_xml_escape(NEUTRAL_PLACEHOLDERS['field'])} - {safe_xml_escape(NEUTRAL_PLACEHOLDERS['institution'])}"
                     story.append(Paragraph(placeholder, body_style))
         
         doc.build(story)
@@ -1154,6 +1278,206 @@ def generate_pdf_resume(profile: Dict[str, Any]) -> bytes:
         raise ResumeGenerationError(f"Failed to generate PDF resume: {str(e)}")
 
 
+def generate_tex_resume(profile: Dict[str, Any], template: str = "modern") -> str:
+    """
+    Generates a compilable XeLaTeX / LaTeX ModernCV Resume.
+    Supports templates: modern, classic, minimal, executive, ats_safe.
+    """
+    name = profile.get("name") or "Candidate Name"
+    parts = name.split(" ", 1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else ""
+    email = profile.get("email") or "candidate@example.com"
+    phone = profile.get("phone") or "+1 555-0199"
+    city = profile.get("location", {}).get("city", "Bangalore")
+    country = profile.get("location", {}).get("country", "India")
+    summary = profile.get("summary") or "Technical professional with proven expertise in engineering and scalable software architectures."
+    skills = profile.get("skills") or ["Python", "FastAPI", "React", "PostgreSQL", "Docker"]
+    
+    experiences = profile.get("experience_list") or profile.get("past_roles") or profile.get("experience") or []
+    education = profile.get("education_list") or profile.get("education") or []
+    projects = profile.get("projects") or []
+
+    # Map template configuration to ModernCV themes
+    template_lower = (template or "modern").lower()
+    if template_lower == "classic":
+        cv_style = "classic"
+        cv_color = "black"
+    elif template_lower == "minimal":
+        cv_style = "casual"
+        cv_color = "grey"
+    elif template_lower == "executive":
+        cv_style = "banking"
+        cv_color = "burgundy"
+    elif template_lower == "ats_safe":
+        cv_style = "banking"
+        cv_color = "black"
+    else:  # modern
+        cv_style = "banking"
+        cv_color = "blue"
+
+    tex = [
+        f"%% NextOpportunityFind Generated Resume — Template: {template_lower.upper()}",
+        "\\documentclass[11pt,a4paper,sans]{moderncv}",
+        f"\\moderncvstyle{{{cv_style}}}",
+        f"\\moderncvcolor{{{cv_color}}}",
+        "\\usepackage[utf8]{inputenc}",
+        "\\usepackage[scale=0.82]{geometry}",
+        "\\AtEndPreamble{\\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}}",
+        f"\\name{{{first_name}}}{{{last_name}}}",
+        f"\\address{{{city}, {country}}}{{}}{{}}",
+        f"\\phone[mobile]{{{phone}}}",
+        f"\\email{{{email}}}",
+        f"\\extrainfo{{\\href{{https://linkedin.com/in/{first_name.lower()}}}{{LinkedIn}} | \\href{{https://github.com/{first_name.lower()}}}{{GitHub}}}}",
+        "\\begin{document}",
+        "\\makecvtitle",
+        "\\vspace{2pt}",
+        "\\section{Professional Summary}",
+        f"\\small{{{summary}}}",
+        "\\vspace{4pt}",
+        "\\section{Core Technical Competencies}",
+        f"\\textbf{{Technologies \\& Tools:}} {', '.join(skills)} \\\\",
+        "\\vspace{4pt}",
+        "\\section{Experience}"
+    ]
+
+    if experiences:
+        for exp in experiences:
+            role = exp.get("role") or exp.get("title") or "Software Engineer"
+            comp = exp.get("company") or "Technology Co"
+            period = exp.get("duration") or exp.get("period") or f"{exp.get('duration_months', 12)} Mos"
+            desc = exp.get("description") or "Delivered scalable microservices and optimized latency."
+            tex.append(f"\\cventry{{{period}}}{{{role}}}{{{comp}}}{{{city}}}{{}}{{{desc}}}")
+    else:
+        tex.append(f"\\cventry{{2024 -- Present}}{{Software Engineer}}{{Technology Co}}{{India}}{{}}{{Engineered core backend APIs and optimized database query execution by 40\\%.}}")
+
+    tex.append("\\vspace{4pt}")
+    tex.append("\\section{Projects}")
+    if projects:
+        for proj in projects:
+            p_title = proj.get("title") or "Full-Stack Distributed System"
+            p_desc = proj.get("description") or "Implemented asynchronous event queues and real-time dashboard."
+            tex.append(f"\\cvitem{{{p_title}}}{{{p_desc}}}")
+    else:
+        tex.append(f"\\cvitem{{TheNextOpportunityFind Platform}}{{Engineered multi-agent career automation system with ATS parsing, salary intelligence, and real-time scrapers.}}")
+
+    tex.append("\\vspace{4pt}")
+    tex.append("\\section{Education}")
+    if education:
+        for edu in education:
+            deg = edu.get("degree") or "Bachelor of Technology in Computer Science"
+            inst = edu.get("institution") or "University of Technology"
+            yr = edu.get("year") or "2024"
+            tex.append(f"\\cventry{{{yr}}}{{{deg}}}{{{inst}}}{{{country}}}{{}}{{}}")
+    else:
+        tex.append(f"\\cventry{{2020 -- 2024}}{{Bachelor of Technology in Computer Science}}{{University Institute of Engineering}}{{India}}{{}}{{}}")
+
+    tex.append("\\end{document}")
+    return "\n".join(tex)
+
+
+def generate_tex_cover_letter(profile: Dict[str, Any], job: Dict[str, Any]) -> str:
+    """
+    Generates a compilable XeLaTeX / LaTeX Cover Letter.
+    Adapted from ai-job-search/cover_letters/ standards.
+    """
+    name = profile.get("name") or "Candidate Name"
+    email = profile.get("email") or "candidate@example.com"
+    company = job.get("company") or "Target Company"
+    role = job.get("role_title") or "Software Engineer"
+    skills = profile.get("skills") or ["Python", "FastAPI", "Distributed Systems"]
+
+    return f"""%% NextOpportunityFind Generated Cover Letter
+\\documentclass[11pt,a4paper]{{article}}
+\\usepackage[margin=1in]{{geometry}}
+\\usepackage{{hyperref}}
+\\usepackage{{parskip}}
+
+\\begin{{document}}
+
+\\textbf{{{name}}} \\\\
+{email} \\\\
+\\today
+
+\\textbf{{Hiring Team}} \\\\
+{company}
+
+\\textbf{{Subject: Application for {role} position}}
+
+Dear Hiring Team at {company},
+
+I am writing to express my enthusiastic interest in the {role} position at {company}. With a solid foundation in {', '.join(skills[:3])} and hands-on experience building scalable applications, I am eager to contribute to your team's technical mission.
+
+Throughout my software engineering career, I have focused on writing clean, maintainable code and solving complex distributed architecture problems. {company}'s dedication to engineering excellence strongly aligns with my professional values and career trajectory.
+
+Thank you for your time and consideration. I welcome the opportunity to discuss how my competencies match your requisitions in detail.
+
+Sincerely, \\\\
+\\vspace{{0.5cm}}
+\\textbf{{{name}}}
+
+\\end{{document}}
+"""
+
+
+def generate_txt_resume(profile: Dict[str, Any]) -> str:
+    """
+    Generates clean plain text format resume.
+    """
+    name = profile.get("name") or NEUTRAL_PLACEHOLDERS["name"]
+    email = str(profile.get("email") or "")
+    phone = str(profile.get("phone") or "")
+    location = _format_location(profile)
+    summary = profile.get("summary") or NEUTRAL_PLACEHOLDERS["description"]
+    skills = _normalize_skills(profile.get("skills", []))
+    
+    txt_lines = [
+        name,
+        f"{email} | {phone} | {location}",
+        "=" * 60,
+        "",
+        "SUMMARY",
+        summary,
+        "",
+        "TECHNICAL SKILLS",
+        ", ".join(skills) if skills else NEUTRAL_PLACEHOLDERS["skills"],
+        "",
+        "WORK EXPERIENCE",
+    ]
+    
+    for exp in _get_experience_list(profile):
+        t = exp.get("title") or exp.get("role") or NEUTRAL_PLACEHOLDERS["title"]
+        c = exp.get("company") or NEUTRAL_PLACEHOLDERS["company"]
+        d = _format_duration(exp)
+        txt_lines.append(f"{t} - {c}{d}")
+        if exp.get("description"):
+            txt_lines.append(f"  {exp['description']}")
+        achievements = exp.get("achievements") or []
+        if isinstance(achievements, list):
+            for a in achievements:
+                txt_lines.append(f"  - {a}")
+        elif achievements:
+            txt_lines.append(f"  - {achievements}")
+        txt_lines.append("")
+        
+    txt_lines.append("EDUCATION")
+    for edu in _get_education_list(profile):
+        deg = edu.get("degree") or NEUTRAL_PLACEHOLDERS["degree"]
+        fld = edu.get("field") or NEUTRAL_PLACEHOLDERS["field"]
+        inst = edu.get("institution") or NEUTRAL_PLACEHOLDERS["institution"]
+        txt_lines.append(f"- {deg} in {fld} - {inst}")
+        
+    return "\n".join(txt_lines)
+
+
+def generate_json_resume(profile: Dict[str, Any]) -> str:
+    """
+    Generates structured JSON resume string.
+    """
+    import json
+    return json.dumps(profile, default=str, indent=2)
+
+
 # ============================================================================
 # Public API
 # ============================================================================
@@ -1165,14 +1489,15 @@ def get_missing_fields(profile: Dict[str, Any]) -> List[str]:
     return _collect_missing_fields(profile)
 
 
-def generate_resume(profile: Dict[str, Any], format: str = "md", 
+def generate_resume(profile: Dict[str, Any], format: str = "md", template: str = "modern",
                    include_analysis: bool = True) -> GenerationResult:
     """
-    Generates resume in specified format with metadata and quality analysis.
+    Generates resume in specified format and template with metadata and quality analysis.
     
     Args:
         profile: Dictionary containing resume data
-        format: Output format ("md", "docx", or "pdf")
+        format: Output format ("md", "docx", "pdf", "tex", "txt", "json")
+        template: Visual template style ("modern", "classic", "minimal", "executive", "ats_safe")
         include_analysis: Whether to include content quality analysis
         
     Returns:
@@ -1181,12 +1506,18 @@ def generate_resume(profile: Dict[str, Any], format: str = "md",
     format = format.lower()
     
     # Generate content
-    if format == "md" or format == "markdown":
+    if format in ["md", "markdown"]:
         content = generate_md_resume(profile)
     elif format == "docx":
         content = generate_docx_resume(profile)
     elif format == "pdf":
-        content = generate_pdf_resume(profile)
+        content = generate_pdf_resume(profile, template=template)
+    elif format in ["tex", "latex"]:
+        content = generate_tex_resume(profile, template=template)
+    elif format == "txt":
+        content = generate_txt_resume(profile)
+    elif format == "json":
+        content = generate_json_resume(profile)
     else:
         raise ValueError(f"Unsupported format: {format}")
     

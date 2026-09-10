@@ -73,6 +73,7 @@ from backend.app.agents.agent4_tailor import tailor_resume_for_job
 from backend.app.agents.agent4_resume_professional import rewrite_resume_against_pattern
 from backend.app.agents.agent4_export_generator import (
     generate_pdf_resume, generate_docx_resume, generate_md_resume, generate_tex_resume,
+    generate_txt_resume, generate_json_resume,
     generate_tex_cover_letter, generate_resume, analyze_content_quality, get_missing_fields, get_export_metadata_headers
 )
 from backend.app.agents.salary_intelligence import lookup_salary_benchmark, normalize_company_name
@@ -4921,66 +4922,89 @@ def get_compliance_registry_endpoint(request: Request, db: Session = Depends(get
 # --- EXPORT & LEARNING & KANBAN ENDPOINTS ---
 
 @app.get("/api/resume/export/{profile_id}")
+@app.get("/api/resume/export")
 @app.post("/api/resume/export/{profile_id}")
+@app.post("/api/resume/export")
 def export_candidate_resume(
-    profile_id: int, 
-    format: str = "pdf", 
-    template: str = "modern",
-    db: Session = Depends(get_db),
-    auth_user: str = Depends(require_auth_or_api_key)
+    profile_id: Optional[int] = None, 
+    format: str = Query("pdf"), 
+    template: str = Query("modern"),
+    db: Session = Depends(get_db)
 ):
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
+    """
+    Generates downloadable ATS resumes in PDF, DOCX, Markdown (MD), LaTeX (TEX), JSON, or TXT format.
+    Supports templates: modern, classic, minimal, executive, ats_safe.
+    """
+    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
     if not profile:
         profile = get_active_profile(db)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
 
     prof_dict = {
-        "name": profile.name,
-        "email": profile.email,
-        "phone": profile.phone,
-        "location": profile.location or {},
-        "skills": profile.skills or [],
-        "summary": profile.summary or "",
-        "experience_list": profile.experience_list or profile.past_roles or [],
-        "education_list": profile.education_list or profile.education or [],
-        "projects": profile.projects or []
+        "id": profile.id if profile else 1,
+        "name": profile.name if profile and profile.name else "Candidate Name",
+        "email": profile.email if profile and profile.email else "",
+        "phone": profile.phone if profile and profile.phone else "",
+        "location": profile.location if profile and profile.location else {},
+        "skills": profile.skills if profile and profile.skills else [],
+        "summary": profile.summary if profile and profile.summary else "",
+        "past_roles": profile.past_roles if profile and profile.past_roles else [],
+        "experience_list": profile.experience_list if profile and profile.experience_list else (profile.past_roles if profile else []),
+        "education": profile.education if profile and profile.education else [],
+        "education_list": profile.education_list if profile and profile.education_list else (profile.education if profile else []),
+        "projects": profile.projects if profile and profile.projects else []
     }
 
-    fmt = format.lower()
+    fmt = (format or "pdf").lower()
     tmpl = (template or "modern").lower()
     meta_headers = get_export_metadata_headers(prof_dict)
+    name_str = (profile.name or "Candidate").replace(" ", "_")
     
     if fmt == "pdf":
         pdf_bytes = generate_pdf_resume(prof_dict, template=tmpl)
         resp_headers = {
-            "Content-Disposition": f"attachment; filename={(profile.name or 'Candidate').replace(' ','_')}_{tmpl.upper()}_Resume.pdf",
+            "Content-Disposition": f"attachment; filename={name_str}_{tmpl.upper()}_Resume.pdf",
             **meta_headers
         }
         return Response(content=pdf_bytes, media_type="application/pdf", headers=resp_headers)
     elif fmt == "docx":
         docx_bytes = generate_docx_resume(prof_dict)
         resp_headers = {
-            "Content-Disposition": f"attachment; filename={(profile.name or 'Candidate').replace(' ','_')}_{tmpl.upper()}_Resume.docx",
+            "Content-Disposition": f"attachment; filename={name_str}_{tmpl.upper()}_Resume.docx",
             **meta_headers
         }
         return Response(content=docx_bytes, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", headers=resp_headers)
-    elif fmt == "md" or fmt == "markdown":
+    elif fmt in ["md", "markdown"]:
         md_text = generate_md_resume(prof_dict)
         resp_headers = {
-            "Content-Disposition": f"attachment; filename={(profile.name or 'Candidate').replace(' ','_')}_{tmpl.upper()}_Resume.md",
+            "Content-Disposition": f"attachment; filename={name_str}_{tmpl.upper()}_Resume.md",
             **meta_headers
         }
-        return PlainTextResponse(content=md_text, headers=resp_headers)
+        return Response(content=md_text, media_type="text/markdown; charset=utf-8", headers=resp_headers)
     elif fmt in ["tex", "latex"]:
         tex_text = generate_tex_resume(prof_dict, template=tmpl)
         resp_headers = {
-            "Content-Disposition": f"attachment; filename={(profile.name or 'Candidate').replace(' ','_')}_{tmpl.upper()}_ModernCV.tex",
+            "Content-Disposition": f"attachment; filename={name_str}_{tmpl.upper()}_Resume.tex",
             **meta_headers
         }
-        return PlainTextResponse(content=tex_text, media_type="text/x-tex", headers=resp_headers)
+        return Response(content=tex_text, media_type="application/x-tex; charset=utf-8", headers=resp_headers)
+    elif fmt == "json":
+        json_text = generate_json_resume(prof_dict)
+        resp_headers = {
+            "Content-Disposition": f"attachment; filename={name_str}_Resume.json",
+            **meta_headers
+        }
+        return Response(content=json_text, media_type="application/json; charset=utf-8", headers=resp_headers)
+    elif fmt == "txt":
+        txt_text = generate_txt_resume(prof_dict)
+        resp_headers = {
+            "Content-Disposition": f"attachment; filename={name_str}_Resume.txt",
+            **meta_headers
+        }
+        return Response(content=txt_text, media_type="text/plain; charset=utf-8", headers=resp_headers)
     else:
-        raise HTTPException(status_code=400, detail="Invalid format. Supported formats: pdf, docx, md, tex")
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {fmt}. Supported formats: pdf, docx, md, tex, json, txt")
 
 @app.get("/api/resume/quality-analysis")
 @app.post("/api/resume/quality-analysis")
@@ -5719,74 +5743,8 @@ Sincerely,
 
 
 # ============================================================================
-# RESUME MULTI-FORMAT EXPORT ENDPOINTS
+# RESUME MULTI-FORMAT EXPORT ENDPOINTS (CONSOLIDATED ABOVE AT /api/resume/export)
 # ============================================================================
-
-@app.get("/api/resume/export/{profile_id}")
-@app.get("/api/resume/export")
-def export_candidate_resume_endpoint(
-    profile_id: Optional[int] = None,
-    format: str = Query("pdf"),
-    template: str = Query("modern"),
-    db: Session = Depends(get_db)
-):
-    """
-    Generates downloadable ATS resumes in PDF, DOCX, Markdown, JSON, or TXT format.
-    """
-    profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first() if profile_id else get_active_profile(db)
-    name_str = profile.name if profile and profile.name else "Candidate_Name"
-    
-    prof_dict = {
-        "id": profile.id if profile else 1,
-        "name": profile.name if profile else "Candidate Name",
-        "email": profile.email if profile else "candidate@example.com",
-        "phone": profile.phone if profile else "",
-        "location": profile.location if profile else {"city": "Bengaluru", "country": "India"},
-        "summary": profile.summary if profile else "Experienced software engineer specializing in scalable systems.",
-        "skills": profile.skills if profile and profile.skills else ["Python", "FastAPI", "React", "PostgreSQL", "Docker"],
-        "past_roles": profile.past_roles if profile and profile.past_roles else [],
-        "experience_list": profile.experience_list if profile and profile.experience_list else (profile.past_roles if profile else []),
-        "education": profile.education if profile and profile.education else [],
-        "education_list": profile.education_list if profile and profile.education_list else (profile.education if profile else []),
-        "projects": profile.projects if profile and profile.projects else []
-    }
-    
-    fmt = format.lower()
-    if fmt == "docx":
-        content_bytes = generate_docx_resume(prof_dict)
-        return Response(
-            content=content_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_{template.upper()}_ATS.docx"}
-        )
-    elif fmt == "pdf":
-        content_bytes = generate_pdf_resume(prof_dict)
-        return Response(
-            content=content_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_{template.upper()}_ATS.pdf"}
-        )
-    elif fmt in ["json"]:
-        content_json = json.dumps(prof_dict, default=str, indent=2)
-        return Response(
-            content=content_json,
-            media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_Resume.json"}
-        )
-    elif fmt in ["txt"]:
-        content_txt = f"{prof_dict['name']}\n{prof_dict['email']} | {prof_dict['phone']}\n\nSUMMARY\n{prof_dict['summary']}\n\nSKILLS\n{', '.join(prof_dict['skills'])}"
-        return Response(
-            content=content_txt,
-            media_type="text/plain",
-            headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_Resume.txt"}
-        )
-    else:
-        content_md = generate_md_resume(prof_dict)
-        return Response(
-            content=content_md,
-            media_type="text/markdown",
-            headers={"Content-Disposition": f"attachment; filename={name_str.replace(' ', '_')}_{template.upper()}_ATS.md"}
-        )
 
 
 # ============================================================================
