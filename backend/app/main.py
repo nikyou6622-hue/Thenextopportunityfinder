@@ -2620,7 +2620,10 @@ def run_matching_pipeline(db: Session, profile: ProfileModel, max_jobs_to_match:
             JobModel.is_technical,
             JobModel.source_trust_tier,
             JobModel.status,
-            JobModel.link_status
+            JobModel.link_status,
+            JobModel.source_category,
+            JobModel.role_type,
+            JobModel.source
         )
     ).filter(
         JobModel.status == "active",
