@@ -438,7 +438,7 @@ export default function JobDiscovery({
           }}
         >
           <Globe size={15} />
-          <span>Global Tech Scraper</span>
+          <span>Global Tech Discovery</span>
         </button>
       </div>
 

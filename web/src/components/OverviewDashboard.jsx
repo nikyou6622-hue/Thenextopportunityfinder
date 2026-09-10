@@ -746,7 +746,7 @@ export default function OverviewDashboard({
               textTransform: 'uppercase',
               letterSpacing: '0.04em'
             }}>
-              🇮🇳 Live Scraper
+              🇮🇳 Live Discovery
             </span>
           </div>
           <div style={{ padding: '16px 18px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>

@@ -505,7 +505,7 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
         <Zap size={18} color={isPro ? '#34d399' : '#ec4899'} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.76rem', fontWeight: 900, color: '#ffffff' }}>
-            {isPro ? 'PRO LIFETIME UNLOCKED' : `Free Scrapes: ${scrapesRemaining}/${freeLimit}`}
+            {isPro ? 'PRO LIFETIME UNLOCKED' : `Free Discovery Searches: ${scrapesRemaining}/${freeLimit}`}
           </div>
           <div style={{ fontSize: '0.68rem', color: isPro ? '#34d399' : '#f472b6', marginTop: '1px' }}>
             {isPro ? '✓ Unlimited Access' : 'Click to Upgrade (₹99)'}

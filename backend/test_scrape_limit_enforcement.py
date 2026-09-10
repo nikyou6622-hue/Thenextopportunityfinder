@@ -88,7 +88,7 @@ class TestScrapeLimitEnforcement(unittest.TestCase):
             )
         
         self.assertEqual(cm.exception.status_code, 402)
-        self.assertIn("used all 5 free scrapes total", cm.exception.detail)
+        self.assertIn("used all 5 free discovery searches total", cm.exception.detail)
 
     def test_02_atomic_concurrency_race_condition(self):
         """Verify 10 parallel threads firing concurrently result in exactly 5 allowed and 5 blocked."""

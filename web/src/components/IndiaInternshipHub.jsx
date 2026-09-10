@@ -562,7 +562,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f8fafc', margin: 0, letterSpacing: '-0.02em' }}>
-                  India Internships Scraper & Hub 🇮🇳
+                  India Internships & Discovery Hub 🇮🇳
                 </h2>
                 <span style={{
                   background: 'rgba(255, 153, 51, 0.15)',
@@ -581,7 +581,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
                 </span>
               </div>
               <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.84rem' }}>
-                Live scraped engineering & tech internships across Razorpay, CRED, Google, Microsoft, Swiggy, Internshala, Cuvette & Unstop.
+                Verified engineering & tech internships across Razorpay, CRED, Google, Microsoft, Swiggy, Internshala, Cuvette & Unstop.
               </p>
             </div>
           </div>
@@ -605,7 +605,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               }}
             >
               {scanning ? (
-                <img src="/loading.svg" alt="Scraping" style={{ width: '18px', height: '18px' }} />
+                <img src="/loading.svg" alt="Scanning" style={{ width: '18px', height: '18px' }} />
               ) : (
                 <RefreshCw size={16} />
               )}
@@ -632,7 +632,7 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <img src="/Success.svg" alt="Success" style={{ width: '22px', height: '22px' }} />
               <span>
-                <strong>Scrape Successful:</strong> Scanned {scanResult.total_portals_scanned} Indian portals. Found <strong>{scanResult.total_internships_found}</strong> active internships ({scanResult.newly_added} new).
+                <strong>Discovery Successful:</strong> Scanned {scanResult.total_portals_scanned} Indian portals. Found <strong>{scanResult.total_internships_found}</strong> active internships ({scanResult.newly_added} new).
               </span>
             </div>
             <span style={{ fontSize: '0.72rem', color: '#86efac' }}>
@@ -943,14 +943,14 @@ export default function IndiaInternshipHub({ profile, onTailor, onNavigate, onOp
               No internships match your current filters
             </h4>
             <p style={{ fontSize: '0.84rem', color: '#94a3b8', maxWidth: '420px', margin: '0 auto 18px' }}>
-              Try adjusting your city or tech domain filters, or run the live scraper to fetch the latest postings.
+              Try adjusting your city or tech domain filters, or run live discovery to fetch the latest postings.
             </p>
             <button
               onClick={handleTriggerScraper}
               className="btn-primary"
               style={{ margin: '0 auto' }}
             >
-              Run Live India Scraper
+              Discover Live India Openings
             </button>
           </div>
         ) : (

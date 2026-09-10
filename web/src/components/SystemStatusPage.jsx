@@ -139,7 +139,7 @@ export default function SystemStatusPage({ onTriggerCelebration }) {
             Next Opportunity Finder System Telemetry
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '0.92rem', lineHeight: 1.6, margin: 0 }}>
-            Real-time status of our Big-MNC scrapers, India internship aggregators, AI reasoning failover engine, and database persistence layers.
+            Real-time status of our Big-MNC discovery engines, India internship aggregators, AI reasoning failover engine, and database persistence layers.
           </p>
         </div>
 
@@ -213,7 +213,7 @@ export default function SystemStatusPage({ onTriggerCelebration }) {
         <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '22px', padding: '24px', backdropFilter: 'blur(16px)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
             <Building2 size={19} color="#38bdf8" />
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc' }}>Big-MNC Direct Scrapers (Agent 2B)</h3>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc' }}>Big-MNC Direct Discovery (Agent 2B)</h3>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

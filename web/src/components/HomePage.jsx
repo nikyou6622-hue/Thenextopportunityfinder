@@ -577,11 +577,11 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
           </div>
 
           <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.25 }}>
-            Secure Your Dream Job — Unlock Real MNC Question Banks & Unlimited Scrapers!
+            Secure Your Dream Job — Unlock Real MNC Question Banks & Unlimited Job Discovery!
           </h2>
 
           <p style={{ fontSize: '0.88rem', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
-            Run live scrapers across Google, Microsoft, Swiggy, Internshala, and 100+ MNC portals. Get instant access to <strong>extensive company-specific question banks & solutions</strong>, 1-click ATS resume tailoring, and voice AI mock interviews for just ₹99.
+            Discover live openings across Google, Microsoft, Swiggy, Internshala, and 100+ MNC portals. Get instant access to <strong>extensive company-specific question banks & solutions</strong>, 1-click ATS resume tailoring, and voice AI mock interviews for just ₹99.
           </p>
         </div>
 

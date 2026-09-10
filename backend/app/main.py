@@ -2964,7 +2964,7 @@ def record_scrape_action(
             "scrapes_used": 0,
             "scrapes_remaining": 999999,
             "free_limit": FREE_SCRAPE_LIMIT,
-            "message": "Unlimited Pro Scraper Active"
+            "message": "Unlimited Pro Discovery Active"
         }
 
     # 2. Free User Atomic Row Lock & Limit Enforcement
@@ -2993,7 +2993,7 @@ def record_scrape_action(
 
             raise HTTPException(
                 status_code=402,
-                detail=f"You've used all {FREE_SCRAPE_LIMIT} free scrapes total. Upgrade to Pro for INR {PRO_PRICE_INR} for unlimited access."
+                detail=f"You've used all {FREE_SCRAPE_LIMIT} free discovery searches total. Upgrade to Pro for INR {PRO_PRICE_INR} for unlimited access."
             )
 
         new_used = current_used + 1

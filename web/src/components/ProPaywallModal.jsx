@@ -158,7 +158,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
               🎉 Welcome to Pro Lifetime!
             </h2>
             <p style={{ fontSize: '1rem', color: '#cbd5e1', maxWidth: '500px', margin: '0 auto' }}>
-              Your one-time payment of ₹99 has been processed. All scrapers, company question banks, ATS tools, and mock interviews are now 100% unlocked forever!
+              Your one-time payment of ₹99 has been processed. All job discovery, company question banks, ATS tools, and mock interviews are now 100% unlocked forever!
             </p>
           </div>
         ) : (
@@ -178,16 +178,16 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
               }}>
                 <Zap size={15} color="#ec4899" />
                 <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#f472b6', letterSpacing: '0.05em' }}>
-                  FREE SCRAPE QUOTA ({scrapesUsed}/{freeLimit}) &bull; UNLOCK PRO FOR ₹99
+                  FREE DISCOVERY QUOTA ({scrapesUsed}/{freeLimit}) &bull; UNLOCK PRO FOR ₹99
                 </span>
               </div>
 
               <h2 style={{ fontSize: '2.1rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.2 }}>
-                Run Unlimited Scrapers & Secure Your Dream Job
+                Run Unlimited Discovery & Secure Your Dream Job
               </h2>
 
               <p style={{ fontSize: '0.92rem', color: '#cbd5e1', marginTop: '8px', maxWidth: '640px', margin: '8px auto 0' }}>
-                One-time payment of <strong>₹99 only</strong>. No recurring monthly subscriptions. Unlock 5,000+ real company interview questions, unlimited automated scrapers, and 1-click ATS resume tailoring.
+                One-time payment of <strong>₹99 only</strong>. No recurring monthly subscriptions. Unlock 5,000+ real company interview questions, unlimited automated job discovery, and 1-click ATS resume tailoring.
               </p>
             </div>
 
@@ -216,7 +216,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: '#94a3b8' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Check size={14} color="#f59e0b" />
-                    <span>5 Free Scrapes Limit (Used {scrapesUsed}/{freeLimit})</span>
+                    <span>5 Free Discovery Searches (Used {scrapesUsed}/{freeLimit})</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Check size={14} color="#94a3b8" />
@@ -224,7 +224,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5 }}>
                     <X size={14} color="#ef4444" />
-                    <span><s>Unlimited Automated Scrapers</s></span>
+                    <span><s>Unlimited Job Discovery</s></span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5 }}>
                     <X size={14} color="#ef4444" />
@@ -275,7 +275,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: '#ffffff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <CheckCircle2 size={15} color="#34d399" />
-                    <strong>Unlimited Automated Opportunity Scrapers</strong>
+                    <strong>Unlimited Opportunity Discovery</strong>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <CheckCircle2 size={15} color="#34d399" />

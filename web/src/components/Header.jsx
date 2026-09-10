@@ -45,7 +45,7 @@ const INITIAL_NOTIFICATIONS = [
     icon: Briefcase,
     iconColor: '#34d399',
     title: '45+ New Tech Jobs Scanned Today',
-    message: 'Fresh engineering openings scraped from Razorpay, Swiggy, and Google career portals.',
+    message: 'Fresh engineering openings discovered from Razorpay, Swiggy, and Google career portals.',
     timestamp: '2h ago',
     read: false,
     actionTab: 'jobs'
@@ -167,7 +167,7 @@ export default function Header({
       case 'roadmaps': return 'Career Roadmaps & Study Hub';
       case 'assessment': return 'Skill Diagnostics & Verified Badges';
       case 'community': return 'Indian Tech & Campus Interview Debriefs';
-      case 'status': return 'Live Scraper & System Telemetry';
+      case 'status': return 'Live Discovery & System Telemetry';
       case 'changelog': return 'Official Product Changelog';
       case 'privacy': return 'Privacy Policy & DPDP Disclosures';
       case 'terms': return 'Terms of Service & Guardrails';
