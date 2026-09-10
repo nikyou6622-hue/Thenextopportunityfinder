@@ -402,6 +402,15 @@ class ForgotPasswordResetRequest(BaseModel):
     token: str
     new_password: str
 
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    full_name: str
+    password: Optional[str] = None
+    target_role: Optional[str] = "Software Engineer"
+    experience_level: Optional[str] = "Entry Level / Student"
+    subscription_tier: Optional[str] = "free"
+
+
 
 
 

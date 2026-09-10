@@ -55,7 +55,7 @@ from backend.app.schemas.schemas import (
     MNCScanLogSchema, MNCScanStatusResponse, LinkRevalidationResponse, LinkHealthSummary,
     StudyMaterialRequest, StudyMaterialResponse, SignUpRequest, LoginRequest, AuthResponse,
     SendOtpRequest, VerifyOtpRequest, SendOtpResponse, GoogleAuthRequest,
-    ForgotPasswordRequest, ForgotPasswordResetRequest
+    ForgotPasswordRequest, ForgotPasswordResetRequest, AdminCreateUserRequest
 )
 from backend.app.agents.agent1_parser import (
     parse_resume_content, compute_ats_score, compute_resume_quality_score, 
@@ -1337,6 +1337,9 @@ def auth_login(req: LoginRequest, response: Response, db: Session = Depends(get_
     KNOWN_ADMIN_HASHES = {_hash_password(p) for p in KNOWN_ADMIN_PASSWORDS}
 
     user = db.query(UserModel).filter(func.lower(func.trim(UserModel.email)) == email_clean).first()
+
+    if user and getattr(user, "is_active", True) is False:
+        raise HTTPException(status_code=403, detail="Account deactivated: Your candidate account has been deactivated by an administrator.")
 
     pwd_valid = False
 
@@ -7841,6 +7844,39 @@ def get_admin_stats(
         "conversion_rate_pct": conversion_rate
     }
 
+def _derive_subscription_status(u: UserModel, p: Optional[ProfileModel], db: Session) -> dict:
+    now = datetime.datetime.now(datetime.timezone.utc)
+    p_id = p.id if p else None
+    
+    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == p_id).first() if p_id else None
+    
+    if sub and sub.valid_until:
+        v_utc = sub.valid_until
+        if v_utc.tzinfo is None:
+            v_utc = v_utc.replace(tzinfo=datetime.timezone.utc)
+        
+        if v_utc > now:
+            return {"status": "pro", "valid_until": v_utc.isoformat()}
+        else:
+            return {"status": "expired", "valid_until": v_utc.isoformat()}
+            
+    # Check if user ever had a paid order
+    has_paid = False
+    if p_id:
+        has_paid = db.query(PaymentOrderModel).filter(
+            PaymentOrderModel.profile_id == p_id,
+            PaymentOrderModel.status == "paid"
+        ).first() is not None
+
+    if has_paid or (sub and (sub.tier in ["pro", "expired"] or sub.plan_tier in ["pro", "expired"])):
+        v_str = sub.valid_until.isoformat() if (sub and sub.valid_until) else None
+        return {"status": "expired", "valid_until": v_str}
+
+    if (p and p.subscription_tier == "pro") or (u and u.subscription_tier == "pro"):
+        return {"status": "pro", "valid_until": None}
+
+    return {"status": "free", "valid_until": None}
+
 @app.get("/api/admin/users")
 @app.get("/admin/users")
 def get_admin_users(
@@ -7848,11 +7884,12 @@ def get_admin_users(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(None),
+    subscription_status: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
-    Returns paginated, searchable user list with subscription metadata.
-    Strictly omits raw resume text, DPDP fields, or unneeded sensitive PII.
+    Returns paginated, searchable user list with derived subscription status (Pro/Expired/Free).
+    Strictly omits raw resume text, password hashes, or unneeded sensitive PII.
     """
     admin_user = _require_admin_user(request, db)
 
@@ -7866,26 +7903,23 @@ def get_admin_users(
             )
         )
 
-    total_count = query.count()
-    users = query.order_by(UserModel.id.desc()).offset((page - 1) * limit).limit(limit).all()
+    all_matching_users = query.order_by(UserModel.id.desc()).all()
 
-    user_list = []
-    for u in users:
+    filtered_user_list = []
+    for u in all_matching_users:
         p = db.query(ProfileModel).filter(ProfileModel.email == u.email).first()
         p_id = p.id if p else None
         
-        access_lvl = "free"
-        valid_until_str = None
-        if p_id:
-            access_lvl = get_access_level(p_id, db)
-            sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == p_id).first()
-            if sub and sub.valid_until:
-                valid_until_str = sub.valid_until.isoformat()
+        sub_info = _derive_subscription_status(u, p, db)
+        
+        if subscription_status and subscription_status.lower() not in ["all", ""]:
+            if sub_info["status"] != subscription_status.lower():
+                continue
 
         apps_count = db.query(ApplicationModel).filter(ApplicationModel.profile_id == p_id).count() if p_id else 0
         matches_count = db.query(MatchModel).filter(MatchModel.profile_id == p_id).count() if p_id else 0
 
-        user_list.append({
+        filtered_user_list.append({
             "id": u.id,
             "profile_id": p_id,
             "email": u.email,
@@ -7893,20 +7927,244 @@ def get_admin_users(
             "target_role": u.target_role,
             "experience_level": u.experience_level,
             "is_admin": bool(getattr(u, "is_admin", False)),
+            "is_active": bool(getattr(u, "is_active", True)),
             "is_suspended": bool(getattr(u, "is_suspended", False)),
-            "plan_tier": access_lvl,
-            "valid_until": valid_until_str,
+            "plan_tier": sub_info["status"],
+            "subscription_status": sub_info["status"],
+            "valid_until": sub_info["valid_until"],
             "applications_count": apps_count,
             "matches_count": matches_count,
             "created_at": u.created_at.isoformat() if u.created_at else None
         })
+
+    total_count = len(filtered_user_list)
+    start_idx = (page - 1) * limit
+    paginated_users = filtered_user_list[start_idx:start_idx + limit]
 
     return {
         "admin_email": admin_user.email,
         "total_users": total_count,
         "page": page,
         "limit": limit,
-        "users": user_list
+        "users": paginated_users
+    }
+
+@app.post("/api/admin/users")
+def admin_create_user(
+    req: AdminCreateUserRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Endpoint: Manually creates a new user account with validation & audit logging.
+    """
+    admin_user = _require_admin_user(request, db)
+    
+    email_clean = req.email.strip().lower()
+    if not email_clean or "@" not in email_clean or "." not in email_clean:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+    if not req.full_name.strip():
+        raise HTTPException(status_code=400, detail="Full name is required.")
+        
+    existing = db.query(UserModel).filter(func.lower(UserModel.email) == email_clean).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"An account with email '{email_clean}' already exists.")
+        
+    pwd = req.password.strip() if (req.password and len(req.password.strip()) >= 6) else secrets.token_urlsafe(10)
+    pwd_hash = _hash_password(pwd)
+    
+    tier = (req.subscription_tier or "free").lower()
+    new_user = UserModel(
+        full_name=req.full_name.strip(),
+        email=email_clean,
+        password_hash=pwd_hash,
+        target_role=req.target_role or "Software Engineer",
+        experience_level=req.experience_level or "Entry Level / Student",
+        is_active=True,
+        is_email_verified=True,
+        subscription_tier=tier
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    try:
+        new_profile = ProfileModel(
+            id=new_user.id,
+            name=new_user.full_name,
+            email=new_user.email,
+            location={},
+            skills=[],
+            past_roles=[],
+            domains=[],
+            education=[],
+            experience_list=[],
+            education_list=[],
+            projects=[],
+            key_strengths=[],
+            section_order=[],
+            raw_extracted_content={},
+            working_content={},
+            consent_given=True,
+            consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
+        db.add(new_profile)
+        db.commit()
+    except Exception as pe:
+        db.rollback()
+        logger.warning(f"Notice during profile creation for new user {new_user.id}: {pe}")
+
+    if tier == "pro":
+        grant_pro_access(new_user.id, db, payment_id="admin_manual_create", amount_paid=0.0, months=6)
+        
+    # Write audit log
+    audit_entry = AdminAuditLogModel(
+        admin_user_id=admin_user.id,
+        admin_email=admin_user.email,
+        action="user_created",
+        target_user_id=new_user.id,
+        target_user_email=new_user.email,
+        details=f"Admin {admin_user.email} created user account manually with tier '{tier}'.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"User account for {email_clean} created successfully.",
+        "user_id": new_user.id,
+        "email": new_user.email,
+        "generated_password": pwd
+    }
+
+@app.post("/api/admin/users/{target_user_id}/deactivate")
+def admin_deactivate_user(
+    target_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Endpoint: Soft-deactivates user account (is_active=False). Prevents admin self-deactivation.
+    """
+    admin_user = _require_admin_user(request, db)
+    
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found.")
+        
+    # Self-deactivation prevention guard
+    if target_user.id == admin_user.id or (target_user.email and target_user.email.strip().lower() == admin_user.email.strip().lower()):
+        raise HTTPException(
+            status_code=400,
+            detail="Forbidden: Admin users cannot deactivate their own account."
+        )
+        
+    target_user.is_active = False
+    target_user.is_suspended = True
+    
+    target_profile = db.query(ProfileModel).filter(ProfileModel.email == target_user.email).first()
+    if target_profile:
+        target_profile.is_suspended = True
+        
+    audit_entry = AdminAuditLogModel(
+        admin_user_id=admin_user.id,
+        admin_email=admin_user.email,
+        action="user_deactivated",
+        target_user_id=target_user.id,
+        target_user_email=target_user.email,
+        details=f"Admin {admin_user.email} soft-deactivated candidate account (is_active=False).",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"User account {target_user.email} deactivated successfully.",
+        "target_user_id": target_user.id,
+        "is_active": target_user.is_active
+    }
+
+@app.post("/api/admin/users/{target_user_id}/reactivate")
+def admin_reactivate_user(
+    target_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Endpoint: Reactivates soft-deactivated user account (is_active=True).
+    """
+    admin_user = _require_admin_user(request, db)
+    
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found.")
+        
+    target_user.is_active = True
+    target_user.is_suspended = False
+    
+    target_profile = db.query(ProfileModel).filter(ProfileModel.email == target_user.email).first()
+    if target_profile:
+        target_profile.is_suspended = False
+        
+    audit_entry = AdminAuditLogModel(
+        admin_user_id=admin_user.id,
+        admin_email=admin_user.email,
+        action="user_reactivated",
+        target_user_id=target_user.id,
+        target_user_email=target_user.email,
+        details=f"Admin {admin_user.email} reactivated candidate account (is_active=True).",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"User account {target_user.email} reactivated successfully.",
+        "target_user_id": target_user.id,
+        "is_active": target_user.is_active
+    }
+
+@app.get("/api/admin/audit-logs")
+def get_admin_audit_logs(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    action_filter: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Endpoint: Returns paginated audit log entries for operational tracking.
+    """
+    admin_user = _require_admin_user(request, db)
+    
+    query = db.query(AdminAuditLogModel)
+    if action_filter and action_filter.strip():
+        query = query.filter(AdminAuditLogModel.action == action_filter.strip())
+        
+    total_count = query.count()
+    logs = query.order_by(AdminAuditLogModel.id.desc()).offset((page - 1) * limit).limit(limit).all()
+    
+    log_list = []
+    for l in logs:
+        log_list.append({
+            "id": l.id,
+            "admin_user_id": getattr(l, "admin_user_id", None),
+            "admin_email": l.admin_email,
+            "action": l.action,
+            "target_user_id": l.target_user_id,
+            "target_user_email": l.target_user_email,
+            "details": l.details,
+            "timestamp": l.timestamp.isoformat() if l.timestamp else None
+        })
+        
+    return {
+        "total_audit_logs": total_count,
+        "page": page,
+        "limit": limit,
+        "logs": log_list
     }
 
 @app.post("/api/admin/users/{target_user_id}/grant-pro")

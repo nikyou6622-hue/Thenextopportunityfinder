@@ -207,7 +207,8 @@ def run_auto_migrations():
                     "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS applicant_count INTEGER;",
                     "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS days_since_posting INTEGER;",
                     "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS competition_index DOUBLE PRECISION;",
-                    "CREATE TABLE IF NOT EXISTS match_sessions (id SERIAL PRIMARY KEY, user_id INTEGER, profile_id INTEGER, resume_id VARCHAR, matched_job_ids JSONB DEFAULT '[]'::jsonb, matched_internship_ids JSONB DEFAULT '[]'::jsonb, total_jobs INTEGER DEFAULT 0, total_internships INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+                    "CREATE TABLE IF NOT EXISTS match_sessions (id SERIAL PRIMARY KEY, user_id INTEGER, profile_id INTEGER, resume_id VARCHAR, matched_job_ids JSONB DEFAULT '[]'::jsonb, matched_internship_ids JSONB DEFAULT '[]'::jsonb, total_jobs INTEGER DEFAULT 0, total_internships INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
+                    "ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS admin_user_id INTEGER;"
                 ]
                 for stmt in ddl_statements:
                     try:
