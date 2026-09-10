@@ -19,9 +19,23 @@ if (typeof Response !== 'undefined' && Response.prototype && !Response.prototype
   };
 }
 
-export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) 
-  ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
-  : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? `http://${window.location.hostname}:8000` : '');
+const rawEnvUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ? import.meta.env.VITE_API_URL.trim() : '';
+
+function normalizeBaseUrl(urlStr) {
+  if (!urlStr) {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return `http://${window.location.hostname}:8000`;
+    }
+    return '';
+  }
+  let cleaned = urlStr.replace(/\/$/, '');
+  if (!/^https?:\/\//i.test(cleaned)) {
+    cleaned = (cleaned.includes('localhost') || cleaned.includes('127.0.0.1')) ? `http://${cleaned}` : `https://${cleaned}`;
+  }
+  return cleaned;
+}
+
+export const API_BASE_URL = normalizeBaseUrl(rawEnvUrl);
 
 export async function apiFetch(url, options = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('nof_auth_token') : null;
@@ -37,9 +51,10 @@ export async function apiFetch(url, options = {}) {
     credentials: options.credentials || 'include',
   };
 
-  const resolvedUrl = (url.startsWith('/api') && API_BASE_URL)
-    ? `${API_BASE_URL}${url}`
-    : url;
+  const cleanUrl = url.startsWith('api/') ? `/${url}` : url;
+  const resolvedUrl = (cleanUrl.startsWith('/api') && API_BASE_URL)
+    ? `${API_BASE_URL}${cleanUrl}`
+    : cleanUrl;
 
   try {
     const response = await fetch(resolvedUrl, fetchOptions);

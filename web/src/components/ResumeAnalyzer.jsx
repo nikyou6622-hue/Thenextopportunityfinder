@@ -459,65 +459,158 @@ function InlineEditableText({
 }
 
 // --- ATS Scorecard Panel ---
-function AtsScoreCard({ atsEvaluation, selectedJobId, setSelectedJobId, matches, targetJobBenchmark, handleAddSkill }) {
+function AtsScoreCard({ atsEvaluation, selectedJobId, setSelectedJobId, matches, targetJobBenchmark, handleAddSkill, formData }) {
+  const [liveScoreReport, setLiveScoreReport] = useState(null);
+  const [isScoring, setIsScoring] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveAtsScore = async () => {
+      try {
+        setIsScoring(true);
+        const payload = {
+          resume_data: formData || {},
+          selectedJobId: selectedJobId || null
+        };
+        const selectedMatch = matches?.find(m => String(m.job?.id) === String(selectedJobId));
+        if (selectedMatch?.job) {
+          payload.job_data = {
+            title: selectedMatch.job.role_title,
+            required_skills: selectedMatch.job.required_skills || [],
+            description: selectedMatch.job.description || "",
+            responsibilities: selectedMatch.job.responsibilities || []
+          };
+        }
+
+        const res = await fetch('/api/ats/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setLiveScoreReport(data);
+        }
+      } catch (err) {
+        console.warn('Live 8-component ATS score fetch fallback:', err);
+      } finally {
+        if (isMounted) setIsScoring(false);
+      }
+    };
+
+    fetchLiveAtsScore();
+    return () => { isMounted = false; };
+  }, [formData, selectedJobId, matches]);
+
+  const report = liveScoreReport;
+  const overallScore = report ? report.overall_score : atsEvaluation.totalScore;
+  const tierLabel = report?.tier?.label || atsEvaluation.tier.label;
+  const tierColor = report?.tier?.color || atsEvaluation.tier.color;
+  const breakdown = report?.component_breakdown;
+
   return (
-    <div className="glass-panel" style={{ padding: '18px', width: '100%', boxSizing: 'border-box', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+    <div className="glass-panel" style={{ padding: '18px', width: '100%', boxSizing: 'border-box', border: `1px solid ${tierColor}40` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
           <Zap size={17} color="#818cf8" />
-          Live ATS Quality Score
+          8-Component ATS Audit
         </div>
         <span style={{ 
-          background: atsEvaluation.tier.badgeBg, 
-          color: atsEvaluation.tier.color,
+          background: `${tierColor}20`, 
+          color: tierColor,
           padding: '3px 10px',
           borderRadius: '12px',
           fontSize: '0.8rem',
           fontWeight: 800,
-          border: `1px solid ${atsEvaluation.tier.color}40`
+          border: `1px solid ${tierColor}40`
         }}>
-          {atsEvaluation.totalScore}/100
+          {overallScore}/100
         </span>
       </div>
 
-      <ScoreRing score={atsEvaluation.totalScore} color={atsEvaluation.tier.color} />
+      <ScoreRing score={overallScore} color={tierColor} />
 
-      <div style={{ textAlign: 'center', color: atsEvaluation.tier.color, fontSize: '0.86rem', fontWeight: 800, marginBottom: '14px' }}>
-        {atsEvaluation.tier.label}
+      <div style={{ textAlign: 'center', color: tierColor, fontSize: '0.86rem', fontWeight: 800, marginBottom: '12px' }}>
+        {tierLabel}
       </div>
 
+      {report && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '14px' }}>
+          <span style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}>
+            Quality: {report.resume_quality_score}/100
+          </span>
+          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '4px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}>
+            Match: {report.job_match_score}/100
+          </span>
+        </div>
+      )}
+
+      {/* 8 Component Score Bars */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <ScoreBar 
-          label="Hard Tech Skills Density"
-          score={atsEvaluation.skillsScore}
-          max={30}
+          label="1. Skill Match (25%)"
+          score={breakdown ? Math.round(breakdown.skill_match.score * 25) : atsEvaluation.skillsScore}
+          max={25}
           color="#6366f1"
         />
         <ScoreBar 
-          label={`Impact Metrics (${atsEvaluation.metricsCount || 0}) & Action Verbs (${atsEvaluation.foundVerbs?.length || 0})`}
-          score={atsEvaluation.metricsAndVerbsScore}
-          max={25}
+          label="2. Responsibility Match (20%)"
+          score={breakdown ? Math.round(breakdown.responsibility_match.score * 20) : Math.round(atsEvaluation.skillsScore * 0.7)}
+          max={20}
           color="#8b5cf6"
         />
         <ScoreBar 
-          label="ATS Structure & Formatting"
-          score={atsEvaluation.structureScore}
-          max={20}
+          label="3. Achievement Evidence (15%)"
+          score={breakdown ? Math.round(breakdown.achievement_evidence.score * 15) : atsEvaluation.metricsAndVerbsScore}
+          max={15}
           color="#ec4899"
         />
         <ScoreBar 
-          label="Professional Summary Quality"
-          score={atsEvaluation.summaryScore || 0}
+          label="4. Semantic Similarity (15%)"
+          score={breakdown ? Math.round(breakdown.semantic_similarity.score * 15) : 10}
           max={15}
           color="#38bdf8"
         />
         <ScoreBar 
-          label="Contact Details & PII"
-          score={atsEvaluation.contactScore}
+          label="5. Seniority Alignment (10%)"
+          score={breakdown ? Math.round(breakdown.seniority_match.score * 10) : 8}
           max={10}
+          color="#a855f7"
+        />
+        <ScoreBar 
+          label="6. Education Match (5%)"
+          score={breakdown ? Math.round(breakdown.education_match.score * 5) : 5}
+          max={5}
+          color="#f59e0b"
+        />
+        <ScoreBar 
+          label="7. ATS Structure & Format (5%)"
+          score={breakdown ? Math.round(breakdown.ats_format.score * 5) : atsEvaluation.structureScore}
+          max={5}
           color="#10b981"
         />
+        <ScoreBar 
+          label="8. Keyword Coverage (5%)"
+          score={breakdown ? Math.round(breakdown.keyword_coverage.score * 5) : 4}
+          max={5}
+          color="#06b6d4"
+        />
       </div>
+
+      {/* Critical Penalties Warning Box */}
+      {report?.critical_penalties?.penalties_detail?.length > 0 && (
+        <div style={{ marginTop: '14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '10px', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', fontWeight: 800, color: '#fca5a5', marginBottom: '6px' }}>
+            <AlertCircle size={14} color="#ef4444" />
+            Critical Requirement Penalties ({report.critical_penalties.total_penalty} pts)
+          </div>
+          {report.critical_penalties.penalties_detail.map((p, i) => (
+            <div key={i} style={{ fontSize: '0.70rem', color: '#fca5a5', marginBottom: '2px' }}>
+              • {p.reason} <strong style={{ color: '#ef4444' }}>({p.penalty} pts)</strong>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Target Job Selector */}
       <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
@@ -586,19 +679,33 @@ function AtsScoreCard({ atsEvaluation, selectedJobId, setSelectedJobId, matches,
         )}
       </div>
 
-      {/* Action Items */}
+      {/* Top 5 Verified Improvements (Re-scored Point Gains) */}
       <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc' }}>
-          <AlertCircle size={14} color="#fbbf24" />
-          ATS Action Items
+          <TrendingUp size={14} color="#34d399" />
+          Top Verified Improvements
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {atsEvaluation.recommendations.slice(0, 3).map((rec, idx) => (
-            <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', padding: '6px 8px', borderRadius: '6px', fontSize: '0.72rem', color: '#cbd5e1', display: 'flex', gap: '6px', lineHeight: 1.35 }}>
-              <AlertCircle size={12} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '2px' }} />
-              <span>{rec}</span>
-            </div>
-          ))}
+          {report?.top_improvements?.length > 0 ? (
+            report.top_improvements.map((item, idx) => (
+              <div key={idx} style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '8px', borderRadius: '6px', fontSize: '0.72rem', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, color: '#f8fafc' }}>
+                  <span>{item.action}</span>
+                  <span style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.2)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.68rem' }}>
+                    +{item.expected_point_gain} pts
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{item.reason}</span>
+              </div>
+            ))
+          ) : (
+            atsEvaluation.recommendations.slice(0, 3).map((rec, idx) => (
+              <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', padding: '6px 8px', borderRadius: '6px', fontSize: '0.72rem', color: '#cbd5e1', display: 'flex', gap: '6px', lineHeight: 1.35 }}>
+                <AlertCircle size={12} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '2px' }} />
+                <span>{rec}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -1358,6 +1465,7 @@ export default function ResumeAnalyzer({
               matches={matches}
               targetJobBenchmark={targetJobBenchmark}
               handleAddSkill={handleAddSkill}
+              formData={formData}
             />
           </div>
         )}
@@ -2654,6 +2762,7 @@ export default function ResumeAnalyzer({
               matches={matches}
               targetJobBenchmark={targetJobBenchmark}
               handleAddSkill={handleAddSkill}
+              formData={formData}
             />
           </div>
 

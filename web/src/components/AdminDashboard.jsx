@@ -369,6 +369,41 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
     }
   };
 
+  // Handle User Admin Actions (Upgrade, Downgrade, Suspend, Unsuspend, Hard Delete)
+  const handleUserAction = async (userId, action) => {
+    setActionSuccessMsg('');
+    SoundSystem.playPop();
+    try {
+      let res;
+      if (action === 'upgrade_pro') {
+        res = await apiFetch(`/api/admin/users/${userId}/grant-pro`, { method: 'POST' });
+      } else if (action === 'downgrade_free') {
+        res = await apiFetch(`/api/admin/users/${userId}/revoke-pro`, { method: 'POST' });
+      } else if (action === 'suspend') {
+        res = await apiFetch(`/api/admin/users/${userId}/deactivate`, { method: 'POST' });
+      } else if (action === 'unsuspend') {
+        res = await apiFetch(`/api/admin/users/${userId}/reactivate`, { method: 'POST' });
+      } else if (action === 'hard_delete') {
+        res = await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+        setDeleteConfirmUser(null);
+      }
+
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setActionSuccessMsg(`✅ ${data.message || `User action '${action}' completed successfully.`}`);
+        SoundSystem.playSuccess();
+        fetchAllAdminData();
+      } else {
+        const errData = res ? await res.json().catch(() => ({})) : {};
+        setActionSuccessMsg(`⚠️ ${errData.detail || errData.message || 'User action failed'}`);
+        SoundSystem.playError();
+      }
+    } catch (err) {
+      setActionSuccessMsg(`⚠️ Action error: ${err.message}`);
+      SoundSystem.playError();
+    }
+  };
+
   // --------------------------------------------------------------------------
   // UNAUTHENTICATED / NON-ADMIN ACCESS GATING (Render Access Denied)
   // --------------------------------------------------------------------------

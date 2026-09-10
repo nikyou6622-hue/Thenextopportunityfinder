@@ -41,7 +41,7 @@ from backend.app.db.models import (
     CodingQuestionModel, CodingAttemptModel, ResumeTemplateModel, MNCScanLogModel,
     AdminAuditLogModel, AdminErrorLogModel, ErrorLogModel, ScraperRunModel, IngestionRunModel,
     NotificationEventModel, NotificationPreferenceModel, LLMUsageLog, StudyMaterialCache, SupportQueryModel,
-    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel, MatchSessionModel
+    AdminPermissionModel, AdminLoginLogModel, AdminLockdownModel, MatchSessionModel, ScrapeUsageLogModel
 )
 
 from backend.app.services.error_notifier import capture_and_alert_error
@@ -61,6 +61,7 @@ from backend.app.agents.agent1_parser import (
     parse_resume_content, compute_ats_score, compute_resume_quality_score, 
     validate_resume_upload, BENCHMARK_DISCLAIMER
 )
+from backend.app.agents.ats_scorer import compute_ats_score as compute_ats_score_8_component
 from backend.app.agents.agent2_discovery import discover_all_jobs
 from backend.app.agents.agent2b_mnc_scanner import run_mnc_scan, get_mnc_scan_status
 from backend.app.agents.agent2c_india_internships_scraper import (
@@ -1391,10 +1392,7 @@ def auth_login(req: LoginRequest, response: Response, db: Session = Depends(get_
                     name=user.full_name,
                     email=user.email,
                     consent_given=True,
-                    consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
-                    is_admin=True,
-                    admin_level="superadmin",
-                    subscription_tier="pro"
+                    consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
                 )
                 db.add(profile)
                 db.commit()
@@ -2920,73 +2918,121 @@ def get_subscription_status(
 @app.post("/api/subscription/scrape/")
 @app.post("/subscription/scrape")
 @app.post("/subscription/scrape/")
-@app.get("/api/subscription/scrape")
-@app.get("/api/subscription/scrape/")
-@app.get("/subscription/scrape")
-@app.get("/subscription/scrape/")
 def record_scrape_action(
+    request: Request,
     payload: Dict[str, Any] = Body(default={}),
     profile_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
-    Validates and records a scrape operation. Free tier allows 5 free scrapes.
-    Raises HTTP 402 Payment Required if limit is reached on free tier.
+    Server-enforced, atomic check-and-increment for candidate scrape triggers.
+    - Pro Users (checked via canonical get_access_level()): Bypass limit completely.
+    - Free Users: Atomically checked via row lock with_for_update() to prevent race conditions.
+    - Raises HTTP 402 if free limit (5 total) is reached.
+    - Audits every attempt in ScrapeUsageLogModel.
     """
+    target_profile_id = payload.get("profile_id") if isinstance(payload, dict) else None
+    if not target_profile_id:
+        target_profile_id = profile_id
+    if not target_profile_id:
+        prof = get_active_profile(db, request=request)
+        target_profile_id = prof.id if prof else 1
+
+    action_type = payload.get("action_type") or "manual_scrape"
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    # 1. Pro Bypass Check via canonical single source of truth get_access_level
+    access_lvl = get_access_level(target_profile_id, db)
+    if access_lvl == "pro":
+        try:
+            log_item = ScrapeUsageLogModel(
+                profile_id=target_profile_id,
+                action_type=action_type,
+                is_pro=True,
+                scrapes_used=0,
+                status="allowed",
+                ip_address=client_ip
+            )
+            db.add(log_item)
+            db.commit()
+        except Exception as log_err:
+            logger.warning(f"Failed to write scrape log: {log_err}")
+
+        return {
+            "allowed": True,
+            "is_pro": True,
+            "scrapes_used": 0,
+            "scrapes_remaining": 999999,
+            "free_limit": FREE_SCRAPE_LIMIT,
+            "message": "Unlimited Pro Scraper Active"
+        }
+
+    # 2. Free User Atomic Row Lock & Limit Enforcement
     try:
-        target_profile_id = payload.get("profile_id") if isinstance(payload, dict) else None
-        if not target_profile_id:
-            target_profile_id = profile_id
-            
-        sub = get_or_create_subscription(db, target_profile_id)
-            
-        is_pro = (sub.tier.lower() == "pro") if sub and getattr(sub, 'tier', None) else False
-        if is_pro:
-            return {
-                "allowed": True,
-                "is_pro": True,
-                "scrapes_used": getattr(sub, 'scrapes_used', 0) or 0,
-                "scrapes_remaining": 999999,
-                "message": "Unlimited Pro Scraper Active"
-            }
-            
+        sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).with_for_update().first()
+        if not sub:
+            sub = get_or_create_subscription(db, target_profile_id, request=request)
+            sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == target_profile_id).with_for_update().first()
+
         current_used = getattr(sub, 'scrapes_used', 0) or 0
+
         if current_used >= FREE_SCRAPE_LIMIT:
+            try:
+                log_item = ScrapeUsageLogModel(
+                    profile_id=target_profile_id,
+                    action_type=action_type,
+                    is_pro=False,
+                    scrapes_used=current_used,
+                    status="blocked_limit_reached",
+                    ip_address=client_ip
+                )
+                db.add(log_item)
+                db.commit()
+            except Exception:
+                db.rollback()
+
             raise HTTPException(
                 status_code=402,
-                detail=f"Free scrape limit reached ({FREE_SCRAPE_LIMIT}/{FREE_SCRAPE_LIMIT}). Upgrade to Pro for INR {PRO_PRICE_INR} lifetime access to unlock unlimited scrapers."
+                detail=f"You've used all {FREE_SCRAPE_LIMIT} free scrapes total. Upgrade to Pro for INR {PRO_PRICE_INR} for unlimited access."
             )
-            
-        if sub and getattr(sub, 'id', None):
-            try:
-                sub.scrapes_used = current_used + 1
-                db.commit()
-                db.refresh(sub)
-            except Exception as e:
-                db.rollback()
-                logger.warning(f"Error persisting scrape count: {e}")
-            
-        scrapes_remaining = max(0, FREE_SCRAPE_LIMIT - (current_used + 1))
+
+        new_used = current_used + 1
+        sub.scrapes_used = new_used
+        sub.credits_remaining = max(0, FREE_SCRAPE_LIMIT - new_used)
+        db.commit()
+
+        try:
+            log_item = ScrapeUsageLogModel(
+                profile_id=target_profile_id,
+                action_type=action_type,
+                is_pro=False,
+                scrapes_used=new_used,
+                status="allowed",
+                ip_address=client_ip
+            )
+            db.add(log_item)
+            db.commit()
+        except Exception as log_err:
+            logger.warning(f"Scrape log write notice: {log_err}")
+
+        scrapes_remaining = max(0, FREE_SCRAPE_LIMIT - new_used)
         return {
             "allowed": True,
             "is_pro": False,
-            "scrapes_used": current_used + 1,
+            "scrapes_used": new_used,
             "scrapes_remaining": scrapes_remaining,
             "free_limit": FREE_SCRAPE_LIMIT,
-            "message": f"Scrape recorded ({current_used + 1}/{FREE_SCRAPE_LIMIT} used). {scrapes_remaining} free scrapes remaining."
+            "message": f"Scrape recorded ({new_used}/{FREE_SCRAPE_LIMIT} total used). {scrapes_remaining} free scrapes remaining."
         }
     except HTTPException:
         raise
     except Exception as ex:
-        logger.warning(f"Scrape action recording fallback: {ex}")
-        return {
-            "allowed": True,
-            "is_pro": False,
-            "scrapes_used": 1,
-            "scrapes_remaining": FREE_SCRAPE_LIMIT - 1,
-            "free_limit": FREE_SCRAPE_LIMIT,
-            "message": "Scrape operation recorded."
-        }
+        logger.error(f"Error in atomic scrape enforcement: {ex}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Error processing scrape enforcement check."
+        )
 
 @app.post("/api/subscription/upgrade")
 def upgrade_to_pro(
@@ -3879,10 +3925,64 @@ def reorder_resume_elements(
         "disclaimer": BENCHMARK_DISCLAIMER
     }
 
+@app.post("/api/ats/score")
+@app.post("/api/ats/score/")
 @app.post("/api/profile/ats-score")
-def calculate_live_ats_score(payload: Dict[str, Any] = Body(...)):
-    """Computes instant Next Opportunity Finder Resume Quality Score benchmark."""
-    return compute_resume_quality_score(payload)
+def calculate_live_ats_score(
+    payload: Dict[str, Any] = Body(default={}),
+    db: Session = Depends(get_db)
+):
+    """
+    Computes full 8-Component ATS Resume Quality & Job Match Score.
+    Supports candidate resume payload or DB active profile benchmarked against 
+    a target job payload or job_id.
+    """
+    try:
+        resume_data = payload.get("resume_data") or payload.get("profile") or payload.get("resume") or {}
+        if not isinstance(resume_data, dict):
+            resume_data = {}
+
+        if not resume_data.get("skills") and not resume_data.get("raw_resume_text"):
+            profile = get_active_profile(db)
+            if profile:
+                resume_data = {
+                    "skills": profile.skills or [],
+                    "raw_resume_text": profile.raw_resume_text or profile.summary or "",
+                    "bullets": profile.parsed_bullets or [],
+                    "education": profile.education_list or profile.education or [],
+                    "years_experience": profile.years_experience or 0,
+                    "has_tables": getattr(profile, "has_tables", False),
+                    "is_scanned_image": getattr(profile, "is_scanned_image", False)
+                }
+
+        job_data = payload.get("job_data") or payload.get("job") or {}
+        job_id = payload.get("job_id") or payload.get("selectedJobId")
+        if job_id and (not isinstance(job_data, dict) or not job_data.get("title")):
+            try:
+                job_obj = db.query(JobModel).filter(or_(JobModel.id == str(job_id), JobModel.job_id == str(job_id))).first()
+                if job_obj:
+                    job_data = {
+                        "title": job_obj.title or job_obj.role_title,
+                        "required_skills": job_obj.required_skills or [],
+                        "description": job_obj.description or "",
+                        "responsibilities": job_obj.responsibilities or [],
+                        "requirements": job_obj.requirements or {}
+                    }
+            except Exception as e:
+                logger.warning(f"Error fetching job {job_id} for ATS scoring: {e}")
+
+        if not isinstance(job_data, dict) or not job_data:
+            job_data = {
+                "title": "Software Engineer / Tech Role Benchmark",
+                "required_skills": resume_data.get("skills", [])[:5] if isinstance(resume_data, dict) else ["Python", "SQL"],
+                "description": resume_data.get("raw_resume_text", "") if isinstance(resume_data, dict) else "",
+                "responsibilities": resume_data.get("bullets", [])[:3] if isinstance(resume_data, dict) else []
+            }
+
+        return compute_ats_score_8_component(resume_data, job_data)
+    except Exception as err:
+        logger.error(f"Error computing 8-component ATS score: {err}")
+        return compute_resume_quality_score(payload)
 
 @app.post("/api/jobs/discover")
 @app.post("/api/jobs/discover/")
@@ -6515,31 +6615,6 @@ def check_and_decrement_scrape_credits(db: Session, request: Request):
     db.commit()
     db.refresh(sub)
 
-@app.get("/api/subscription/status")
-@app.get("/subscription/status")
-def get_subscription_status(request: Request, db: Session = Depends(get_db)):
-    profile = get_active_profile(db, request=request)
-    if not profile:
-        return {"tier": "free", "is_pro": False, "scrapes_used": 0, "credits_remaining": 5, "scrapes_remaining": 5, "free_limit": 5}
-    
-    sub = db.query(SubscriptionModel).filter(SubscriptionModel.profile_id == profile.id).first()
-    if not sub:
-        sub = SubscriptionModel(profile_id=profile.id, tier="free", plan_tier="free", status="active", is_active=True, credits_remaining=5, scrapes_used=0)
-        db.add(sub)
-        db.commit()
-        db.refresh(sub)
-        
-    is_pro = sub.plan_tier in ["pro", "lifetime"] or getattr(profile, "subscription_tier", "") == "pro"
-    rem = 999999 if is_pro else max(0, sub.credits_remaining)
-    return {
-        "tier": "pro" if is_pro else "free",
-        "is_pro": is_pro,
-        "scrapes_used": sub.scrapes_used,
-        "credits_remaining": rem,
-        "scrapes_remaining": rem,
-        "free_limit": 5
-    }
-
 @app.post("/api/subscription/scrape")
 @app.post("/subscription/scrape")
 def trigger_subscription_scrape(request: Request, db: Session = Depends(get_db)):
@@ -7193,10 +7268,7 @@ def _ensure_default_admin_account():
                         name=acc["full_name"],
                         email=acc["email"],
                         consent_given=True,
-                        consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
-                        is_admin=True,
-                        admin_level=acc["admin_level"],
-                        subscription_tier="pro"
+                        consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
                     )
                     db.add(profile)
                     db.commit()
@@ -7450,8 +7522,7 @@ def admin_create_user_support_endpoint(payload: Dict[str, Any] = Body(...), requ
         name=full_name,
         email=email,
         consent_given=True,
-        consent_timestamp=datetime.datetime.now(datetime.timezone.utc),
-        subscription_tier="free"
+        consent_timestamp=datetime.datetime.now(datetime.timezone.utc)
     )
     db.add(profile)
     db.commit()
@@ -7621,8 +7692,8 @@ def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Dep
     admin_user = _require_admin_user(request, db, required_tier="master")
 
     # 1. Automated Continuous Bug 1 Reconciliation Check
-    pro_profiles = db.query(ProfileModel).filter(
-        ProfileModel.subscription_tier.in_(["pro", "lifetime"])
+    pro_users = db.query(UserModel).filter(
+        UserModel.subscription_tier.in_(["pro", "lifetime"])
     ).all()
 
     paid_orders = db.query(PaymentOrderModel).filter(PaymentOrderModel.status == "paid").all()
@@ -7632,27 +7703,27 @@ def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Dep
     admin_granted_user_ids = {g.target_user_id for g in admin_grants if g.target_user_id}
 
     discrepancies = []
-    for p in pro_profiles:
-        u = db.query(UserModel).filter(UserModel.email == p.email).first()
-        u_id = u.id if u else None
+    for u in pro_users:
+        p = db.query(ProfileModel).filter(ProfileModel.email == u.email).first()
+        p_id = p.id if p else None
         
-        is_paid = p.id in verified_paid_profile_ids
-        is_admin_granted = (u_id in admin_granted_user_ids) if u_id else False
-        is_staff_admin = bool(getattr(u, "is_admin", False) or getattr(p, "is_admin", False))
+        is_paid = (p_id in verified_paid_profile_ids) if p_id else False
+        is_admin_granted = u.id in admin_granted_user_ids
+        is_staff_admin = bool(getattr(u, "is_admin", False))
 
         if not (is_paid or is_admin_granted or is_staff_admin):
             discrepancies.append({
-                "profile_id": p.id,
-                "user_id": u_id,
-                "email": p.email,
-                "name": p.name,
-                "current_tier": p.subscription_tier,
+                "profile_id": p_id,
+                "user_id": u.id,
+                "email": u.email,
+                "name": u.full_name,
+                "current_tier": u.subscription_tier,
                 "issue": "Illegitimate Pro tier without matching Cashfree payment or admin grant audit log."
             })
 
     # 2. Job Catalog Data Freshness Gauge
     total_active_jobs = db.query(JobModel).filter(JobModel.status == "active").count()
-    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_utc = datetime.datetime.utcnow()
     fresh_72h = db.query(JobModel).filter(
         JobModel.status == "active",
         JobModel.first_seen_at >= (now_utc - datetime.timedelta(hours=72))
@@ -7666,7 +7737,7 @@ def get_master_admin_reconciliation_endpoint(request: Request, db: Session = Dep
     failed_runs_count = sum(1 for r in runs if r.status == "failed")
 
     # 4. Stuck Payments Safety Net Reconciliation Check
-    thirty_mins_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=30)
+    thirty_mins_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=30)
     stuck_candidate_orders = db.query(PaymentOrderModel).filter(
         PaymentOrderModel.created_at <= thirty_mins_ago
     ).all()
@@ -8360,8 +8431,8 @@ def get_admin_super_jobs_endpoint(
                 "external_id": j.external_id or "",
                 "job_fingerprint": j.job_fingerprint or "",
                 "authenticity_flags": j.authenticity_flags or [],
-                "first_seen_at": j.first_seen_at.isoformat() if j.first_seen_at else None,
-                "last_seen_at": j.last_seen_at.isoformat() if j.last_seen_at else None,
+                "first_seen_at": j.first_seen_at.isoformat() if getattr(j, 'first_seen_at', None) else None,
+                "last_seen_at": getattr(j, 'last_seen_at', getattr(j, 'first_seen_at', None)).isoformat() if getattr(j, 'last_seen_at', getattr(j, 'first_seen_at', None)) else None,
                 "link_checked_at": j.link_checked_at.isoformat() if j.link_checked_at else None,
                 "expires_at": j.expires_at.isoformat() if j.expires_at else None,
                 "required_skills": j.required_skills or []
@@ -8569,6 +8640,24 @@ def get_super_admin_login_logs_endpoint(
         "page": page,
         "limit": limit,
         "login_logs": log_list
+    }
+
+@app.get("/api/admin/super/lockdown")
+def get_emergency_admin_lockdown_status_endpoint(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Exclusive Endpoint: Fetches current emergency admin access lockdown status.
+    """
+    admin_user = _require_admin_user(request, db, required_tier="superadmin")
+    lockdown = db.query(AdminLockdownModel).filter(AdminLockdownModel.is_active == True).order_by(AdminLockdownModel.id.desc()).first()
+    return {
+        "success": True,
+        "is_locked_down": bool(lockdown),
+        "locked_by": lockdown.locked_by if lockdown else None,
+        "reason": lockdown.reason if lockdown else None,
+        "revoked_at": lockdown.revoked_at.isoformat() if (lockdown and lockdown.revoked_at) else None
     }
 
 @app.post("/api/admin/super/lockdown")

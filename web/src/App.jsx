@@ -252,11 +252,13 @@ export default function App() {
         if (subData) {
           setUserSubscription(subData);
           localStorage.setItem('nof_user_sub', JSON.stringify(subData));
+          return subData;
         }
       }
     } catch (e) {
       console.warn("Could not fetch subscription status:", e);
     }
+    return null;
   };
 
   useEffect(() => {
@@ -297,15 +299,19 @@ export default function App() {
     return true;
   };
 
-  const handleUpgradeSuccess = (res) => {
-    const updated = {
-      ...userSubscription,
-      tier: 'pro',
-      is_pro: true,
-      scrapes_remaining: 999999
-    };
-    setUserSubscription(updated);
-    localStorage.setItem('nof_user_sub', JSON.stringify(updated));
+  const handleUpgradeSuccess = async (res) => {
+    const freshSub = await fetchSubscriptionStatus();
+    if (!freshSub || !freshSub.is_pro) {
+      const updated = {
+        ...userSubscription,
+        tier: 'pro',
+        is_pro: true,
+        scrapes_remaining: 999999
+      };
+      setUserSubscription(updated);
+      localStorage.setItem('nof_user_sub', JSON.stringify(updated));
+    }
+    await loadData();
     handleTriggerCelebration();
   };
 
@@ -351,6 +357,9 @@ export default function App() {
       if (!activeUser) {
         return;
       }
+
+      // 0. Subscription Status
+      await fetchSubscriptionStatus();
 
       // 1. Profile
       const profRes = await apiFetch('/api/profile');
@@ -692,6 +701,8 @@ export default function App() {
   };
 
   const handleDiscover = async () => {
+    const allowed = await handleScrapeTriggered();
+    if (!allowed) return;
     setLoading(true);
     try {
       const res = await apiFetch('/api/jobs/discover', { method: 'POST' });
@@ -1164,6 +1175,7 @@ export default function App() {
             {(activeTab === 'payment-status' || activeTab === 'payment/status') && (
               <PaymentStatusPage 
                 onNavigateHome={() => setActiveTab('overview')}
+                onSubscriptionUpdated={fetchSubscriptionStatus}
               />
             )}
 
@@ -1244,9 +1256,11 @@ export default function App() {
         onClose={() => setIsPaywallOpen(false)}
         user={currentUser}
         profile={profile}
-        onPaymentSuccess={(data) => {
+        onSubscriptionUpdated={fetchSubscriptionStatus}
+        onPaymentSuccess={async (data) => {
           setIsPaywallOpen(false);
-          loadData();
+          await fetchSubscriptionStatus();
+          await loadData();
           handleTriggerCelebration();
         }}
       />

@@ -98,27 +98,27 @@ def calculate_location_fit(profile_location: Dict[str, Any], job_location: str, 
         
     return 60.0
 
+from backend.app.agents.ats_scorer import compute_semantic_similarity
+
 def calculate_semantic_sim(raw_resume_text: Union[str, Set[str]], job_description: str) -> float:
-    """Calculates semantic similarity score between candidate resume text and job description."""
+    """
+    Calculates semantic similarity score between candidate resume text and job description
+    using Option (A) shared master semantic similarity engine.
+    Scales 0.0-1.0 float result to 0.0-100.0 scale.
+    """
     if not raw_resume_text or not job_description:
         return 70.0
 
     try:
-        stopwords = {"the", "and", "a", "to", "in", "is", "for", "with", "on", "at", "by", "of", "an", "be", "as", "are", "or", "our", "we", "you", "your"}
         if isinstance(raw_resume_text, set):
-            words_resume = raw_resume_text
+            res_str = " ".join(raw_resume_text)
         else:
-            words_resume = set(re.findall(r'\w+', str(raw_resume_text).lower())) - stopwords
-        
-        words_job = set(re.findall(r'\w+', str(job_description).lower())) - stopwords
-        
-        if not words_job:
-            return 70.0
-            
-        intersection = words_resume.intersection(words_job)
-        jaccard = len(intersection) / len(words_job)
-        score = min(100.0, jaccard * 250.0)
-        return max(50.0, score)
+            res_str = str(raw_resume_text)
+
+        raw_score_0_to_1 = compute_semantic_similarity(res_str, job_description)
+        # Convert 0.0-1.0 float to 0.0-100.0 scale for Agent 3
+        score = round(raw_score_0_to_1 * 100.0, 1)
+        return max(30.0, min(100.0, score))
     except Exception as e:
         logger.warning(f"Semantic sim error: {e}")
         return 70.0

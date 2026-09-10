@@ -534,3 +534,16 @@ class AdminLockdownModel(Base):
     is_active = Column(Boolean, default=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
 
+class ScrapeUsageLogModel(Base):
+    __tablename__ = "scrape_usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
+    action_type = Column(String, default="manual_scrape", index=True)
+    is_pro = Column(Boolean, default=False)
+    scrapes_used = Column(Integer, default=0)
+    status = Column(String, default="allowed", index=True) # allowed, blocked_limit_reached, error
+    ip_address = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False, index=True)
+
+

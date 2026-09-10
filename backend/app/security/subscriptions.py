@@ -34,7 +34,7 @@ def get_access_level(profile_id: int, db: Session) -> str:
     # Fallback check on ProfileModel subscription_tier if no subscription model exists
     if not sub:
         profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
-        if profile and profile.subscription_tier == "pro":
+        if profile and getattr(profile, "subscription_tier", None) == "pro":
             return "pro"
 
     return "free"
@@ -75,11 +75,12 @@ def grant_pro_access(profile_id: int, db: Session, payment_id: str = "manual_gra
 
     profile = db.query(ProfileModel).filter(ProfileModel.id == profile_id).first()
     if profile:
-        profile.subscription_tier = "pro"
+        if hasattr(profile, "subscription_tier"):
+            setattr(profile, "subscription_tier", "pro")
         if profile.email:
             user = db.query(UserModel).filter(UserModel.email == profile.email).first()
-            if user:
-                user.subscription_tier = "pro"
+            if user and hasattr(user, "subscription_tier"):
+                setattr(user, "subscription_tier", "pro")
                 
     db.commit()
     db.refresh(sub)

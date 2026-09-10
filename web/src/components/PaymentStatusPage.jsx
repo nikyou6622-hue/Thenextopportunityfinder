@@ -3,7 +3,7 @@ import apiFetch from '../lib/apiClient';
 import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import SoundSystem from './characters/SoundEffects';
 
-export default function PaymentStatusPage({ onNavigateHome }) {
+export default function PaymentStatusPage({ onNavigateHome, onSubscriptionUpdated }) {
   const [statusState, setStatusState] = useState('loading'); // 'loading' | 'paid' | 'failed' | 'pending' | 'incomplete'
   const [orderDetails, setOrderDetails] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -31,28 +31,33 @@ export default function PaymentStatusPage({ onNavigateHome }) {
       setOrderDetails(data);
 
       if (data.status === 'paid' || data.is_pro) {
+        if (onSubscriptionUpdated) {
+          try { await onSubscriptionUpdated(); } catch {}
+        }
         setStatusState('paid');
         SoundSystem.playSuccess();
       } else if (data.status === 'failed' || data.status === 'cancelled') {
         setStatusState('failed');
         setErrorMsg('Payment was declined or cancelled by bank.');
       } else {
-        // Pending status — poll up to 5 times (10s total)
-        if (pollCount < 5) {
+        // Pending status — poll up to 10 times (15s total) with 1.5s interval
+        if (pollCount < 10) {
           setStatusState('pending');
           setTimeout(() => {
             setPollCount(prev => prev + 1);
-          }, 2000);
+          }, 1500);
         } else {
-          // Reached timeout threshold without 'paid' signal — present clean actionable state
+          // Reached 15s timeout threshold — show clean actionable state
           setStatusState('incomplete');
         }
       }
     } catch (err) {
       console.error('Error verifying payment status:', err);
-      // Fallback: if mock test order in local env
       const orderId = getOrderIdFromUrl();
       if (orderId && orderId.includes('mock')) {
+        if (onSubscriptionUpdated) {
+          try { await onSubscriptionUpdated(); } catch {}
+        }
         setStatusState('paid');
         setOrderDetails({
           order_id: orderId,
@@ -63,9 +68,9 @@ export default function PaymentStatusPage({ onNavigateHome }) {
           valid_until: new Date(Date.now() + 180 * 86400000).toISOString()
         });
       } else {
-        if (pollCount < 5) {
+        if (pollCount < 10) {
           setStatusState('pending');
-          setTimeout(() => setPollCount(prev => prev + 1), 2000);
+          setTimeout(() => setPollCount(prev => prev + 1), 1500);
         } else {
           setStatusState('incomplete');
         }
@@ -77,12 +82,18 @@ export default function PaymentStatusPage({ onNavigateHome }) {
     checkStatus();
   }, [pollCount]);
 
-  const handleRecheck = () => {
+  const handleRecheck = async () => {
+    if (onSubscriptionUpdated) {
+      try { await onSubscriptionUpdated(); } catch {}
+    }
     setPollCount(0);
     setStatusState('loading');
   };
 
-  const handleReturnHome = () => {
+  const handleReturnHome = async () => {
+    if (onSubscriptionUpdated) {
+      try { await onSubscriptionUpdated(); } catch {}
+    }
     if (onNavigateHome) {
       onNavigateHome();
     } else {
@@ -249,7 +260,7 @@ export default function PaymentStatusPage({ onNavigateHome }) {
               Payment Verification Pending
             </h2>
             <p style={{ fontSize: '0.88rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '24px' }}>
-              If you completed your payment via Cashfree, your 6-month Pro access will be automatically unlocked within 1-2 minutes.
+              Payment received, confirming — this can take a minute; refresh if it doesn't update shortly.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
