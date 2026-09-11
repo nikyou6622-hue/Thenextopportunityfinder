@@ -1151,8 +1151,13 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
                           </button>
                         )}
 
-                        <button onClick={() => setDeleteConfirmUser(u)} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#f87171' }}>
-                          Purge
+                        <button
+                          onClick={() => setDeleteConfirmUser(u)}
+                          className="btn-tactile btn-tactile-ghost"
+                          style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Trash2 size={12} />
+                          <span>Remove User</span>
                         </button>
                       </div>
                     </td>
@@ -1168,14 +1173,14 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
               <div className="glass-panel" style={{ maxWidth: '440px', padding: '28px', borderRadius: '20px', border: '1px solid rgba(244, 63, 94, 0.5)', background: '#0f172a' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#f87171', fontWeight: 900, fontSize: '1.1rem', marginBottom: '12px' }}>
                   <AlertTriangle size={20} />
-                  <span>Confirm Hard Cascade Purge</span>
+                  <span>Confirm Remove User Account</span>
                 </div>
                 <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.5 }}>
-                  Are you sure you want to permanently purge candidate <strong style={{ color: '#fff' }}>{deleteConfirmUser.email}</strong> and all associated 22 table records? This action is irreversible.
+                  Are you sure you want to permanently remove candidate account <strong style={{ color: '#fff' }}>{deleteConfirmUser.email}</strong> and all associated database records? This action is irreversible.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
                   <button onClick={() => setDeleteConfirmUser(null)} className="btn-tactile btn-tactile-ghost" style={{ padding: '8px 16px' }}>Cancel</button>
-                  <button onClick={() => handleUserAction(deleteConfirmUser.id, 'hard_delete')} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 16px', background: '#e11d48' }}>Execute Hard Delete</button>
+                  <button onClick={() => handleUserAction(deleteConfirmUser.id, 'hard_delete')} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 16px', background: '#e11d48' }}>Confirm Remove User</button>
                 </div>
               </div>
             </div>
