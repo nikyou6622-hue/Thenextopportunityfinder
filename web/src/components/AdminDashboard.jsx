@@ -84,6 +84,18 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
   const [deleteConfirmUser, setDeleteConfirmUser] = useState(null);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
+  // Add User Modal State
+  const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    targetRole: 'Software Engineer',
+    experienceLevel: 'Entry Level / Student',
+    subscriptionTier: 'free'
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+
   // Scraper Operations State
   const [scraperStatus, setScraperStatus] = useState(null);
   const [scraperActivity, setScraperActivity] = useState(null);
@@ -401,6 +413,60 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
     } catch (err) {
       setActionSuccessMsg(`⚠️ Action error: ${err.message}`);
       SoundSystem.playError();
+    }
+  };
+
+  const handleCreateUserSubmit = async (e) => {
+    e.preventDefault();
+    if (!newUserForm.email || !newUserForm.email.includes('@')) {
+      setActionSuccessMsg('⚠️ Please enter a valid email address.');
+      SoundSystem.playError();
+      return;
+    }
+    if (!newUserForm.fullName.trim()) {
+      setActionSuccessMsg('⚠️ Please enter full name.');
+      SoundSystem.playError();
+      return;
+    }
+
+    setCreatingUser(true);
+    setActionSuccessMsg('');
+    try {
+      const res = await apiFetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newUserForm.email.trim(),
+          full_name: newUserForm.fullName.trim(),
+          password: newUserForm.password.trim() || undefined,
+          target_role: newUserForm.targetRole,
+          experience_level: newUserForm.experienceLevel,
+          subscription_tier: newUserForm.subscriptionTier
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to create user account.');
+      }
+
+      setActionSuccessMsg(`✅ User created for ${data.email}! Auto password: ${data.generated_password}`);
+      SoundSystem.playSuccess();
+      setAddUserModalOpen(false);
+      setNewUserForm({
+        fullName: '',
+        email: '',
+        password: '',
+        targetRole: 'Software Engineer',
+        experienceLevel: 'Entry Level / Student',
+        subscriptionTier: 'free'
+      });
+      fetchAllAdminData();
+    } catch (err) {
+      setActionSuccessMsg(`⚠️ Error: ${err.message}`);
+      SoundSystem.playError();
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -1010,6 +1076,15 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
               <option value="free">Free Tier</option>
               <option value="pro">Pro Tier</option>
             </select>
+
+            <button
+              onClick={() => setAddUserModalOpen(true)}
+              className="btn-tactile btn-tactile-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', fontSize: '0.82rem', borderRadius: '10px' }}
+            >
+              <UserPlus size={15} />
+              <span>+ Add User Account</span>
+            </button>
           </div>
 
           {/* User List Table */}
@@ -1102,6 +1177,125 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
                   <button onClick={() => setDeleteConfirmUser(null)} className="btn-tactile btn-tactile-ghost" style={{ padding: '8px 16px' }}>Cancel</button>
                   <button onClick={() => handleUserAction(deleteConfirmUser.id, 'hard_delete')} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 16px', background: '#e11d48' }}>Execute Hard Delete</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add User Account Modal */}
+          {addUserModalOpen && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '20px'
+            }}>
+              <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '24px', position: 'relative', background: '#0f172a', borderRadius: '20px' }}>
+                <button
+                  onClick={() => setAddUserModalOpen(false)}
+                  style={{ position: 'absolute', right: '16px', top: '16px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                >
+                  <X size={18} />
+                </button>
+
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UserPlus size={20} color="#818cf8" /> Create Candidate Account
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 18px 0' }}>
+                  Manually provision candidate user credentials & subscription tier with full email validation.
+                </p>
+
+                <form onSubmit={handleCreateUserSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Rahul Sharma"
+                      value={newUserForm.fullName}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Candidate Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. candidate@domain.com"
+                      value={newUserForm.email}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Password (Optional — leave blank for auto-gen)</label>
+                    <input
+                      type="text"
+                      placeholder="Minimum 6 characters"
+                      value={newUserForm.password}
+                      onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Target Role</label>
+                      <select
+                        value={newUserForm.targetRole}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, targetRole: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '0.8rem' }}
+                      >
+                        <option value="Software Engineer">Software Engineer</option>
+                        <option value="Full Stack Engineer">Full Stack Engineer</option>
+                        <option value="Backend Engineer">Backend Engineer</option>
+                        <option value="Frontend Engineer">Frontend Engineer</option>
+                        <option value="AI / ML Engineer">AI / ML Engineer</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', display: 'block', marginBottom: '4px' }}>Initial Subscription</label>
+                      <select
+                        value={newUserForm.subscriptionTier}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, subscriptionTier: e.target.value })}
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '0.8rem' }}
+                      >
+                        <option value="free">Free Tier</option>
+                        <option value="pro">Pro Tier (6 Months)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setAddUserModalOpen(false)}
+                      className="btn-tactile btn-tactile-ghost"
+                      style={{ padding: '9px 16px' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creatingUser}
+                      className="btn-tactile btn-tactile-primary"
+                      style={{ padding: '9px 20px' }}
+                    >
+                      {creatingUser ? 'Creating...' : 'Create Account'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

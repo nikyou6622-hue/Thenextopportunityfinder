@@ -8246,6 +8246,63 @@ def admin_reactivate_user(
         "is_active": target_user.is_active
     }
 
+@app.delete("/api/admin/users/{target_user_id}")
+def admin_delete_user(
+    target_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Super Admin Endpoint: Permanently purges user account and performs cascade cleanup across candidate profile tables. Prevents admin self-deletion.
+    """
+    admin_user = _require_admin_user(request, db)
+    
+    target_user = db.query(UserModel).filter(UserModel.id == target_user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found.")
+        
+    # Self-deletion prevention guard
+    if target_user.id == admin_user.id or (target_user.email and target_user.email.strip().lower() == admin_user.email.strip().lower()):
+        raise HTTPException(
+            status_code=400,
+            detail="Forbidden: Admin users cannot delete their own account."
+        )
+        
+    target_email = target_user.email
+    
+    # 1. Cascade cleanup associated profile data if present
+    target_profile = db.query(ProfileModel).filter(
+        (ProfileModel.id == target_user.id) | (ProfileModel.email == target_user.email)
+    ).first()
+    if target_profile:
+        try:
+            cascade_delete_profile(db, target_profile.id)
+        except Exception as pe:
+            logger.warning(f"Notice during profile cascade delete for user {target_user_id}: {pe}")
+            
+    # 2. Delete user record
+    db.delete(target_user)
+    db.commit()
+    
+    # 3. Log audit event
+    audit_entry = AdminAuditLogModel(
+        admin_user_id=admin_user.id,
+        admin_email=admin_user.email,
+        action="user_deleted",
+        target_user_id=target_user_id,
+        target_user_email=target_email,
+        details=f"Admin {admin_user.email} permanently purged user account {target_email} and associated data.",
+        timestamp=datetime.datetime.now(datetime.timezone.utc)
+    )
+    db.add(audit_entry)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"User account {target_email} permanently deleted.",
+        "target_user_id": target_user_id
+    }
+
 @app.get("/api/admin/audit-logs")
 def get_admin_audit_logs(
     request: Request,

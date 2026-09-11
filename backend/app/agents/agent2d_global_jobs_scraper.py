@@ -16,6 +16,8 @@ from backend.app.agents.source_router import classify_apply_url
 
 logger = logging.getLogger(__name__)
 
+from bs4 import BeautifulSoup
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 NextOpportunityFind/2.0"
 
 # Curated high-yield FreeHire and global tech postings cache/fallback
@@ -201,8 +203,13 @@ def search_linkedin_guest_jobs(query: str = "Software Engineer", location: str =
             }
             
             resp = requests.get(url, params=params, headers=headers, timeout=5)
-            if resp.status_code == 200 and len(resp.text) > 200:
-                datetime_tags = re.findall(r'<time[^>]*datetime="([^"]+)"', resp.text)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                titles = [t.get_text(strip=True) for t in soup.select('.base-search-card__title')]
+                companies = [c.get_text(strip=True) for c in soup.select('.base-search-card__subtitle')]
+                locations = [l.get_text(strip=True) for l in soup.select('.job-search-card__location')]
+                links = [a.get('href') for a in soup.select('a.base-card__full-link') if a.get('href')]
+                datetime_tags = [time.get('datetime') for time in soup.select('time') if time.get('datetime')]
                 
                 fetched_count = min(len(titles), len(companies), len(locations))
                 if fetched_count == 0:

@@ -57,6 +57,11 @@ export default function AdminPanel({ user, onBackToApp }) {
   const [deactivateConfirmText, setDeactivateConfirmText] = useState('');
   const [deactivatingUser, setDeactivatingUser] = useState(false);
 
+  // Hard Delete Modal State
+  const [deleteModalUser, setDeleteModalUser] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingUser, setDeletingUser] = useState(false);
+
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditTotalCount, setAuditTotalCount] = useState(0);
@@ -269,6 +274,29 @@ export default function AdminPanel({ user, onBackToApp }) {
       setActionNotice({ type: 'error', text: err.message });
     } finally {
       setActionLoadingId(null);
+      setTimeout(() => setActionNotice(null), 4000);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalUser) return;
+    setDeletingUser(true);
+    setActionNotice(null);
+    try {
+      const res = await apiFetch(`/api/admin/users/${deleteModalUser.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setActionNotice({ type: 'success', text: data.message || 'User account permanently deleted.' });
+        setDeleteModalUser(null);
+        setDeleteConfirmText('');
+        await fetchUsersList();
+      } else {
+        setActionNotice({ type: 'error', text: data.detail || 'Failed to delete user.' });
+      }
+    } catch (err) {
+      setActionNotice({ type: 'error', text: err.message });
+    } finally {
+      setDeletingUser(false);
       setTimeout(() => setActionNotice(null), 4000);
     }
   };
@@ -708,6 +736,29 @@ export default function AdminPanel({ user, onBackToApp }) {
                                 Reactivate
                               </button>
                             )}
+
+                            {/* Hard Delete / Purge User with Self-Lockout Shield */}
+                            <button
+                              onClick={() => setDeleteModalUser(u)}
+                              disabled={isSelf || actionLoadingId === u.id}
+                              title={isSelf ? "Self-deletion disabled to prevent accidental admin lockout" : "Permanently purge user account & data"}
+                              style={{
+                                background: isSelf ? 'rgba(255, 255, 255, 0.05)' : 'rgba(225, 29, 72, 0.15)',
+                                border: `1px solid ${isSelf ? 'rgba(255, 255, 255, 0.1)' : 'rgba(225, 29, 72, 0.3)'}`,
+                                color: isSelf ? '#64748b' : '#f43f5e',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: isSelf ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {isSelf && <Lock size={12} />}
+                              Purge
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1109,6 +1160,78 @@ export default function AdminPanel({ user, onBackToApp }) {
                 }}
               >
                 {deactivatingUser ? 'Deactivating...' : 'Confirm Deactivation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: CONFIRM HARD DELETE MODAL */}
+      {deleteModalUser && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '440px', padding: '24px', border: '1px solid rgba(225, 29, 72, 0.5)', position: 'relative' }}>
+            <AlertTriangle size={36} color="#e11d48" style={{ margin: '0 auto 12px auto', display: 'block' }} />
+            
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 8px 0', textAlign: 'center' }}>
+              Confirm Hard Cascade Purge
+            </h3>
+            
+            <p style={{ fontSize: '0.83rem', color: '#cbd5e1', lineHeight: 1.5, margin: '0 0 16px 0', textAlign: 'center' }}>
+              Are you sure you want to permanently purge candidate <strong style={{ color: '#f43f5e' }}>{deleteModalUser.email}</strong> and all associated profile, application, match, and subscription records? This action is <strong style={{ color: '#fff' }}>irreversible</strong>.
+            </p>
+
+            <div style={{ background: 'rgba(225, 29, 72, 0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(225, 29, 72, 0.2)', marginBottom: '16px' }}>
+              <span style={{ fontSize: '0.74rem', color: '#fda4af', fontWeight: 700 }}>
+                Type "DELETE" below to confirm purge:
+              </span>
+              <input
+                type="text"
+                placeholder="DELETE"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                style={{ width: '100%', marginTop: '6px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(225, 29, 72, 0.4)', color: '#fff', fontSize: '0.85rem', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setDeleteModalUser(null);
+                  setDeleteConfirmText('');
+                }}
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: '#94a3b8', padding: '8px 16px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteConfirmText.trim().toUpperCase() !== 'DELETE' || deletingUser}
+                style={{
+                  background: deleteConfirmText.trim().toUpperCase() === 'DELETE' ? '#e11d48' : 'rgba(225, 29, 72, 0.3)',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: deleteConfirmText.trim().toUpperCase() === 'DELETE' ? 'pointer' : 'not-allowed'
+                }}
+              >
+                {deletingUser ? 'Purging...' : 'Execute Hard Delete'}
               </button>
             </div>
           </div>

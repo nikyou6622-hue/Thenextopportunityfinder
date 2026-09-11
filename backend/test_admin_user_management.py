@@ -159,5 +159,51 @@ class TestAdminUserManagement(unittest.TestCase):
         self.assertIn("audit_logs", data)
         self.assertTrue(len(data["audit_logs"]) > 0, "Audit logs list is empty!")
 
+    def test_06_admin_delete_user_and_self_deletion_protection(self):
+        """Verify DELETE /api/admin/users/{id} purges user, blocks self-deletion (400), blocks non-admin (403), and logs to AdminAuditLog."""
+        # 1. Create a temporary user to be deleted
+        to_delete_email = "delete_me_candidate_2026@example.com"
+        temp_user = self.db.query(UserModel).filter(UserModel.email == to_delete_email).first()
+        if not temp_user:
+            temp_user = UserModel(
+                email=to_delete_email,
+                full_name="Delete Target Candidate",
+                password_hash=_hash_password("TempPass123!"),
+                is_admin=False,
+                is_active=True
+            )
+            self.db.add(temp_user)
+            self.db.commit()
+            self.db.refresh(temp_user)
+
+        temp_user_id = temp_user.id
+
+        # 2. Non-admin request to delete -> expect 403 Forbidden
+        res_non_admin = client.delete(f"/api/admin/users/{temp_user_id}", cookies=self.std_cookies)
+        self.assertEqual(res_non_admin.status_code, 403, f"Expected 403 Forbidden for non-admin delete, got {res_non_admin.status_code}")
+
+        # 3. Admin self-deletion shield test -> expect 400 Bad Request
+        res_self_del = client.delete(f"/api/admin/users/{self.admin_user.id}", cookies=self.admin_cookies)
+        self.assertEqual(res_self_del.status_code, 400, f"Expected 400 Bad Request for admin self-deletion, got {res_self_del.status_code}")
+        self.assertIn("cannot delete their own account", res_self_del.json().get("detail", ""))
+
+        # 4. Super admin deletes temp user -> expect 200 OK
+        res_del = client.delete(f"/api/admin/users/{temp_user_id}", cookies=self.admin_cookies)
+        self.assertEqual(res_del.status_code, 200, f"Failed to delete user: {res_del.text}")
+        del_data = res_del.json()
+        self.assertTrue(del_data.get("success"))
+
+        # Verify user record is completely removed from DB
+        deleted_check = self.db.query(UserModel).filter(UserModel.id == temp_user_id).first()
+        self.assertIsNone(deleted_check, "User record was not deleted from database!")
+
+        # 5. Verify audit log entry for user_deleted
+        audit_entry = self.db.query(AdminAuditLogModel).filter(
+            AdminAuditLogModel.action == "user_deleted",
+            AdminAuditLogModel.target_user_id == temp_user_id
+        ).first()
+        self.assertIsNotNone(audit_entry, "Audit log record for user_deleted was not created!")
+        self.assertEqual(audit_entry.admin_user_id, self.admin_user.id)
+
 if __name__ == "__main__":
     unittest.main()
