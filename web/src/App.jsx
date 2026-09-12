@@ -244,7 +244,10 @@ export default function App() {
     setConfettiActive(true);
   };
 
+  const [isSubLoading, setIsSubLoading] = useState(true);
+
   const fetchSubscriptionStatus = async () => {
+    setIsSubLoading(true);
     try {
       const res = await apiFetch('/api/subscription/status');
       if (res && res.ok) {
@@ -252,11 +255,14 @@ export default function App() {
         if (subData) {
           setUserSubscription(subData);
           localStorage.setItem('nof_user_sub', JSON.stringify(subData));
+          setIsSubLoading(false);
           return subData;
         }
       }
     } catch (e) {
       console.warn("Could not fetch subscription status:", e);
+    } finally {
+      setIsSubLoading(false);
     }
     return null;
   };
@@ -928,6 +934,7 @@ export default function App() {
                 onTriggerCelebration={handleTriggerCelebration}
                 onOpenPaywall={handleOpenPaywall}
                 isPro={userSubscription?.is_pro || false}
+                isSubLoading={isSubLoading}
               />
             )}
 

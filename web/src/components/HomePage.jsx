@@ -23,7 +23,8 @@ import {
   Cpu,
   Layers,
   Flame,
-  Star
+  Star,
+  RefreshCw
 } from 'lucide-react';
 import apiFetch from '../lib/apiClient';
 import SoundSystem from './characters/SoundEffects';
@@ -120,7 +121,7 @@ const SAMPLE_QUESTION_BANKS = [
 
 const FAQS = [
   {
-    q: 'What is NextOpportunityFind and how is it different from traditional job boards?',
+    q: 'What is NextOpportunityFinder and how is it different from traditional job boards?',
     a: 'It\'s an end-to-end career platform, not just a listings aggregator. It combines verified, direct-apply job discovery with a real-time ATS resume studio, one-click tailored CVs, voice-powered mock interviews, and in-browser DSA practice — so you fix your resume, find the right role, and prepare for the interview, all without switching tools.'
   },
   {
@@ -137,7 +138,7 @@ const FAQS = [
   }
 ];
 
-export default function HomePage({ onNavigate, currentUser, onTriggerCelebration, onOpenPaywall, isPro = false }) {
+export default function HomePage({ onNavigate, currentUser, onTriggerCelebration, onOpenPaywall, isPro = false, isSubLoading = false }) {
   const [openFaqIdx, setOpenFaqIdx] = useState(0);
   const [healthData, setHealthData] = useState(null);
   const [activeQuestionCompany, setActiveQuestionCompany] = useState('Google');
@@ -708,60 +709,126 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         </div>
       </div>
 
-      {/* 🌟 6. SECTION — PRICING (AFTER VALUE, NOT BEFORE) */}
-      <div className="glass-panel" style={{
-        padding: '30px 34px',
-        background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.22), rgba(99, 102, 241, 0.22), rgba(16, 185, 129, 0.18))',
-        border: '2px solid rgba(236, 72, 153, 0.6)',
-        boxShadow: '0 15px 40px rgba(236, 72, 153, 0.25), 0 0 30px rgba(99, 102, 241, 0.3)',
-        borderRadius: '20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '24px'
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '780px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ec4899', color: '#fff', fontSize: '0.76rem', fontWeight: 900, padding: '4px 14px', borderRadius: '12px', alignSelf: 'flex-start' }}>
-            <Zap size={14} /> TRANSPARENT VALUE PRICING
-          </div>
-
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.2 }}>
-            ₹99. One time.
-          </h2>
-
-          <p style={{ fontSize: '0.94rem', color: '#cbd5e1', margin: 0, lineHeight: 1.55 }}>
-            Unlock company-specific question banks, unlimited tailored resumes, and voice AI mock interviews. Your ATS score stays free — always.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-          <button
-            onClick={() => {
-              SoundSystem.playPop();
-              if (!currentUser) {
-                onNavigate('auth', { mode: 'signup', redirect: 'checkout' });
-              } else if (onOpenPaywall) {
-                onOpenPaywall();
-              }
-            }}
-            className="btn-tactile btn-tactile-emerald"
-            style={{
-              padding: '14px 28px',
-              fontSize: '1.05rem',
-              fontWeight: 900,
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              boxShadow: '0 8px 25px rgba(16, 185, 129, 0.5)',
-              border: '1px solid #34d399'
-            }}
-          >
-            <Lock size={18} /> Unlock Pro for ₹99 →
-          </button>
-          <span style={{ fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
-            ✓ Zero monthly subscriptions &bull; Unlimited job discovery
+      {/* 🌟 6. SECTION — PRICING / PRO CONFIRMATION STATE */}
+      {isSubLoading ? (
+        <div className="glass-panel" style={{
+          padding: '28px 34px',
+          background: 'rgba(20, 26, 48, 0.6)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '20px',
+          minHeight: '110px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px'
+        }}>
+          <RefreshCw size={20} color="#818cf8" className="animate-spin" />
+          <span style={{ fontSize: '0.88rem', color: '#94a3b8', fontWeight: 600 }}>
+            Verifying subscription entitlement...
           </span>
         </div>
-      </div>
+      ) : isPro ? (
+        <div className="glass-panel" style={{
+          padding: '24px 30px',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(5, 150, 105, 0.1), rgba(15, 23, 42, 0.9))',
+          border: '1.5px solid rgba(16, 185, 129, 0.45)',
+          boxShadow: '0 8px 30px rgba(16, 185, 129, 0.15)',
+          borderRadius: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: 'rgba(16, 185, 129, 0.2)',
+              border: '1px solid rgba(16, 185, 129, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <CheckCircle2 size={24} color="#34d399" />
+            </div>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontSize: '0.72rem', fontWeight: 900, padding: '3px 10px', borderRadius: '10px', marginBottom: '4px' }}>
+                <Sparkles size={12} /> PRO UNLOCKED • FULL ACCESS ACTIVE
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                You're on Pro Access
+              </h3>
+              <p style={{ fontSize: '0.84rem', color: '#94a3b8', margin: '4px 0 0', lineHeight: 1.4 }}>
+                Unlimited access to 1,500+ verified live jobs, company question banks, voice AI mock interviews, and 1-click ATS resume tailoring.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigate('overview')}
+            className="btn-tactile btn-tactile-ghost"
+            style={{ padding: '10px 20px', fontSize: '0.85rem', color: '#34d399', borderColor: 'rgba(52, 211, 153, 0.4)' }}
+          >
+            Go to Dashboard →
+          </button>
+        </div>
+      ) : (
+        <div className="glass-panel" style={{
+          padding: '30px 34px',
+          background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.22), rgba(99, 102, 241, 0.22), rgba(16, 185, 129, 0.18))',
+          border: '2px solid rgba(236, 72, 153, 0.6)',
+          boxShadow: '0 15px 40px rgba(236, 72, 153, 0.25), 0 0 30px rgba(99, 102, 241, 0.3)',
+          borderRadius: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '24px'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '780px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ec4899', color: '#fff', fontSize: '0.76rem', fontWeight: 900, padding: '4px 14px', borderRadius: '12px', alignSelf: 'flex-start' }}>
+              <Zap size={14} /> TRANSPARENT VALUE PRICING
+            </div>
+
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.2 }}>
+              ₹99. One time.
+            </h2>
+
+            <p style={{ fontSize: '0.94rem', color: '#cbd5e1', margin: 0, lineHeight: 1.55 }}>
+              Unlock company-specific question banks, unlimited tailored resumes, and voice AI mock interviews. Your ATS score stays free — always.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+            <button
+              onClick={() => {
+                SoundSystem.playPop();
+                if (!currentUser) {
+                  onNavigate('auth', { mode: 'signup', redirect: 'checkout' });
+                } else if (onOpenPaywall) {
+                  onOpenPaywall();
+                }
+              }}
+              className="btn-tactile btn-tactile-emerald"
+              style={{
+                padding: '14px 28px',
+                fontSize: '1.05rem',
+                fontWeight: 900,
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                boxShadow: '0 8px 25px rgba(16, 185, 129, 0.5)',
+                border: '1px solid #34d399'
+              }}
+            >
+              <Lock size={18} /> Unlock Pro for ₹99 →
+            </button>
+            <span style={{ fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
+              ✓ Zero monthly subscriptions &bull; Unlimited job discovery
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 🌟 7. SECTION — MEET YOUR CAREER TEAM */}
       <div className="glass-panel" style={{
