@@ -185,6 +185,9 @@ export default function App() {
   });
 
   const setActiveTab = (tab, paramsObj = null) => {
+    if (tab && tab !== 'payment-status' && tab !== 'payment/status') {
+      try { sessionStorage.setItem('nof_payment_return_tab', tab); } catch {}
+    }
     setActiveTabState(tab);
     try {
       if (tab === 'home') {
@@ -1195,7 +1198,7 @@ export default function App() {
 
             {(activeTab === 'payment-status' || activeTab === 'payment/status') && (
               <PaymentStatusPage 
-                onNavigateHome={() => setActiveTab('overview')}
+                onNavigateHome={(targetTab) => setActiveTab(targetTab || 'overview')}
                 onSubscriptionUpdated={fetchSubscriptionStatus}
               />
             )}

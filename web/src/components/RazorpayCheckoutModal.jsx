@@ -27,6 +27,11 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
     setLoading(true);
     setError('');
 
+    let returnTab = 'overview';
+    try {
+      returnTab = sessionStorage.getItem('nof_payment_return_tab') || 'overview';
+    } catch {}
+
     try {
       // 1. Call backend endpoint to create a unique Cashfree Payment Order
       const res = await apiFetch('/api/payments/create-order', {
@@ -35,7 +40,8 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
         body: JSON.stringify({
           amount: 1.0,
           currency: 'INR',
-          profile_id: profile?.id
+          profile_id: profile?.id,
+          redirect: returnTab
         })
       });
 
@@ -54,7 +60,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
       // Mock test order fallback
       if (sessionData.startsWith('session_mock_')) {
         const mockOrderId = orderData.order_id || `order_mock_${Date.now()}`;
-        window.location.href = `/payment/status?order_id=${mockOrderId}`;
+        window.location.href = `/payment/status?order_id=${mockOrderId}&redirect=${encodeURIComponent(returnTab)}`;
         return;
       }
 
@@ -93,7 +99,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
               setSuccessData(verifyData);
               if (onPaymentSuccess) onPaymentSuccess(verifyData);
             } else {
-              window.location.href = `/payment/status?order_id=${encodeURIComponent(orderData.order_id)}`;
+              window.location.href = `/payment/status?order_id=${encodeURIComponent(orderData.order_id)}&redirect=${encodeURIComponent(returnTab)}`;
             }
             return;
           }
