@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import apiFetch from '../lib/apiClient';
-import { ShieldCheck, CheckCircle2, Zap, X, CreditCard, Sparkles, Clock, Lock, RefreshCw } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Zap, X, CreditCard, Sparkles, Clock, Lock, RefreshCw, Flame } from 'lucide-react';
+import { usePricingConfig } from '../hooks/usePricingConfig';
 
 export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, onPaymentSuccess }) {
+  const pricing = usePricingConfig();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successData, setSuccessData] = useState(null);
@@ -170,14 +172,14 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
           </button>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-            <Sparkles size={14} color="#fde047" /> Cashfree Payments · 6 Months Pro
+            <Sparkles size={14} color="#fde047" /> {pricing.isPromoActive ? 'Limited Launch Promo · 6 Months Pro' : 'Cashfree Payments · 6 Months Pro'}
           </div>
 
           <h2 style={{ fontSize: '1.6rem', fontWeight: 900, margin: '0 0 6px 0', lineHeight: 1.2 }}>
-            Unlock Pro Access — ₹99
+            Unlock Pro Access — {pricing.formattedPrice}
           </h2>
           <p style={{ fontSize: '0.9rem', color: '#c7d2fe', margin: 0, fontWeight: 500 }}>
-            6 Months of Unlimited AI Career Acceleration & Direct Apply Access
+            {pricing.isPromoActive ? `Lock in ${pricing.formattedPrice} before price rises to ${pricing.formattedStandard} soon` : '6 Months of Unlimited AI Career Acceleration & Direct Apply Access'}
           </p>
         </div>
 
@@ -214,9 +216,16 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
               )}
 
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '18px 20px', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc' }}>Pro Access (6 Months)</span>
-                  <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#a7f3d0' }}>₹99</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc' }}>Pro Access (6 Months)</span>
+                    {pricing.isPromoActive && (
+                      <span style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <Flame size={13} /> Price rises to {pricing.formattedStandard} in {pricing.countdownText}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#a7f3d0' }}>{pricing.formattedPrice}</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -272,7 +281,7 @@ export default function RazorpayCheckoutModal({ isOpen, onClose, user, profile, 
                 ) : (
                   <>
                     <CreditCard size={18} />
-                    <span>Pay ₹99 via Cashfree →</span>
+                    <span>Pay {pricing.formattedPrice} via Cashfree →</span>
                   </>
                 )}
               </button>

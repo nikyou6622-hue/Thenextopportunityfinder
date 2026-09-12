@@ -6848,6 +6848,43 @@ def _send_live_payment_receipt_email(recipient_email: str, payment_id: str, amou
         logger.error(f"Failed to send payment receipt email: {e}")
         return False
 
+PROMO_PRICE = 79.0
+STANDARD_PRICE = 699.0
+
+def get_current_pricing_config():
+    """
+    Single canonical source of truth for platform subscription pricing & launch promo expiration.
+    Server-side drives charges to prevent client-side price tampering.
+    """
+    expires_at_str = os.getenv("PROMO_EXPIRES_AT", "2026-09-20T23:59:59Z")
+    try:
+        expires_at_dt = datetime.datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+    except Exception:
+        expires_at_dt = datetime.datetime(2026, 9, 20, 23, 59, 59, tzinfo=datetime.timezone.utc)
+    
+    now = datetime.datetime.now(datetime.timezone.utc)
+    is_promo_active = now < expires_at_dt
+    current_price = PROMO_PRICE if is_promo_active else STANDARD_PRICE
+    
+    return {
+        "promo_price": int(PROMO_PRICE),
+        "standard_price": int(STANDARD_PRICE),
+        "current_price": int(current_price),
+        "is_promo_active": is_promo_active,
+        "promo_expires_at": expires_at_dt.isoformat(),
+        "currency": "INR",
+        "formatted_price": f"₹{int(current_price)}",
+        "formatted_standard": f"₹{int(STANDARD_PRICE)}",
+        "headline": "Lock in ₹79 before it becomes ₹699.",
+        "subheadline": "Company-specific questions, unlimited tailored resumes, voice AI mock interviews — all unlocked. Your ATS score stays free, always. Early price ends soon.",
+        "cta_text": f"Unlock Pro — ₹{int(current_price)}" + (" (price rises to ₹699 soon)" if is_promo_active else "")
+    }
+
+@app.get("/api/pricing/config")
+def get_pricing_config_endpoint():
+    """Returns dynamic pricing config for frontend synchronization."""
+    return get_current_pricing_config()
+
 @app.post("/api/payments/create-order")
 def create_payment_order(
     req: CreateOrderRequest,
@@ -6855,8 +6892,8 @@ def create_payment_order(
     db: Session = Depends(get_db)
 ):
     """
-    Creates a Cashfree Order for ₹99 for 6-month Pro subscription.
-    Persists PaymentOrderModel in DB and returns payment_session_id to frontend.
+    Creates a Cashfree Order for Pro subscription (₹79 launch promo / ₹699 standard).
+    Server-side strictly determines charge amount from get_current_pricing_config().
     """
     profile = None
     if req.profile_id:
@@ -6878,7 +6915,8 @@ def create_payment_order(
 
     ts_ms = int(time.time() * 1000)
     order_id = f"order_prof{profile_id}_{ts_ms}_{secrets.token_hex(4)}"
-    amount = float(req.amount or 1.0)
+    pricing_config = get_current_pricing_config()
+    amount = float(pricing_config["current_price"])
 
     # Determine return_url for Cashfree redirect (must be https per Cashfree API specification)
     frontend_host = request.headers.get("origin") or request.headers.get("referer") or "https://nextopportunityfinder.vercel.app"
@@ -7160,7 +7198,7 @@ def get_payment_order_status(
                 return {
                     "order_id": order_id,
                     "status": "paid",
-                    "amount": 99.0,
+                    "amount": float(get_current_pricing_config()["current_price"]),
                     "currency": "INR",
                     "is_pro": True,
                     "valid_until": valid_until
@@ -7168,7 +7206,7 @@ def get_payment_order_status(
         return {
             "order_id": order_id,
             "status": "pending",
-            "amount": 99.0,
+            "amount": float(get_current_pricing_config()["current_price"]),
             "currency": "INR",
             "is_pro": False,
             "valid_until": None

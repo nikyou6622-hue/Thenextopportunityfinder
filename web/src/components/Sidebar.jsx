@@ -38,6 +38,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePricingConfig } from '../hooks/usePricingConfig';
 
 import SoundSystem from './characters/SoundEffects';
 import { NovaCharacter } from './characters/CharacterUniverse';
@@ -291,6 +292,7 @@ const ADMIN_NAV_GROUPS = [
 ];
 
 export default function Sidebar({ activeTab, setActiveTab, profile, currentUser, isOpen, onClose, onOpenPaywall, isPro = false, scrapesRemaining = 5, freeLimit = 5 }) {
+  const pricing = usePricingConfig();
   const userName = currentUser?.full_name || profile?.name || "Aditya Tamta";
   const userRole = currentUser?.target_role || profile?.past_roles?.[0]?.title || "Full Stack Engineer";
   const isAdmin = Boolean(currentUser?.is_admin || ['admin@thenextopportunityfinder.com', 'commander.admin@thenextopportunityfinder.com', 'righthand.admin@thenextopportunityfinder.com', 'master.admin@thenextopportunityfinder.com', 'adityanikt622@gmail.com', 'adityanikt@gmail.com'].includes(currentUser?.email?.toLowerCase()));
@@ -508,7 +510,7 @@ export default function Sidebar({ activeTab, setActiveTab, profile, currentUser,
             {isPro ? 'PRO LIFETIME UNLOCKED' : `Free Discovery Searches: ${scrapesRemaining}/${freeLimit}`}
           </div>
           <div style={{ fontSize: '0.68rem', color: isPro ? '#34d399' : '#f472b6', marginTop: '1px' }}>
-            {isPro ? '✓ Unlimited Access' : 'Click to Upgrade (₹99)'}
+            {isPro ? '✓ Unlimited Access' : `Click to Upgrade (${pricing.formattedPrice})`}
           </div>
         </div>
       </motion.div>

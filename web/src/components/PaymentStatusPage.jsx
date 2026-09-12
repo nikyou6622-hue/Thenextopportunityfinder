@@ -247,7 +247,7 @@ export default function PaymentStatusPage({ onNavigateHome, onSubscriptionUpdate
               Pro Access Unlocked! 🎉
             </h2>
             <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '24px' }}>
-              Your <strong>6-Month Pro Subscription (₹99)</strong> is active! All direct apply links, unlimited ATS resumes, and voice AI interview modules are ready.
+              Your <strong>6-Month Pro Subscription (₹{orderDetails?.amount || 79.0})</strong> is active! All direct apply links, unlimited ATS resumes, and voice AI interview modules are ready.
             </p>
 
             {orderDetails && (
@@ -269,7 +269,7 @@ export default function PaymentStatusPage({ onNavigateHome, onSubscriptionUpdate
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#94a3b8' }}>Amount Paid:</span>
-                  <span style={{ fontWeight: 800, color: '#34d399' }}>₹{orderDetails.amount || 99.0}</span>
+                  <span style={{ fontWeight: 800, color: '#34d399' }}>₹{orderDetails.amount || 79.0}</span>
                 </div>
                 {orderDetails.valid_until && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

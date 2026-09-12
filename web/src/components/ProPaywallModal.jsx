@@ -22,9 +22,11 @@ import {
 } from 'lucide-react';
 import SoundSystem from './characters/SoundEffects';
 import apiFetch from '../lib/apiClient';
+import { usePricingConfig } from '../hooks/usePricingConfig';
 
 export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scrapesUsed = 5, freeLimit = 5 }) {
-  const [paymentMethod, setPaymentMethod] = useState('upi_qr');
+  const pricing = usePricingConfig();
+  const [paymentMethod, setPaymentMethod] = useState('upi');
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -178,7 +180,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
               }}>
                 <Zap size={15} color="#ec4899" />
                 <span style={{ fontSize: '0.78rem', fontWeight: 900, color: '#f472b6', letterSpacing: '0.05em' }}>
-                  FREE DISCOVERY QUOTA ({scrapesUsed}/{freeLimit}) &bull; UNLOCK PRO FOR ₹99
+                  FREE DISCOVERY QUOTA ({scrapesUsed}/{freeLimit}) &bull; UNLOCK PRO FOR {pricing.formattedPrice}
                 </span>
               </div>
 
@@ -187,7 +189,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
               </h2>
 
               <p style={{ fontSize: '0.92rem', color: '#cbd5e1', marginTop: '8px', maxWidth: '640px', margin: '8px auto 0' }}>
-                One-time payment of <strong>₹99 only</strong>. No recurring monthly subscriptions. Unlock 5,000+ real company interview questions, unlimited automated job discovery, and 1-click ATS resume tailoring.
+                {pricing.headline} {pricing.subheadline}
               </p>
             </div>
 
@@ -261,14 +263,14 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                   borderRadius: '12px',
                   letterSpacing: '0.04em'
                 }}>
-                  POPULAR BEST VALUE
+                  {pricing.isPromoActive ? `LAUNCH PROMO · RISING TO ${pricing.formattedStandard}` : 'POPULAR BEST VALUE'}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#818cf8' }}>PRO LIFETIME UNLOCK</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#818cf8' }}>PRO 6-MONTH UNLOCK</span>
                   <div>
-                    <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#34d399' }}>₹99</span>
-                    <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}> / one-time</span>
+                    <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#34d399' }}>{pricing.formattedPrice}</span>
+                    <span style={{ fontSize: '0.72rem', color: '#cbd5e1' }}> / access</span>
                   </div>
                 </div>
 
@@ -380,10 +382,10 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                       Scan QR Code with Google Pay, PhonePe, or Paytm
                     </div>
                     <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: '4px' }}>
-                      UPI ID: <strong style={{ color: '#818cf8' }}>nextopportunity@upi</strong> &bull; Amount: <strong style={{ color: '#34d399' }}>₹99</strong>
+                      UPI ID: <strong style={{ color: '#818cf8' }}>nextopportunity@upi</strong> &bull; Amount: <strong style={{ color: '#34d399' }}>{pricing.formattedPrice}</strong>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '6px' }}>
-                      Or click <strong>"Pay ₹99 & Unlock Pro Now"</strong> below for instant activation.
+                      Or click <strong>"Pay {pricing.formattedPrice} & Unlock Pro Now"</strong> below for instant activation.
                     </div>
                   </div>
                 </div>
@@ -424,7 +426,7 @@ export default function ProPaywallModal({ isOpen, onClose, onUpgradeSuccess, scr
                   <span>Processing Payment...</span>
                 ) : (
                   <>
-                    <Unlock size={18} /> Pay ₹99 & Unlock Lifetime Pro Access Now →
+                    <Unlock size={18} /> Pay {pricing.formattedPrice} & Unlock Pro Access Now →
                   </>
                 )}
               </button>

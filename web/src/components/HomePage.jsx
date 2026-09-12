@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import apiFetch from '../lib/apiClient';
 import SoundSystem from './characters/SoundEffects';
+import { usePricingConfig } from '../hooks/usePricingConfig';
 import { NovaCharacter, PixelCharacter, LexiCharacter, ZenithCharacter } from './characters/CharacterUniverse';
 
 const WORKFLOW_STEPS = [
@@ -139,6 +140,7 @@ const FAQS = [
 ];
 
 export default function HomePage({ onNavigate, currentUser, onTriggerCelebration, onOpenPaywall, isPro = false, isSubLoading = false }) {
+  const pricing = usePricingConfig();
   const [openFaqIdx, setOpenFaqIdx] = useState(0);
   const [healthData, setHealthData] = useState(null);
   const [activeQuestionCompany, setActiveQuestionCompany] = useState('Google');
@@ -789,16 +791,22 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '780px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#ec4899', color: '#fff', fontSize: '0.76rem', fontWeight: 900, padding: '4px 14px', borderRadius: '12px', alignSelf: 'flex-start' }}>
-              <Zap size={14} /> TRANSPARENT VALUE PRICING
+              <Flame size={14} /> {pricing.isPromoActive ? 'LIMITED LAUNCH PROMO' : 'TRANSPARENT VALUE PRICING'}
             </div>
 
             <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#ffffff', margin: 0, lineHeight: 1.2 }}>
-              ₹99. One time.
+              {pricing.headline}
             </h2>
 
             <p style={{ fontSize: '0.94rem', color: '#cbd5e1', margin: 0, lineHeight: 1.55 }}>
-              Unlock company-specific question banks, unlimited tailored resumes, and voice AI mock interviews. Your ATS score stays free — always.
+              {pricing.subheadline}
             </p>
+
+            {pricing.isPromoActive && pricing.countdownText && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 800, marginTop: '4px' }}>
+                <Flame size={16} /> Price increases to ₹{pricing.standardPrice} in {pricing.countdownText}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
@@ -821,10 +829,10 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
                 border: '1px solid #34d399'
               }}
             >
-              <Lock size={18} /> Unlock Pro for ₹99 →
+              <Lock size={18} /> {pricing.ctaText} →
             </button>
             <span style={{ fontSize: '0.78rem', color: '#34d399', fontWeight: 700 }}>
-              ✓ Zero monthly subscriptions &bull; Unlimited job discovery
+              ✓ Zero monthly subscriptions &bull; {pricing.isPromoActive ? 'Early launch price locked' : 'Instant full platform access'}
             </span>
           </div>
         </div>
