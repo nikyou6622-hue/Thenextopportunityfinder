@@ -1088,8 +1088,8 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
           </div>
 
           {/* User List Table */}
-          <div className="glass-panel" style={{ borderRadius: '18px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+          <div className="glass-panel" style={{ borderRadius: '18px', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: '980px', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'rgba(255, 255, 255, 0.04)', color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase' }}>
                   <th style={{ padding: '12px 16px' }}>User / Candidate</th>
@@ -1101,68 +1101,95 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 800, color: '#f8fafc' }}>{u.full_name || 'Candidate User'}</div>
-                      <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>{u.email}</div>
-                    </td>
-                    <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>
-                      {u.target_role} ({u.experience_level})
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ color: u.is_email_verified ? '#34d399' : '#fbbf24', fontWeight: 800, fontSize: '0.74rem' }}>
-                        {u.is_email_verified ? 'VERIFIED' : 'UNVERIFIED'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ color: u.subscription_tier === 'pro' ? '#a78bfa' : '#94a3b8', fontWeight: 800, fontSize: '0.74rem', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: '8px' }}>
-                        {u.subscription_tier.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ color: u.is_suspended ? '#f87171' : '#34d399', fontWeight: 800, fontSize: '0.74rem' }}>
-                        {u.is_suspended ? 'SUSPENDED' : 'ACTIVE'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                        <button onClick={() => handleInspectUser(u.id)} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
-                          Inspect
-                        </button>
-                        
-                        {u.subscription_tier === 'pro' ? (
-                          <button onClick={() => handleUserAction(u.id, 'downgrade_free')} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
-                            Downgrade
+                {users.map(u => {
+                  const isSelf = currentUser && (currentUser.id === u.id || (currentUser.email && u.email && currentUser.email.toLowerCase() === u.email.toLowerCase()));
+                  return (
+                    <tr key={u.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 800, color: '#f8fafc' }}>{u.full_name || 'Candidate User'}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>{u.email}</div>
+                      </td>
+                      <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>
+                        {u.target_role} ({u.experience_level})
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ color: u.is_email_verified ? '#34d399' : '#fbbf24', fontWeight: 800, fontSize: '0.74rem' }}>
+                          {u.is_email_verified ? 'VERIFIED' : 'UNVERIFIED'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ color: u.subscription_tier === 'pro' ? '#a78bfa' : '#94a3b8', fontWeight: 800, fontSize: '0.74rem', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: '8px' }}>
+                          {u.subscription_tier.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ color: u.is_suspended ? '#f87171' : '#34d399', fontWeight: 800, fontSize: '0.74rem' }}>
+                          {u.is_suspended ? 'SUSPENDED' : 'ACTIVE'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button onClick={() => handleInspectUser(u.id)} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
+                            Inspect
                           </button>
-                        ) : (
-                          <button onClick={() => handleUserAction(u.id, 'upgrade_pro')} className="btn-tactile btn-tactile-primary" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
-                            Upgrade Pro
-                          </button>
-                        )}
+                          
+                          {u.subscription_tier === 'pro' ? (
+                            <button onClick={() => handleUserAction(u.id, 'downgrade_free')} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
+                              Downgrade
+                            </button>
+                          ) : (
+                            <button onClick={() => handleUserAction(u.id, 'upgrade_pro')} className="btn-tactile btn-tactile-primary" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
+                              Upgrade Pro
+                            </button>
+                          )}
 
-                        {u.is_suspended ? (
-                          <button onClick={() => handleUserAction(u.id, 'unsuspend')} className="btn-tactile btn-tactile-amber" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
-                            Unsuspend
-                          </button>
-                        ) : (
-                          <button onClick={() => handleUserAction(u.id, 'suspend')} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#fca5a5' }}>
-                            Suspend
-                          </button>
-                        )}
+                          {u.is_suspended ? (
+                            <button onClick={() => handleUserAction(u.id, 'unsuspend')} className="btn-tactile btn-tactile-amber" style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
+                              Unsuspend
+                            </button>
+                          ) : (
+                            <button onClick={() => handleUserAction(u.id, 'suspend')} className="btn-tactile btn-tactile-ghost" style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#fca5a5' }}>
+                              Suspend
+                            </button>
+                          )}
 
-                        <button
-                          onClick={() => setDeleteConfirmUser(u)}
-                          className="btn-tactile btn-tactile-ghost"
-                          style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <Trash2 size={12} />
-                          <span>Remove User</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {isSelf ? (
+                            <button
+                              disabled
+                              title="Self-deletion disabled to prevent accidental admin lockout"
+                              className="btn-tactile btn-tactile-ghost"
+                              style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#64748b', cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Lock size={12} />
+                              <span>Remove</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirmUser(u)}
+                              className="btn-tactile"
+                              style={{ 
+                                padding: '6px 10px', 
+                                fontSize: '0.74rem', 
+                                color: '#f43f5e', 
+                                background: 'rgba(225, 29, 72, 0.15)',
+                                border: '1px solid rgba(225, 29, 72, 0.35)',
+                                borderRadius: '8px',
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={12} />
+                              <span>Remove User</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1180,7 +1207,7 @@ export default function AdminDashboard({ currentUser, onAuthSuccess, onNavigate,
                 </p>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
                   <button onClick={() => setDeleteConfirmUser(null)} className="btn-tactile btn-tactile-ghost" style={{ padding: '8px 16px' }}>Cancel</button>
-                  <button onClick={() => handleUserAction(deleteConfirmUser.id, 'hard_delete')} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 16px', background: '#e11d48' }}>Confirm Remove User</button>
+                  <button onClick={() => handleUserAction(deleteConfirmUser.id, 'hard_delete')} className="btn-tactile btn-tactile-amber" style={{ padding: '8px 16px', background: '#e11d48', color: '#fff' }}>Confirm Remove User</button>
                 </div>
               </div>
             </div>
