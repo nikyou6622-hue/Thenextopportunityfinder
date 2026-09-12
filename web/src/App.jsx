@@ -1001,6 +1001,7 @@ export default function App() {
                   onResetProfile={handleResetProfile}
                   onSeed={handleSeedDemo}
                   onTailor={handleTailor}
+                  onNavigate={(tab, params) => setActiveTab(tab, params)}
                   loading={loading}
                   onTriggerCelebration={handleTriggerCelebration}
                 />

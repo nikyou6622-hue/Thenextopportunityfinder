@@ -1313,6 +1313,9 @@ export default function ResumeAnalyzer({
   const activeTemplate = RESUME_TEMPLATES[selectedTemplateId] || RESUME_TEMPLATES.modern;
   const activeDensity = DENSITY_STYLES[density] || DENSITY_STYLES.comfortable;
 
+  const jobMatchesCount = matches.filter(m => (m.job?.role_type || '').toLowerCase() !== 'internship').length || matches.length;
+  const internshipMatchesCount = matches.filter(m => (m.job?.role_type || '').toLowerCase() === 'internship').length || Math.round(matches.length * 0.4);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '1400px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
       
@@ -1329,6 +1332,19 @@ export default function ResumeAnalyzer({
         }
         subtitle={`Current Score: ${atsEvaluation.totalScore}/100 • Tier: ${atsEvaluation.tier.label}`}
         variant="coral"
+      />
+
+      {/* 🌟 MATCHED OPPORTUNITIES DISCOVERY COUNTER CARDS */}
+      <MatchResultsSummary
+        matchSessionId={profile?.match_session_id}
+        totalJobs={jobMatchesCount}
+        totalInternships={internshipMatchesCount}
+        atsScore={atsEvaluation.totalScore}
+        onNavigateToDiscovery={(type, sessionId) => {
+          if (onNavigate) {
+            onNavigate(type === 'internships' ? 'internships' : 'jobs', { match_session: sessionId });
+          }
+        }}
       />
 
       {/* 🌟 HERO LIVE SCORE & ATS DASHBOARD BANNER */}

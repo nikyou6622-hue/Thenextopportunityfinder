@@ -517,7 +517,8 @@ export default function StagedResumeProcessor({
           onNavigateToDiscovery={(type, sessionId) => {
             if (onNavigate) {
               onNavigate(type === 'internships' ? 'internships' : 'jobs', { match_session: sessionId });
-            } else if (onComplete) {
+            }
+            if (onComplete) {
               onComplete({ match_session: sessionId, type });
             }
           }}
