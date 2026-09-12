@@ -803,11 +803,16 @@ export default function App() {
       setLoading(false);
     }
 
-    // Check for return-URL query parameter (e.g. /auth?redirect=/jobs)
+    // Check for return-URL query parameter (e.g. /auth?redirect=checkout or redirect=jobs)
     try {
       const params = new URLSearchParams(window.location.search);
       const redirectTab = params.get('redirect')?.toLowerCase();
       if (redirectTab && redirectTab !== 'auth' && redirectTab !== 'home') {
+        if (redirectTab === 'checkout' || redirectTab === 'pro') {
+          setActiveTab('overview');
+          setIsPaywallOpen(true);
+          return;
+        }
         setActiveTab(redirectTab);
         return;
       }
@@ -817,6 +822,14 @@ export default function App() {
       setActiveTab('admin');
     } else {
       setActiveTab('overview');
+    }
+  };
+
+  const handleOpenPaywall = () => {
+    if (!currentUser) {
+      setActiveTab('auth', { mode: 'signup', redirect: 'checkout' });
+    } else {
+      setIsPaywallOpen(true);
     }
   };
 
@@ -910,10 +923,10 @@ export default function App() {
           }>
             {activeTab === 'home' && (
               <HomePage 
-                onNavigate={(tab) => setActiveTab(tab)}
+                onNavigate={(tab, params) => setActiveTab(tab, params)}
                 currentUser={currentUser}
                 onTriggerCelebration={handleTriggerCelebration}
-                onOpenPaywall={() => setIsPaywallOpen(true)}
+                onOpenPaywall={handleOpenPaywall}
                 isPro={userSubscription?.is_pro || false}
               />
             )}

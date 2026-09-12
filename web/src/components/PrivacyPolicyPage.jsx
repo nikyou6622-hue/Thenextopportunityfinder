@@ -279,7 +279,7 @@ export default function PrivacyPolicyPage({ onNavigate, onTriggerCelebration }) 
             </p>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ padding: '8px 14px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#f8fafc', fontSize: '0.82rem' }}>
-                Email: <strong>privacy@thenextopportunityfind.io</strong>
+                Email: <strong>privacy@thenextopportunityfinder.com</strong>
               </span>
               <span style={{ padding: '8px 14px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#f8fafc', fontSize: '0.82rem' }}>
                 Jurisdiction: <strong>Bengaluru, Karnataka, India</strong>

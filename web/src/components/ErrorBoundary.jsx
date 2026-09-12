@@ -23,7 +23,7 @@ export default class ErrorBoundary extends React.Component {
     }
 
     this.setState({ errorInfo });
-    console.error("NextOpportunityFind Uncaught Error Boundary:", error, errorInfo);
+    console.error("NextOpportunityFinder Uncaught Error Boundary:", error, errorInfo);
 
     // Auto-recover from stale Vercel deployment chunk load errors
     if (error && (

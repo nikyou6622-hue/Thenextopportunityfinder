@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NextOpportunityFind — Production Launcher & Health Auditor
+NextOpportunityFinder — Production Launcher & Health Auditor
 =========================================================
 Runs production health audits, database migrations, and boots Uvicorn ASGI server.
 """
@@ -46,7 +46,7 @@ def run_backend_audit():
     return True
 
 def main():
-    parser = argparse.ArgumentParser(description="NextOpportunityFind Production Runner")
+    parser = argparse.ArgumentParser(description="NextOpportunityFinder Production Runner")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind (default: 0.0.0.0)")
     parser.add_argument("--workers", type=int, default=2, help="Number of worker processes")

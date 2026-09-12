@@ -1888,13 +1888,13 @@ export default function ResumeAnalyzer({
                   label="Full Name" 
                   value={formData.name} 
                   onChange={(e) => updateFormData({ name: e.target.value })}
-                  placeholder="e.g. Aditya Tamta" 
+                  placeholder="e.g. Riya Sharma" 
                 />
                 <FormInput 
                   label="Email" 
                   value={formData.email} 
                   onChange={(e) => updateFormData({ email: e.target.value })}
-                  placeholder="aditya@example.com" 
+                  placeholder="riya.sharma@example.com" 
                 />
                 <FormInput 
                   label="Phone Number" 

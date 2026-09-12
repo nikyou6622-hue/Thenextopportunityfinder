@@ -32,51 +32,68 @@ import { NovaCharacter, PixelCharacter, LexiCharacter, ZenithCharacter } from '.
 const WORKFLOW_STEPS = [
   {
     step: '01',
-    title: 'Fix your resume first',
-    badge: 'Step 1: ATS Resume Studio',
+    title: 'Upload Resume',
+    tier: 'FREE',
+    badge: '100% Free Forever',
     color: '#6366f1',
     glowColor: 'rgba(99, 102, 241, 0.3)',
     icon: FileText,
     targetTab: 'profile',
-    description: 'Get a real ATS score, not a guess. 11 certified templates, live editing, and a job-specific tailored resume in one click — never invents a skill or experience you don\'t have.',
-    actionLabel: 'Open Resume Studio →',
-    highlights: ['11 Certified Industry Templates', 'Real-Time Live Editing', '5-Pillar ATS Audit Score', 'Zero-Hallucination Tailoring']
+    description: 'Drop your existing PDF or text resume to extract skills, experience, and contact details instantly.',
+    actionLabel: 'Upload Resume →',
+    highlights: ['Instant PDF parsing', 'Auto skill extraction', 'Zero data lock-in', '100% Free']
   },
   {
     step: '02',
-    title: 'Apply to real, verified openings',
-    badge: 'Step 2: Verified Discovery',
+    title: 'Free ATS Scoring',
+    tier: 'FREE',
+    badge: '100% Free Forever',
     color: '#38bdf8',
     glowColor: 'rgba(56, 189, 248, 0.3)',
-    icon: Search,
-    targetTab: 'jobs',
-    description: 'Every listing is checked before it reaches you — no dead links, no roles that quietly closed weeks ago. Indian startups, MNC portals, and a dedicated Indian Internships Hub 🇮🇳.',
-    actionLabel: 'Discover Openings →',
-    highlights: ['Live-Verified Postings', 'Indian Internships Hub 🇮🇳', 'Direct MNC Portals (Google, Amazon, Meta)', 'Zero Dead Links — Direct Apply']
+    icon: ShieldCheck,
+    targetTab: 'profile',
+    description: 'Get a 5-pillar ATS compatibility score and detailed breakdown covering formatting, skills gap, and action verbs.',
+    actionLabel: 'Check ATS Score →',
+    highlights: ['5-Pillar audit engine', 'Missing skills alert', 'Formatting check', 'Free forever']
   },
   {
     step: '03',
-    title: 'Prepare like you mean it',
-    badge: 'Step 3: Question Banks & AI Mock',
+    title: 'Smart Job Matching',
+    tier: 'PRO',
+    badge: 'Pro Access',
     color: '#10b981',
     glowColor: 'rgba(16, 185, 129, 0.3)',
-    icon: BrainCircuit,
-    targetTab: 'interview-prep',
-    description: 'Company-specific question banks for Google, Microsoft, Amazon, TCS, Infosys, and more, voice AI mock interviews scored against a real STAR framework, and in-browser DSA practice — no separate coding site required.',
-    actionLabel: 'Launch Interview & Coding Prep →',
-    highlights: ['Company Question Banks', 'Voice AI STAR Scoring', 'In-Browser DSA Runner', 'Outcome Diagnosis Engine']
+    icon: Search,
+    targetTab: 'jobs',
+    description: 'Match your profile against 1,500+ verified live listings across Indian startups, MNC portals, and internships.',
+    actionLabel: 'Explore Matches →',
+    highlights: ['1,500+ Live tech roles', 'Indian Internships Hub 🇮🇳', 'MNC career portals', 'Match percentage score']
   },
   {
     step: '04',
-    title: 'Track everything in one place',
-    badge: 'Step 4: Application Tracking',
+    title: 'AI Resume Tailoring',
+    tier: 'PRO',
+    badge: 'Pro Access',
     color: '#ec4899',
     glowColor: 'rgba(236, 72, 153, 0.3)',
-    icon: Briefcase,
-    targetTab: 'overview',
-    description: 'See every application, every score, every next step — so nothing falls through the cracks during a search that can otherwise feel chaotic.',
-    actionLabel: 'View Dashboard →',
-    highlights: ['Unified Application Pipeline', 'Interview Schedule Reminders', 'Recruiter Outreach Tracker', 'Real-Time Match Analytics']
+    icon: Sparkles,
+    targetTab: 'tailor',
+    description: 'Generate zero-hallucination, job-specific CVs tailored precisely to target requisitions in one click.',
+    actionLabel: 'Tailor Resume →',
+    highlights: ['Zero-Hallucination guarantee', '11 Certified templates', 'Role keyword alignment', '1-Click PDF export']
+  },
+  {
+    step: '05',
+    title: 'Direct Linkout Apply',
+    tier: 'PRO',
+    badge: 'Pro Access',
+    color: '#f59e0b',
+    glowColor: 'rgba(245, 158, 11, 0.3)',
+    icon: ArrowRight,
+    targetTab: 'jobs',
+    description: 'Apply directly on company ATS portals (Lever, Greenhouse, Workday) with zero dead links or middleman forms.',
+    actionLabel: 'Start Applying →',
+    highlights: ['Direct ATS linkout', 'Zero dead links', 'Unified application tracking', 'Recruiter direct apply']
   }
 ];
 
@@ -584,24 +601,25 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
             </span>
           </div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#FFFFFF', margin: 0, letterSpacing: '-0.02em' }}>
-            How NextOpportunityFind works
+            How NextOpportunityFinder works
           </h2>
         </div>
 
-        {/* 4 Outcome-First Steps */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+        {/* 5 Outcome-First Steps */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
           {WORKFLOW_STEPS.map((step) => {
             const Icon = step.icon;
+            const isProStep = step.tier === 'PRO';
             return (
               <div 
                 key={step.step}
                 className="glass-panel tactile-card-lift"
                 style={{
-                  padding: '24px',
+                  padding: '22px 20px',
                   borderRadius: '20px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '14px',
+                  gap: '12px',
                   background: 'rgba(19, 20, 36, 0.85)',
                   border: `1px solid ${step.color}35`,
                   boxShadow: `0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px ${step.glowColor}`,
@@ -610,42 +628,56 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ 
-                    width: '44px', 
-                    height: '44px', 
-                    borderRadius: '14px', 
+                    width: '40px', 
+                    height: '40px', 
+                    borderRadius: '12px', 
                     background: `${step.color}20`, 
                     border: `1px solid ${step.color}50`, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center' 
                   }}>
-                    <Icon size={22} color={step.color} />
+                    <Icon size={20} color={step.color} />
                   </div>
-                  <div style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 900,
-                    color: step.color,
-                    background: `${step.color}15`,
-                    border: `1px solid ${step.color}30`,
-                    padding: '3px 10px',
-                    borderRadius: '20px'
-                  }}>
-                    STEP {step.step}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      color: isProStep ? '#f59e0b' : '#34d399',
+                      background: isProStep ? 'rgba(245, 158, 11, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                      border: `1px solid ${isProStep ? 'rgba(245, 158, 11, 0.35)' : 'rgba(52, 211, 153, 0.35)'}`,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      letterSpacing: '0.04em'
+                    }}>
+                      {step.tier}
+                    </span>
+                    <div style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 900,
+                      color: step.color,
+                      background: `${step.color}15`,
+                      border: `1px solid ${step.color}30`,
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      {step.step}
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.3 }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFFFFF', margin: 0, lineHeight: 1.3 }}>
                     {step.title}
                   </h3>
-                  <p style={{ fontSize: '0.84rem', color: '#94A3B8', lineHeight: 1.55, marginTop: '6px' }}>
+                  <p style={{ fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.5, marginTop: '5px' }}>
                     {step.description}
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: 'auto', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
                   {step.highlights.map((h, hIdx) => (
-                    <div key={hIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#cbd5e1' }}>
+                    <div key={hIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#cbd5e1' }}>
                       <Check size={12} color={step.color} style={{ flexShrink: 0 }} />
                       <span>{h}</span>
                     </div>
@@ -659,9 +691,9 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
                   }}
                   className="btn-tactile btn-tactile-ghost"
                   style={{ 
-                    marginTop: '8px', 
-                    padding: '9px 14px', 
-                    fontSize: '0.82rem', 
+                    marginTop: '6px', 
+                    padding: '8px 12px', 
+                    fontSize: '0.8rem', 
                     width: '100%',
                     justifyContent: 'center',
                     color: step.color,
@@ -707,7 +739,11 @@ export default function HomePage({ onNavigate, currentUser, onTriggerCelebration
           <button
             onClick={() => {
               SoundSystem.playPop();
-              if (onOpenPaywall) onOpenPaywall();
+              if (!currentUser) {
+                onNavigate('auth', { mode: 'signup', redirect: 'checkout' });
+              } else if (onOpenPaywall) {
+                onOpenPaywall();
+              }
             }}
             className="btn-tactile btn-tactile-emerald"
             style={{

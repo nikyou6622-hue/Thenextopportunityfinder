@@ -48,7 +48,15 @@ export default function AuthView({
   onContinueAsGuest,
   initialMode = 'login' 
 }) {
-  const [authMode, setAuthMode] = useState(initialMode); // 'login' | 'signup' | 'otp' | 'forgot' | 'verify-signup'
+  const [authMode, setAuthMode] = useState(() => {
+    try {
+      const modeParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('mode') : null;
+      if (modeParam && ['login', 'signup', 'otp', 'forgot'].includes(modeParam.toLowerCase())) {
+        return modeParam.toLowerCase();
+      }
+    } catch {}
+    return initialMode;
+  }); // 'login' | 'signup' | 'otp' | 'forgot' | 'verify-signup'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1115,7 +1123,7 @@ export default function AuthView({
                   autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Aditya Nikam"
+                  placeholder="Riya Sharma"
                   required
                   style={{
                     width: '100%',
@@ -1144,7 +1152,7 @@ export default function AuthView({
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="aditya@example.com"
+                  placeholder="riya.sharma@example.com"
                   required
                   style={{
                     width: '100%',

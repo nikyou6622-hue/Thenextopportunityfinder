@@ -1,4 +1,4 @@
-# ⚡ NextOpportunityFind (India Tech & Startup Edition)
+# ⚡ NextOpportunityFinder (India Tech & Startup Edition)
 
 > **Next-Generation Multi-Agent AI Career Intelligence Platform**  
 > AI-Powered Role Discovery, Ingestion Hardening, Canonical Direct Apply Links, Resume Tailoring, CS Interview Studio & DPDP Act 2023 Trust Architecture.
@@ -7,7 +7,7 @@
 
 ## 🌟 Executive Summary
 
-**NextOpportunityFind** is an end-to-end, multi-agent AI career platform engineered for software engineers, tech freshers, and experienced professionals navigating the Indian and global technology ecosystems.
+**NextOpportunityFinder** is an end-to-end, multi-agent AI career platform engineered for software engineers, tech freshers, and experienced professionals navigating the Indian and global technology ecosystems.
 
 The platform continuously discovers verified opportunities from startup job boards, Big-MNC career portals, and internship hubs, parses multi-format resumes, computes multi-dimensional compatibility scores, rewrites resumes against high-selection-rate ATS patterns, prepares candidates with CS interview question banks and 2-week skill-gap roadmaps, and routes applications via direct, verified canonical links — all while strictly adhering to the DPDP Act 2023.
 

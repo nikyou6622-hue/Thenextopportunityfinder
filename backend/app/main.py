@@ -8182,6 +8182,13 @@ def admin_deactivate_user(
     target_user.is_active = False
     target_user.is_suspended = True
     
+    # Evict active JWT tokens from server cache to terminate candidate session immediately
+    if target_user.email:
+        t_email_clean = target_user.email.strip().lower()
+        tokens_to_evict = [tok for tok, em in _TOKEN_EMAIL_CACHE.items() if em.strip().lower() == t_email_clean]
+        for tok in tokens_to_evict:
+            _TOKEN_EMAIL_CACHE.pop(tok, None)
+
     target_profile = db.query(ProfileModel).filter(ProfileModel.email == target_user.email).first()
     if target_profile:
         target_profile.is_suspended = True

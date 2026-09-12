@@ -1,5 +1,5 @@
 # ============================================================================
-# NextOpportunityFind — Multi-Stage Production Dockerfile
+# NextOpportunityFinder — Multi-Stage Production Dockerfile
 # ============================================================================
 
 # --- Stage 1: Build Frontend Assets ---

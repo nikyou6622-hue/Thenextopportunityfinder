@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * NextOpportunityFind Character Universe
+ * NextOpportunityFinder Character Universe
  * Original characters designed specifically for tech career acceleration:
  * 1. Nova - The Astro Career Guide
  * 2. Pixel - The DSA & Code Spark

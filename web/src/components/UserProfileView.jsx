@@ -66,7 +66,7 @@ export default function UserProfileView({
       onToggle: () => setJobAlertsEnabled(!jobAlertsEnabled) 
     },
     { id: 'settings', label: 'Settings & Privacy', icon: Settings, action: () => onNavigate('settings') },
-    { id: 'help', label: 'Help & Support', icon: HelpCircle, action: () => alert('Support: support@thenextopportunityfind.com') },
+    { id: 'help', label: 'Help & Support', icon: HelpCircle, action: () => alert('Support: support@thenextopportunityfinder.com') },
     { id: 'logout', label: 'Reset / Logout', icon: LogOut, isDanger: true, action: onResetProfile }
   ];
 

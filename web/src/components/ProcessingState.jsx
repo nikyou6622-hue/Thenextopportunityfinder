@@ -6,7 +6,7 @@ import apiFetch from '../lib/apiClient';
 
 /**
  * ProcessingState Component
- * Single, reusable, accessible processing indicator across NextOpportunityFind.
+ * Single, reusable, accessible processing indicator across NextOpportunityFinder.
  * 
  * Enforces Message Standard:
  * "[Action] — this may take a few seconds to a couple of minutes. Please wait."
