@@ -356,7 +356,7 @@ class SignUpRequest(BaseModel):
     target_role: Optional[str] = "Software Engineer"
     experience_level: Optional[str] = "Entry Level / Student"
     consent_given: Optional[bool] = True
-    consent_timestamp: Optional[datetime.datetime] = None
+    consent_timestamp: Optional[Any] = None
 
 class LoginRequest(BaseModel):
     email: str
